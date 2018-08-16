@@ -8,6 +8,9 @@ library(plyr)
 library(dplyr)
 library(tidyr)
 library(ggthemes)
+library(gridExtra)
+library(grid)
+library(lattice)
 #=============
 #NOTE:
 #CSAIP.csv = SSP2, RCP 4.5
@@ -36,14 +39,23 @@ unique(df$scenario)
 unique(df$productiontype)
 df$productiontype <- NULL
 #unique(df$commodity)
+#unique(df$impactparameter)
 #df$commodity <- gsub(".*\\-", "", df$commodity)
 #================================
-#Create commodity group
-# u <- df$commodity
-# df$commodity[grep("Cacao", u)] <- "CAC-Cacao"
-# df$commodity[grep("Coffee", u)] <- "CAC-Coffee"
-# df$commodity[grep("Tea", u)] <- "COT"
-# df$commodity[grep("Tea", u)] <- "COT"
+#-----------------------------
+# Separate fruits from vegetables
+u <- df$commodity
+df$commodity[grep("Vegetables", u)] <- "Veggies"
+df$commodity[which(u == "F&V")] <- "Fruits & Veggies"
+u <- df$commodity
+df$commodity <- gsub("F&V", "Fruits", u)
+unique(df$commodity)
+df_sum <- subset(df, impactparameter %in% c("Net Trade", "Area", "PerCapKCalC", "Import", "Net Trade Share of Demand"))
+df_sum <- df_sum %>% group_by(scenario, region, year, commodity, impactparameter) %>% summarise(Val = sum(Val))
+df_mean <- subset(df, impactparameter %in% c("Yield"))
+df_mean <- df_mean %>% group_by(scenario, region, year, commodity, impactparameter) %>% summarise(Val = mean(Val))
+df <- rbind(df_sum, df_mean)
+#-----------------------------
 #================================
 #--
 unique(df$scenario)
@@ -66,8 +78,13 @@ df_pctChng <- df_diff %>%
          `Pct Change (CC)` = fun(`Value CC`))
 df_pctChng$`PP Diff` <- df_pctChng$`Pct Change (CC)` - df_pctChng$`Pct Change (No CC)`
 
+
+
 #----Commodity groups plot----
-commodity_groups_crops <- c("CER", "OLS", "OIL", "MLS", "COT-Cacao", "R&T", "SGC", "PUL", "F&V", "AllA")
+
+
+commodity_groups_crops <- c("CER", "OLS", "OIL", "MLS", "COT-Cacao", "R&T", "SGC", "PUL", "AllA",
+                            "Fruits", "Veggies")
 #commodity_groups_crops <- c("CER", "OLS", "OIL", "MLS", "COT-Cotton", "R&T", "SGC", "PUL", "F&V", "AllA")
 this_country <- "SSA-Ivory Coast"
 #this_country <- "SSA-Mali"
@@ -82,7 +99,7 @@ df_y$commodity[grep("OIL", u)] <- "Oils"
 df_y$commodity[grep("MLS", u)] <- "Meals"
 df_y$commodity[grep("AMT", u)] <- "Livestock (meat)"
 df_y$commodity[grep("AOT", u)] <- "Livestock (eggs, dairy)"
-df_y$commodity[grep("F&V", u)] <- "Fruits & Veggies"
+#df_y$commodity[grep("F&V", u)] <- "Fruits & Veggies"
 df_y$commodity[grep("SGC", u)] <- "Sugar crops"
 df_y$commodity[grep("SGR", u)] <- "Sugar"
 df_y$commodity[grep("PUL", u)] <- "Pulses"
@@ -91,15 +108,74 @@ df_y$commodity[grep("Cacao", u)] <- "Cacao"
 df_y$commodity[grep("Cotton", u)] <- "Cotton"
 df_y$commodity[grep("R&T", u)] <- "Roots & Tubers"
 df_y$commodity[grep("AllA", u)] <- "Livestock"
+
+unique(df_y$commodity)
+
+
 colnames(df_y)[1] <- "Commodity group"
 
 df_plot <- df_y
+#--
 gg <- ggplot(df_plot, aes(x = year, y = `PP Diff`, color = `Commodity group`, group = `Commodity group`))
-gg <- gg + geom_line()
-gg <- gg + ggtitle("Cote d'Ivoire")
-gg <- gg + theme_wsj() #+ scale_colour_wsj("colors8", "") 
-#gg <- gg + theme_economist() + scale_color_economist()
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + theme_wsj()
+gg <- gg + theme(legend.title = element_blank(),
+                 legend.position = "bottom",
+                 legend.text = element_text(family = "mono", color = "brown", size = 18, face = "bold"),
+                 axis.title = element_text(color = "brown", size = 16, face = "bold"),
+                 axis.title.x = element_blank()
+                 )
+gg <- gg + labs(y = "Percentage Point Difference \n (CC - No CC)")
 gg
+gg1 <- gg
+#--
+gg <- ggplot(df_plot, aes(x = year, y = `Pct Change (No CC)`, color = `Commodity group`, group = `Commodity group`))
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + theme_wsj()
+gg <- gg + theme(legend.position = "none",
+                 plot.title = element_text(color = "brown", size = 22),
+                 plot.margin = unit(c(4, 1, 1, 1), "lines")
+                 )
+gg <- gg + labs(title = "Without Climate Change (No CC)")
+#gg <- gg + labs(title = expression(paste("Without Climate Change (%", Delta,"No CC)") ))
+gg2 <- gg
+#--
+gg <- ggplot(df_plot, aes(x = year, y = `Pct Change (CC)`, color = `Commodity group`, group = `Commodity group`))
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + theme_wsj() 
+gg <- gg + theme(legend.position = "none",
+                 plot.title = element_text(color = "brown", size = 22),
+                 axis.title = element_text(color = "brown", size = 16, face = "bold"),
+                 axis.title.x = element_blank(),
+                 plot.margin = unit(c(4, 1, 1, 1), "lines")
+                 )
+gg <- gg + labs(title = "With Climate Change (CC)",
+                y = "Percentage Change\nOver 2018")
+#gg <- gg + labs(title = expression(paste("With Climate Change (%", Delta,"CC)") ))
+gg
+gg3 <- gg
+
+gl <- list(gg3, gg2, gg1)
+
+
+
+colorhex <- ggthemes::ggthemes_data$wsj$bg["brown"]
+grid.draw(grobTree(rectGrob(gp = gpar(fill = colorhex, lwd = 0)), 
+                   grid.arrange(
+                     grobs = gl,
+                     #widths = c(3, 3, 6),
+                     layout_matrix = rbind(c(1, 2),
+                                           c(3, 3)),
+                     top = textGrob("Percentage Change in Cote d'Ivoire Yields Over 2018 Levels,\nMajor Commodity Groups",
+                                    x = 0.025, hjust = 0, y = 0, vjust = 0.3,
+                                    gp = gpar(fontsize = 34, font = 11, col = "orange"))
+                   )))
+
+
+
+
+
+
 
 df_table <- subset(df_plot, year %in% 2050)
 df_table <- df_table[, c(1, 5:7)]
@@ -112,11 +188,14 @@ write.table(df_table, file = "Yield PP Diff General.csv", row.names = FALSE, sep
 #----yield Specific crops plot----
 this_country <- "SSA-Ivory Coast"
 #this_country <- "SSA-Mali"
-#this_group <- "CER"
+this_group <- "CER"
 #this_group <- "R&T"
 #this_group <- "F&V"
-this_group <- "AllA"
+#this_group <- "AllA"
 #this_group <- "COT"
+#this_group <- "CC Resilient Commodities"
+
+resilient_commodities <- c("R&T-Cassava", "R&T-Yams", "F&V-Tropical Fruit", "F&V-Plantain")
 
 if(this_group == "CER"){this_group_label <- "Cereals"}
 if(this_group == "R&T"){this_group_label <- "Roots & Tubers"}
@@ -124,19 +203,28 @@ if(this_group == "F&V"){this_group_label <- "Fruits & Veggies"}
 if(this_group == "AllA"){this_group_label <- "Livestock"}
 if(this_group == "COT" & this_country == "SSA-Ivory Coast"){this_group_label <- "Cacao, other"}
 if(this_group == "COT" & this_country == "SSA-Mali"){this_group_label <- "Cotton, other"}
+if(this_group == "CC Resilient Commodities"){this_group_label <- this_group}
 
 
 df_y <- subset(df_pctChng, impactparameter == "Yield" & region == this_country)
 u <- df_y$commodity
+#-
+if(!(this_group %in% c("AllA", "CC Resilient Commodities"))){
+  df_y <- df_y[grep(this_group, u), ]
+  df_y <- subset(df_y, commodity != this_group)
+}
+#-
 if(this_group == "AllA"){
   ind_AMT <- grep("AMT", u)
   ind_AOT <- grep("AOT", u)
   df_y <- df_y[c(ind_AMT, ind_AOT), ]
   df_y <- subset(df_y, !(commodity %in% c("AMT", "AOT")))
-}else{
-  df_y <- df_y[grep(this_group, u), ]
-  df_y <- subset(df_y, commodity != this_group)
 }
+#-
+if(this_group == "CC Resilient Commodities"){
+  df_y <- subset(df_y, commodity %in% resilient_commodities)
+}
+#--
 df_y$impactparameter <- NULL
 df_y$region <- NULL
 df_y$commodity <- gsub(".*\\-", "", df_y$commodity)
@@ -147,6 +235,86 @@ group_label <- paste0("`", this_group_label, "`")
 gg <- ggplot(df_plot, aes_string(x = "year", y = "`PP Diff`", color = group_label, group = group_label))
 gg <- gg + geom_line()
 gg
+
+#---------------Cereals plot
+if(this_group == "CER"){
+  df_plot <- subset(df_plot, Cereals != "Other Cereals")
+}
+gg <- ggplot(df_plot, aes_string(x = "year", y = "`PP Diff`", color = group_label, group = group_label))
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + theme_wsj()
+gg <- gg + theme(legend.title = element_blank(),
+                 legend.position = "bottom",
+                 legend.text = element_text(family = "mono", color = "brown", size = 18, face = "bold"),
+                 axis.title = element_text(color = "brown", size = 16, face = "bold"),
+                 axis.title.x = element_blank()
+)
+gg <- gg + labs(y = "Percentage Point Difference \n (CC - No CC)")
+gg
+gg1 <- gg
+#--
+gg <- ggplot(df_plot, aes_string(x = "year", y = "`Pct Change (No CC)`", color = group_label, group = group_label))
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + theme_wsj()
+gg <- gg + theme(legend.position = "none",
+                 plot.title = element_text(color = "brown", size = 22),
+                 plot.margin = unit(c(4, 1, 1, 1), "lines")
+)
+gg <- gg + coord_cartesian(ylim = c(0, 100))
+gg <- gg + labs(title = "Without Climate Change (No CC)")
+#gg <- gg + labs(title = expression(paste("Without Climate Change (%", Delta,"No CC)") ))
+gg2 <- gg
+#--
+gg <- ggplot(df_plot, aes_string(x = "year", y = "`Pct Change (CC)`", color = group_label, group = group_label))
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + theme_wsj() 
+gg <- gg + theme(legend.position = "none",
+                 plot.title = element_text(color = "brown", size = 22),
+                 axis.title = element_text(color = "brown", size = 16, face = "bold"),
+                 axis.title.x = element_blank(),
+                 plot.margin = unit(c(4, 1, 1, 1), "lines")
+)
+gg <- gg + labs(title = "With Climate Change (CC)",
+                y = "Percentage Change\nOver 2018")
+gg <- gg + coord_cartesian(ylim = c(0, 100))
+#gg <- gg + labs(title = expression(paste("With Climate Change (%", Delta,"CC)") ))
+gg
+gg3 <- gg
+
+gl <- list(gg3, gg2, gg1)
+
+
+
+colorhex <- ggthemes::ggthemes_data$wsj$bg["brown"]
+grid.draw(grobTree(rectGrob(gp = gpar(fill = colorhex, lwd = 0)), 
+                   grid.arrange(
+                     grobs = gl,
+                     #widths = c(3, 3, 6),
+                     layout_matrix = rbind(c(1, 2),
+                                           c(3, 3)),
+                     top = textGrob("Percentage Change in Cote d'Ivoire Yields Over 2018 Levels,\nPotentially Resilient Commodities",
+                                    x = 0.025, hjust = 0, y = 0, vjust = 0.3,
+                                    gp = gpar(fontsize = 34, font = 11, col = "orange"))
+                   )))
+
+
+#---------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 df_table <- subset(df_plot, year %in% 2050)
