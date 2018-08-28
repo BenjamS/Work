@@ -1,0 +1,118 @@
+library(tidyr)
+setwd("D:/OneDrive - CGIAR/Documents")
+#D:\OneDrive - CGIAR\Documents\BID country briefs\WDI data
+WDI_raw <- read.csv("BID country briefs/WDI data/WDIData.csv")
+WDI_raw$Country.Code <- NULL
+WDI_raw$Indicator.Code <- NULL
+WDI_raw$X <- NULL
+colnames(WDI_raw)[1:2] <- c("Country", "Indicator")
+WDI_raw$Country <- as.character(WDI_raw$Country)
+WDI_raw$Indicator <- as.character(WDI_raw$Indicator)
+colnames(WDI_raw)[3:ncol(WDI_raw)] <- as.character(c(1960:2017))
+WDI_long <- WDI_raw %>% gather(Year, Value, `1960`:`2017`)
+indicator_vec <- c("Total natural resources rents (% of GDP)",
+                   "GDP per capita (constant 2010 US$)",
+                   "GINI index (World Bank estimate)",
+                   "Unemployment, total (% of total labor force) (modeled ILO estimate)",
+                   "Research and development expenditure (% of GDP)",
+                   "Rural population (% of total population)",
+                   "School enrollment, tertiary (% gross)",
+                   "Trade (% of GDP)",
+                   "Social contributions (% of revenue)",
+                   "Share of youth not in education, employment or training, total (% of youth population)",
+                   "Population ages 15-64 (% of total)",
+                   "Population ages 20-24, male (% of male population)",
+                   "Population ages 25-29, male (% of male population)",
+                   "Population ages 30-34, male (% of male population)",
+                   "External debt stocks (% of GNI)"
+)
+
+WDI_long <- subset(WDI_long, Indicator %in% indicator_vec)
+WDI_long <- subset(WDI_long, Country %in% country_vec)
+WDI_wide <- spread(WDI_long, Indicator, Value)
+colnames(df_raw)
+
+unique(df_raw$Indicator.Name)
+
+country_name <- "Colombia"
+
+
+
+str1 <- "The agricultural sector plays an"
+str2 <- "increasingly important role in"
+str3 <- "important but declining role in"
+str4 <- ", accounting for"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#WDI_long <- subset(WDI_long, Year %in% c(2011))
+# indicator_vec <- c("GINI index (World Bank estimate)", 
+#                    "Depth of the food deficit (kilocalories per person per day)", 
+#                    "Total natural resources rents (% of GDP)",
+#                    "GDP per capita (constant 2010 US$)",
+#                    "GDP per capita, PPP (constant 2011 international $)",
+#                    "GDP per person employed (constant 2011 PPP $)",
+#                    "GNI per capita (constant 2010 US$)",
+#                    "GNI per capita growth (annual %)",
+#                    "GNI per capita, Atlas method (current US$)")
+# indicator_vec <- c("Total natural resources rents (% of GDP)",
+#                    "GDP per capita (constant 2010 US$)",
+#                    "GINI index (World Bank estimate)",
+#                    "Unemployment, total (% of total labor force) (modeled ILO estimate)",
+#                    "Research and development expenditure (% of GDP)",
+#                    "Rural population (% of total population)",
+#                    "School enrollment, tertiary (% gross)",
+#                    "Trade (% of GDP)",
+#                    "Social contributions (% of revenue)",
+#                    "Share of youth not in education, employment or training, total (% of youth population)",
+#                    "Population ages 15-64 (% of total)",
+#                    "Population ages 20-24, male (% of male population)",
+#                    "Population ages 25-29, male (% of male population)",
+#                    "Population ages 30-34, male (% of male population)",
+#                    "External debt stocks (% of GNI)"
+# )
