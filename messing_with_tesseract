@@ -1,0 +1,28 @@
+library(tesseract)
+
+#tesseract_download("fra")
+rappdirs::user_data_dir('tesseract')
+french <- tesseract("fra")
+text <- ocr("https://jeroen.github.io/images/french_text.png", engine = french)
+cat(text)
+
+#tesseract_download("spa")
+#rappdirs::user_data_dir('tesseract')
+spanish <- tesseract("spa")
+path_string <- "factura.png"
+text <- ocr(path_string, engine = spanish, tessedit_write_images = T)
+cat(text)
+
+
+
+url_string <- "http://jeroen.github.io/images/testocr.png"
+#url_string <- "https://firebasestorage.googleapis.com/v0/b/gabrica-exhibiciones-ventas.appspot.com/o/sales%2F8cdbe067-6316-2f4f-4038-bb7d198f9461.jpg?alt=media"
+
+text <- ocr(url_string, engine = tesseract(language = "eng"),)
+
+text <- ocr(path_string, engine = tesseract(language = "eng"), )
+
+spanish <- tesseract(language = "spa")
+text <- ocr(path_string, engine = spanish)
+
+tesseract_download("spa", datapath = NULL, progress = interactive())
