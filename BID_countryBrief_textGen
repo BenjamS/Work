@@ -1,7 +1,17 @@
-library(tidyr)
+library(plyr)
+library(tidyverse)
+library(quantmod)
 setwd("D:/OneDrive - CGIAR/Documents")
-#D:\OneDrive - CGIAR\Documents\BID country briefs\WDI data
+
+country_vec <- c("Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
+indicator_vec <- c("Agriculture, forestry, and fishing, value added (% of GDP)",
+                   "Agricultural raw materials exports (% of merchandise exports)",
+                   "Employment in agriculture (% of total employment) (modeled ILO estimate)")
+ema_per <- 3
+slope_per <- 3
+#--------------------
 WDI_raw <- read.csv("BID country briefs/WDI data/WDIData.csv")
+#--------------------
 WDI_raw$Country.Code <- NULL
 WDI_raw$Indicator.Code <- NULL
 WDI_raw$X <- NULL
@@ -9,30 +19,68 @@ colnames(WDI_raw)[1:2] <- c("Country", "Indicator")
 WDI_raw$Country <- as.character(WDI_raw$Country)
 WDI_raw$Indicator <- as.character(WDI_raw$Indicator)
 colnames(WDI_raw)[3:ncol(WDI_raw)] <- as.character(c(1960:2017))
+#--------------------
 WDI_long <- WDI_raw %>% gather(Year, Value, `1960`:`2017`)
-indicator_vec <- c("Total natural resources rents (% of GDP)",
-                   "GDP per capita (constant 2010 US$)",
-                   "GINI index (World Bank estimate)",
-                   "Unemployment, total (% of total labor force) (modeled ILO estimate)",
-                   "Research and development expenditure (% of GDP)",
-                   "Rural population (% of total population)",
-                   "School enrollment, tertiary (% gross)",
-                   "Trade (% of GDP)",
-                   "Social contributions (% of revenue)",
-                   "Share of youth not in education, employment or training, total (% of youth population)",
-                   "Population ages 15-64 (% of total)",
-                   "Population ages 20-24, male (% of male population)",
-                   "Population ages 25-29, male (% of male population)",
-                   "Population ages 30-34, male (% of male population)",
-                   "External debt stocks (% of GNI)"
-)
-
+#unique(WDI_long$Indicator)
 WDI_long <- subset(WDI_long, Indicator %in% indicator_vec)
 WDI_long <- subset(WDI_long, Country %in% country_vec)
-WDI_wide <- spread(WDI_long, Indicator, Value)
-colnames(df_raw)
+WDI_long <- subset(WDI_long, Year %in% c(2000:2017))
+# WDI_long <- as.data.frame(WDI_long %>% group_by(Country, Indicator) %>% 
+#                            mutate(Value = ifelse(is.na(Value), mean(Value, na.rm = T), Value)))
+# WDI_ema <- as.data.frame(WDI_long %>% group_by(Country, Indicator) %>% 
+#                            mutate(ValueEMA = EMA(Value, ema_per)))
+# WDI_slope <- as.data.frame(WDI_ema %>% group_by(Country, Indicator) %>% 
+#                              mutate(slope = c(rep(NA, slope_per), getSlope(ValueEMA, slope_per))))
+# WDI_slope <- as.data.frame(WDI_long %>% group_by(Country, Indicator) %>% 
+#                              mutate(slope = c(rep(NA, slope_per), getSlope(Value, slope_per))))
+#--------------------
+rollpp_per <- 5
+WDI_slope <- as.data.frame(WDI_long %>% group_by(Country, Indicator) %>% 
+                             mutate(RollPPChng = c(rep(NA, rollpp_per), diff(Value, rollpp_per))))
+WDI_slope <- as.data.frame(WDI_slope %>% group_by(Country, Indicator) %>% 
+                             mutate(RollPPChng_cv = abs(sd(RollPPChng, na.rm = T) / mean(abs(RollPPChng), na.rm = T))))
+#--------------------
+WDI_slope$Year <- as.integer(WDI_slope$Year)
+#--------------------
+#Check on things
+df_plot <- WDI_slope
+#--------------------
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Country, color = Country))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~Indicator, ncol = 1, scales = "free")
+gg
+#--
+gg <- ggplot(df_plot, aes(x = Year, y = RollPPChng, group = Country, color = Country))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~Indicator, ncol = 1, scales = "free")
+gg
+#--
+df_plot <- subset(WDI_slope, Indicator == "Agriculture, forestry, and fishing, value added (% of GDP)")
+gathercols <- colnames(df_plot)[4:ncol(df_plot)]
+df_plot <- df_plot %>% gather_("ts_type", "Value", gathercols)
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Country, color = Country))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~ts_type, ncol = 1, scales = "free")
+gg
+#--------------------
+df <- subset(WDI_slope, Year %in% c(2016, 2017) )
+df <- subset(df, is.na(Value) == F)
+#colnames(df)
+df_chng <- df[, c("Country", "Indicator", "Year", "RollPPChng")]
+df_cv <- df[, c("Country", "Indicator", "Year", "RollPPChng_cv")]
+df_current <- df[, c("Country", "Indicator", "Year", "Value")]
+df_current <- spread(df_current, Indicator, Value)
+df_chng <- spread(df_chng, Indicator, RollPPChng)
+df_cv <- spread(df_cv, Indicator, RollPPChng_cv)
+df_wdi <- join_all(list(df_current, df_chng, df_cv))
+#--------------------
 
-unique(df_raw$Indicator.Name)
+
+
+
+
+
+
 
 country_name <- "Colombia"
 
