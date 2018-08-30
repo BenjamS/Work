@@ -2,16 +2,22 @@ library(ggplot2)
 library(tidyr)
 library(fields)
 #-------------
-P_root_lcu_MT <- 2.5 * 1000
-Q_root_statusQuo_MT <- 800
-N_surm <- 1200
-mu_fsize <- 0.5
-mu_h <- 0.9
+P_chip_lcu_MT <- 8000
+Q_chip_statusQuo_MT <- 350
+N_surm <- 14
+mu_fsize <- 3
+mu_h <- 0.7
 mu_b <- mu_h / (1 - mu_h)
-cv_b <- 0.25
+cv_b <- 0.15
 #-------------
-lconv_factr_P <- (-1 + sqrt(1 - 2 * cv_b^2 * (log(N_surm) + log(mu_fsize) - log(Q_root_statusQuo_MT)))) / (mu_b * cv_b^2) - log(P_root_lcu_MT)
-conv_factr_P <- exp(lconv_factr_P)
+
+lexog_factr <- log(Q_chip_statusQuo_MT) - log(N_surm) - log(mu_fsize) - mu_b * log(P_chip_lcu_MT) + (mu_b * cv_b * log(P_chip_lcu_MT))^2 / 2
+lexog_factr
+
+N_surm * mu_fsize * P_chip_lcu_MT^mu_b * exp((mu_b * cv_b * log(P_chip_lcu_MT))^2 / 2)
+
+# lconv_factr_P <- (-1 + sqrt(1 - 2 * cv_b^2 * (log(N_surm) + log(mu_fsize) - log(Q_root_statusQuo_MT)))) / (mu_b * cv_b^2) - log(P_root_lcu_MT)
+# conv_factr_P <- exp(lconv_factr_P)
 # sig2_b <- 2 / log(P_root_lcu_MT)^2 * (log(Q_obs_MT) - log(N_surm) - log(mu_fsize) - mu_b * log(P_root_lcu_MT))
 # sig_b <- sqrt(sig2_b)
 # cv_b <- sig_b / mu_b
@@ -153,5 +159,35 @@ gg
 
 
 
-QX_MT <- Q_obs_MT / RootsPerStarch
-Cost <- P_root_lcu_MT * Q_obs_MT
+
+
+
+
+
+
+
+
+
+NR_star <- 2600
+mu_h <- 0.8
+mu_b <- mu_h / (1 - mu_h)
+C_fs_lcu_MT <- 11000
+P_fs_lcu_MT <- 2500
+lP_fs_lcu_MT <- log(P_fs_lcu_MT)
+
+sig_bsq <- 1 / lP_fs_lcu_MT * (C_fs_lcu_MT / NR_star - mu_b)
+sig_b <- sqrt(sig_bsq)
+cv_b <- sig_b / mu_b
+
+mu_fsize <- 0.5
+S <- 800
+
+N_surm <- 1 / S * mu_fsize * P_fs_lcu_MT^mu_b * exp(1/2 * (mu_b * cv_b * lP_fs_lcu_MT)^2)
+N_surm
+
+
+lP_fs_lcu_kg <- log(2.5 * 1000)
+y <- 5000 / 1000
+u <- log(y) / lP_fs_lcu_kg
+h <- u / (1 + u)
+h
