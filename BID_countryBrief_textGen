@@ -3,10 +3,11 @@ library(tidyverse)
 library(quantmod)
 setwd("D:/OneDrive - CGIAR/Documents")
 
-country_vec <- c("Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
+country_vec <- c("Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
 indicator_vec <- c("Agriculture, forestry, and fishing, value added (% of GDP)",
                    "Agricultural raw materials exports (% of merchandise exports)",
                    "Employment in agriculture (% of total employment) (modeled ILO estimate)")
+n_countries <- length(country_vec)
 ema_per <- 3
 slope_per <- 3
 #--------------------
@@ -34,7 +35,7 @@ WDI_long <- subset(WDI_long, Year %in% c(2000:2017))
 # WDI_slope <- as.data.frame(WDI_long %>% group_by(Country, Indicator) %>% 
 #                              mutate(slope = c(rep(NA, slope_per), getSlope(Value, slope_per))))
 #--------------------
-rollpp_per <- 5
+rollpp_per <- 8
 WDI_slope <- as.data.frame(WDI_long %>% group_by(Country, Indicator) %>% 
                              mutate(RollPPChng = c(rep(NA, rollpp_per), diff(Value, rollpp_per))))
 WDI_slope <- as.data.frame(WDI_slope %>% group_by(Country, Indicator) %>% 
@@ -65,33 +66,58 @@ gg
 #--------------------
 df <- subset(WDI_slope, Year %in% c(2016, 2017) )
 df <- subset(df, is.na(Value) == F)
+outlist <- list()
+for(i in 1:n_countries){
+  this_country <- country_vec[i]
+  df_this <- subset(df, Country == this_country)
+  ind <- which(df_this$Year == 2017)
+  indic_keep <- df_this$Indicator[ind]
+  df_1 <- subset(df_this, Indicator %in% indic_keep & Year == 2017)
+  df_2 <- subset(df_this, !(Indicator %in% indic_keep) & Year == 2016)
+  outlist[[i]] <- rbind(df_1, df_2)
+}
+df <- do.call(rbind, outlist)
+
 #colnames(df)
-df_chng <- df[, c("Country", "Indicator", "Year", "RollPPChng")]
-df_cv <- df[, c("Country", "Indicator", "Year", "RollPPChng_cv")]
-df_current <- df[, c("Country", "Indicator", "Year", "Value")]
+df_chng <- df[, c("Country", "Indicator", "RollPPChng")]
+df_cv <- df[, c("Country", "Indicator", "RollPPChng_cv")]
+df_current <- df[, c("Country", "Indicator", "Value")]
 df_current <- spread(df_current, Indicator, Value)
 df_chng <- spread(df_chng, Indicator, RollPPChng)
 df_cv <- spread(df_cv, Indicator, RollPPChng_cv)
+colnames(df_chng)[2:ncol(df_chng)] <- paste(colnames(df_chng)[2:ncol(df_chng)], "RollPPChng")
+colnames(df_cv)[2:ncol(df_cv)] <- paste(colnames(df_cv)[2:ncol(df_cv)], "CV")
+colnames(df_current)[2:ncol(df_current)] <- paste(colnames(df_current)[2:ncol(df_current)], "Value")
 df_wdi <- join_all(list(df_current, df_chng, df_cv))
+df_wdi[, -1] <- round(df_wdi[, -1], 1)
 #--------------------
 
+AgPctLabor_RollPPChng_thresh <- -2
+AgPctExp_thresh <- 2
+
+this_country <- "Colombia"
+ind_this_country <- which(df_wdi$Country == this_country)
+AgPctLabor <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) Value"]
+AgPctLabor_RollPPChng <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) RollPPChng"]
+AgPctGDP <- df_wdi[ind_this_country, "Agriculture, forestry, and fishing, value added (% of GDP) Value"]
+AgPctExp <- df_wdi[ind_this_country, "Agricultural raw materials exports (% of merchandise exports) Value"]
 
 
+str_opt1 <- "The agricultural sector plays an "
+str_opt2 <- "important role in "
+str_opt3 <- "important but declining role in "
+str_opt4 <- paste0(", accounting for ", AgPctGDP, "% of GDP and ", AgPctExp, "% of exports. ")
+str_opt5 <- paste0(", accounting for ", AgPctGDP, "% of GDP. ")
+str_opt6 <- paste0("Jobs in agriculture account for ", AgPctLabor, "% of all employment in the country, down ",
+                   abs(AgPctLabor_RollPPChng), " percentage points (pp) from ", rollpp_per," years ago.")
+str_opt7 <- ""
 
 
-
-
-
-country_name <- "Colombia"
-
-
-
-str1 <- "The agricultural sector plays an"
-str2 <- "increasingly important role in"
-str3 <- "important but declining role in"
-str4 <- ", accounting for"
-
-
+str1 <- str_opt1
+str2 <- ifelse(AgPctLabor_RollPPChng > AgPctLabor_RollPPChng_thresh, str_opt2, str_opt3)
+str3 <- ifelse(AgPctExp >= AgPctExp_thresh, str_opt4, str_opt5)
+str4 <- ifelse(AgPctLabor_RollPPChng > AgPctLabor_RollPPChng_thresh, str_opt7, str_opt6)
+cat(str1, str2, this_country, str3, str4, sep = "")
 
 
 
