@@ -191,3 +191,88 @@ y <- 5000 / 1000
 u <- log(y) / lP_fs_lcu_kg
 h <- u / (1 + u)
 h
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+colnames(df)[1] <- "x"
+df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
+colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
+df <- df[-c(1:2), ]
+colnames(df)[1] <- "Ampoer"
+colnames(df)[8] <- paste("Land Prep", colnames(df)[8])
+colnames(df)[15] <- paste("Harvest", colnames(df)[15])
+df_supplement <- df[97:144, ]
+df <- df[-c(96:nrow(df)), ]
+df[, -1] <- as.data.frame(apply(df[, -1], 2, as.numeric))
+#--
+df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
+df$`l(Farm size (ha))` <- log(df$`Farm size (ha)`)
+hist(df$`l(Farm size (ha))`)
+m_lfsize <- mean(df$`l(Farm size (ha))`)
+s_lfsize <- sd(df$`l(Farm size (ha))`)
+cv_lfsize <- s_lfsize / m_lfsize
+s2_lfsize <- s_lfsize^2
+mu_fsize <- exp(m_lfsize + 1 / 2 * s2_lfsize)
+mu_fsize_sample <- mean(df$`Farm size (ha)`, na.rm = T)
+#--
+df$`Yield (ton/ha)` <- df$`Yield (ton/rai) 1 ha = 6.25 rai` * 6.25
+df$`l(Yield (ton/ha))` <- log(df$`Yield (ton/ha)`)
+hist(df$`Yield (ton/ha)`)
+hist(df$`l(Yield (ton/ha))`)
+m_lyield <- mean(df$`l(Yield (ton/ha))`)
+s_lyield <- sd(df$`l(Yield (ton/ha))`)
+cv_lyield <- s_lyield / m_lyield
+s2_lyield <- s_lyield^2
+mu_yield <- exp(m_lyield + 1 / 2 * s2_lyield)
+mu_yield_sample <- mean(df$`Yield (ton/ha)`, na.rm = T)
+#--
+colnames(df)
+
+rm_vec <- c("Harvest Diesel fuel used  (L/rai)", "Land Prep Diesel fuel used (L/rai)",
+            "Planting reparation rate (%)", "Landfill organic waste", "Paraquat (L/rai)", "Chicken manure (ton/rai)")
+regrsrs_str1 <- c("Farm size (rai)", "Surface occupied by cassava (rai)", "Crop duration (month)")
+#regrsrs_str1 <- c("Farm size (rai)", "Crop duration (month)")
+regrsrs_str1 <- paste0("`", regrsrs_str1, "`", collapse = " + ")
+regrsrs_str2 <- paste0("`", setdiff(colnames(df)[6:17], rm_vec), "`", collapse = " + ")
+regrsrs <- paste(regrsrs_str1, regrsrs_str2, sep = " + ")
+this_formula <- as.formula(paste("`Yield (ton/rai) 1 ha = 6.25 rai` ~ ", regrsrs)[1])
+df_l <- as.data.frame(apply(df[, -1], 2, log))
+df_l <- df_l[-which(is.infinite(df_l$`K (kg/rai)`)), ]
+df_l <- df_l[-which(is.infinite(df_l$`Glyphosate (L/rai)`)), ]
+
+linmod <- lm(this_formula, df)
+#---------------------
+summod <- summary(linmod)
+print(summod)
+#---------------------
+pvals <- as.numeric(summod$coefficients[, 4])
