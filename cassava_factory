@@ -2,87 +2,147 @@ library(ggplot2)
 library(tidyr)
 library(fields)
 #-------------
-P_chip_lcu_MT <- 8000
-Q_chip_statusQuo_MT <- 350
-N_surm <- 14
-mu_fsize <- 3
-mu_h <- 0.7
-mu_b <- mu_h / (1 - mu_h)
-cv_b <- 0.15
-#-------------
+# Thai Cassava farm survey
+#df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+colnames(df)[1] <- "x"
+df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
+colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
+df <- df[-c(1:2), ]
+colnames(df)[1] <- "Ampoer"
+colnames(df)[8] <- paste("Land Prep", colnames(df)[8])
+colnames(df)[15] <- paste("Harvest", colnames(df)[15])
+df_supplement <- df[97:144, ]
+df <- df[-c(96:nrow(df)), ]
+df[, -1] <- as.data.frame(apply(df[, -1], 2, as.numeric))
+#--
+df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
+df$`l(Farm size (ha))` <- log(df$`Farm size (ha)`)
+hist(df$`l(Farm size (ha))`)
+m_lfsize <- mean(df$`l(Farm size (ha))`)
+s_lfsize <- sd(df$`l(Farm size (ha))`)
+cv_lfsize <- s_lfsize / m_lfsize
+s2_lfsize <- s_lfsize^2
+mu_fsize <- exp(m_lfsize + 1 / 2 * s2_lfsize)
+mu_fsize_sample <- mean(df$`Farm size (ha)`, na.rm = T)
+mode_fsize <- exp(m_lfsize - s2_lfsize)
+#--
+df$`Yield (ton/ha)` <- df$`Yield (ton/rai) 1 ha = 6.25 rai` * 6.25
+df$`l(Yield (ton/ha))` <- log(df$`Yield (ton/ha)`)
+hist(df$`Yield (ton/ha)`)
+hist(df$`l(Yield (ton/ha))`)
+m_lyield <- mean(df$`l(Yield (ton/ha))`)
+s_lyield <- sd(df$`l(Yield (ton/ha))`)
+cv_lyield <- s_lyield / m_lyield
+s2_lyield <- s_lyield^2
+mu_yield <- exp(m_lyield + 1 / 2 * s2_lyield)
+mu_yield_sample <- mean(df$`Yield (ton/ha)`, na.rm = T)
+sig_yield_sample <- sd(df$`Yield (ton/ha)`, na.rm = T)
+mode_yield <- exp(m_lyield - s2_lyield)
+cv_yield_sample <- sig_yield_sample / mu_yield_sample
+#--
+df$`pct. cass cult` <- df$`Surface occupied by cassava (rai)` / df$`Farm size (rai)`
+hist(df$`pct. cass cult`)
+gg <- ggplot(df, aes(x = `Yield (ton/rai) 1 ha = 6.25 rai`,
+                     y = `Surface occupied by cassava (rai)`))
+gg <- gg + geom_point()
+gg
+df$`Surface occupied by cassava (rai)`
+hist(df$`N (kg/rai)`)
+hist(df$`P (kg/rai)`)
+hist(df$`K (kg/rai)`)
+hist(df$`Chicken manure (ton/rai)`)
+length(which(df$`Chicken manure (ton/rai)` > 0))
+nrow(df)
+median(df$`Chicken manure (ton/rai)`)
 
-lexog_factr <- log(Q_chip_statusQuo_MT) - log(N_surm) - log(mu_fsize) - mu_b * log(P_chip_lcu_MT) + (mu_b * cv_b * log(P_chip_lcu_MT))^2 / 2
-lexog_factr
 
-N_surm * mu_fsize * P_chip_lcu_MT^mu_b * exp((mu_b * cv_b * log(P_chip_lcu_MT))^2 / 2)
 
-# lconv_factr_P <- (-1 + sqrt(1 - 2 * cv_b^2 * (log(N_surm) + log(mu_fsize) - log(Q_root_statusQuo_MT)))) / (mu_b * cv_b^2) - log(P_root_lcu_MT)
-# conv_factr_P <- exp(lconv_factr_P)
-# sig2_b <- 2 / log(P_root_lcu_MT)^2 * (log(Q_obs_MT) - log(N_surm) - log(mu_fsize) - mu_b * log(P_root_lcu_MT))
-# sig_b <- sqrt(sig2_b)
-# cv_b <- sig_b / mu_b
-# cv_b
 #-------------
-Pvec_lcu <- seq(1, 3000, 10)
-Pvec <- conv_factr_P * Pvec_lcu
+# Deduce number of producers (factory suppliers) from above info
+Q_root_MT_day_statusQuo <- 800
+N_root_statusQuo <- Q_root_MT_day_statusQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
+Q_chip_MT_statusQuo <- 350
+convert_root_chip <- 1 / 3.05
+N_chip_statusQuo <- Q_chip_MT_statusQuo / (convert_root_chip * mode_yield * mode_fsize)
 #-------------
-#cv_vec <- c(0.15, 0.25, 0.35, 0.45, 0.55)
-#N_vec <- seq(800, 1400, 200)
-mu_h_vec <- c(0.7, 0.8, 0.9, 1.1)
+# Deduce sig2_h1 (root and chip)
+P_root_lcu_MT_statusQuo <- 2500
+P_chip_lcu_MT_statusQuo <- 8000
+h_surmise <- 0.9
+cv_1oh_surm <- 0.2
+mu_1oh_surm <- 1 / h_surmise
+sig2_1oh_surm <- (mu_1oh_surm * cv_1oh_surm)^2
+m_lyroot_h1_statusQuo <- m_lyield + (mu_1oh_surm - 1) * log(P_root_lcu_MT_statusQuo)
+m_lyroot_h1_statusQuo
+mu_yroot_h1_statusQuo <- Q_root_MT_day_statusQuo / (N_root_statusQuo * mu_fsize) *
+  P_root_lcu_MT_statusQuo^(mu_1oh_surm - 1) * 
+  exp(-sig2_1oh_surm * log(P_root_lcu_MT_statusQuo)^2 / 2)
+mu_yroot_h1_statusQuo
+# Check (log(mu_y_h1) has to be > m_ly_h1!)
+log(mu_yroot_h1_statusQuo) - m_lyroot_h1_statusQuo
+#For just m_lyroot_h1_statusQuo:
+# Therefore, assuming lognormal distribution
+s2_lyroot_h1_statusQuo <- 2 * (log(mu_yroot_h1_statusQuo) - m_lyroot_h1_statusQuo)
+s2_lyroot_h1_statusQuo
 #-------------
-list_Q <- list()
+Pvec_lcu_MT <- seq(1, 3000, 10)
+h_surmise_vec <- c(0.7, 0.8, 0.9, 1)
+#cv_1oh_vec <- c(0.1, 0.15, 0.25, 0.35, 0.45, 0.55)
+#-------------
+# list_Q <- list()
 # for(i in 1:length(cv_vec)){
-#   in_cv_b <- cv_vec[i]
-#   Qvec <- N_surm * mu_fsize * Pvec^mu_b * exp(1/2 * (mu_b * in_cv_b * log(Pvec))^2)
+#   in_cv_1oh <- cv_1oh_vec[i]
+# sig2_1oh <- (mu_1oh * in_cv_1oh)^2
+# mu_yroot_h1_statusQuo <- Q_root_MT_day_statusQuo / (N_root_statusQuo * mu_fsize) *
+#   P_root_lcu_MT_statusQuo^(mu_1oh - 1) * 
+#   exp(-sig2_1oh * log(P_root_lcu_MT_statusQuo)^2 / 2)
+# print(mu_yroot_h1_statusQuo)
+#   Qvec <- N_root_statusQuo * mu_fsize * mu_yroot_h1_statusQuo * 
+#     Pvec_lcu_MT^(1 - mu_1oh_surm) * exp(1/2 * sig2_1oh *
+#     log(Pvec_lcu_MT)^2)
 #   list_Q[[i]] <- Qvec
 # }
 #---
-# for(i in 1:length(N_vec)){
-#   in_N_surm <- N_vec[i]
-#   print(N_surm)
-#   Qvec <- in_N_surm * mu_fsize * Pvec^mu_b * exp(1/2 * (mu_b * cv_b * log(Pvec))^2)
-#   list_Q[[i]] <- Qvec
-# }
-#---
-for(i in 1:length(mu_h_vec)){
-  in_mu_h <- mu_h_vec[i]
-  in_mu_b <- in_mu_h / (1 - in_mu_h)
-  Qvec <- N_surm * mu_fsize * Pvec^in_mu_b * exp(1/2 * (in_mu_b * cv_b * log(Pvec))^2)
+list_Q <- list()
+for(i in 1:length(h_surmise_vec)){
+  in_h <- h_surmise_vec[i]
+  in_mu_1oh <- 1 / in_h
+  sig2_1oh <- (in_mu_1oh * cv_1oh_surm)^2
+  Qvec <- N_root_statusQuo * mu_fsize * mu_yroot_h1_statusQuo * 
+    Pvec_lcu_MT^(1 - in_mu_1oh) *
+    exp(1/2 * sig2_1oh * log(Pvec_lcu_MT)^2)
   list_Q[[i]] <- Qvec
 }
 #---
 df_Q <- as.data.frame(do.call(cbind, list_Q))
-# colnames(df_Q) <- as.character(cv_vec)
-#colnames(df_Q) <- as.character(N_vec)
-colnames(df_Q) <- as.character(mu_h_vec)
+# colnames(df_Q) <- as.character(cv_1oh_vec)
+colnames(df_Q) <- as.character(h_surmise_vec)
 gathercols <- colnames(df_Q)
-df_Q$P_lcu <- Pvec_lcu
+df_Q$P_lcu <- Pvec_lcu_MT
 # df_Q <- df_Q %>% gather_("CV", "Q", gathercols)
-#df_Q <- df_Q %>% gather_("N", "Q", gathercols)
-df_Q <- df_Q %>% gather_("mu_h", "Q", gathercols)
+df_Q <- df_Q %>% gather_("h_surm", "Q", gathercols)
 #-------------
 df_plot <- df_Q #data.frame(Q = Qvec, P_lcu = Pvec_lcu, lQ = log(Qvec), lP = log(Pvec_lcu))
 
 #gg <- ggplot(df_plot, aes(x = P_lcu, y = Q, group = CV, color = CV))
-#gg <- ggplot(df_plot, aes(x = P_lcu, y = Q, group = N, color = N))
-gg <- ggplot(df_plot, aes(x = P_lcu, y = Q, group = mu_h, color = mu_h))
+gg <- ggplot(df_plot, aes(x = P_lcu, y = Q, group = h_surm, color = h_surm))
 gg <- gg + geom_point()
-gg <- gg + coord_cartesian(ylim = c(0, 1000))
+#gg <- gg + coord_cartesian(ylim = c(0, 1000))
 gg
 #==============
-P_root_lcu_kg <- 2.5
-P_root_lcu_MT <- P_root_lcu_kg * 1000
-P_root_conv_MT <- P_root_lcu_MT * conv_factr_P
-P_starch_lcu_MT <- 14000
+P_starch_lcu_MT_statusQuo <- 14000
 #P_starch_conv_MT <- P_starch_lcu_MT * conv_factr_P
 MTRootsPerMTStarch <- 4.21
-CostPerMTStarch <- 13500
-CostExclRoots <- CostPerMTStarch - MTRootsPerMTStarch * P_root_lcu_MT
+Cost_starch_MT_statusQuo <- 13500
+Cost_feedstock_MTstarch_statusQuo <- MTRootsPerMTStarch * P_root_lcu_MT_statusQuo
+Cost_ExclFeedstock_MTstarch_statusQuo <- Cost_starch_MT_statusQuo - Cost_feedstock_MTstarch_statusQuo
 #pctCostNonRoot <- CostExclRoots / CostPerMTStarch
 #--------------
-Q_starch_statusQuo_MT <- Q_root_statusQuo_MT / MTRootsPerMTStarch
-Cost_statusQuo <- Q_starch_statusQuo_MT * CostPerMTStarch
-NR_statusQuo <- P_starch_lcu_MT * Q_starch_statusQuo_MT - Cost
+Q_starch_MT_day_statusQuo <- Q_root_MT_day_statusQuo / MTRootsPerMTStarch
+Cost_lcu_day_statusQuo <- Q_starch_MT_day_statusQuo * Cost_starch_MT_statusQuo
+Revenue_lcu_day_statusQuo <- P_starch_lcu_MT_statusQuo * Q_starch_MT_day_statusQuo
+NR_lcu_day_statusQuo <- Revenue_lcu_day_statusQuo - Cost_lcu_day_statusQuo
 #--------------
 pct_cost_reduction_vec <- -seq(0.01, 0.2, 0.01)
 pct_h_reduction_vec <- -seq(0.01, 0.2, 0.01)
@@ -92,29 +152,53 @@ n_pctHRed <- length(pct_h_reduction_vec)
 Q_root_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
 Q_starch_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
 NR_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-NR_pctChng_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-NR_pctChng_Qconst_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
+NR_pctChng_QstatQuo_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
+NR_pctChng_PstatQuo_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
 for(i in 1:n_pctCostRed){
   pct_cost_reduction <- pct_cost_reduction_vec[i]
   for(j in 1:n_pctHRed){
     pct_h_reduction <- pct_h_reduction_vec[j]
-    in_mu_h <- mu_h * (1 + pct_h_reduction)
-    in_mu_b <- in_mu_h / (1 - in_mu_h)
-    Q_root_MT <- N_surm * mu_fsize * P_root_conv_MT^in_mu_b * exp(1/2 * (in_mu_b * cv_b * log(P_root_conv_MT))^2)
-    Q_starch_MT <- Q_root_MT / MTRootsPerMTStarch
-    Cost <- Q_starch_MT * CostPerMTStarch * (1 + pct_cost_reduction)
-    NR <- P_starch_lcu_MT * Q_starch_MT - Cost
-    NR_pctChng <- 100 * (NR - NR_statusQuo) / NR_statusQuo
+    in_h_surm <- h_surmise * (1 + pct_h_reduction)
+    in_mu_1oh <- 1 / in_h_surm
+    sig2_1oh <- (in_mu_1oh * cv_1oh_surm)^2
+    #--------
+    # New root price to pay in order to maintain Q_statusQuo
+    a <- 1 / 2 * sig2_1oh
+    b <- 1 - mu_1oh_surm
+    c <- log(N_root_statusQuo) + log(mu_fsize) + log(mu_yroot_h1_statusQuo) -
+      log(Q_root_MT_day_statusQuo)
+    lP_root_lcu_MT_new <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
+    P_root_lcu_MT_new <- exp(lP_root_lcu_MT_new)
+    #-
+    Cost_feedstock_MTstarch_new <- MTRootsPerMTStarch * P_root_lcu_MT_new
+    #Cost_ExclFeedstock_MT_new <- Cost_ExclFeedstock_MT_statusQuo * (1 + pct_cost_reduction)
+    Cost_lcu_day_new_QstatQuo <- (Cost_feedstock_MTstarch_new * 
+      Q_starch_MT_day_statusQuo + 
+      Cost_ExclFeedstock_MTstarch_statusQuo) * (1 + pct_cost_reduction)
+    NR_lcu_day_new_QstatQuo <- Revenue_lcu_day_statusQuo - Cost_lcu_day_new_QstatQuo
+    #--------
+    # New quantity obtained if paying the same price P_statusQuo
+    Q_root_MT_day_new <- N_root_statusQuo * mu_fsize * mu_yroot_h1_statusQuo * 
+      P_root_lcu_MT_statusQuo^(1 - in_mu_1oh) *
+      exp(1/2 * sig2_1oh * log(P_root_lcu_MT_statusQuo)^2)
+    #-
+    Q_starch_MT_day_new <- Q_root_MT_new / MTRootsPerMTStarch
+    Revenue_lcu_day_new_PstatQuo <- Q_starch_MT_day_new * P_starch_lcu_MT_statusQuo
+    Cost_lcu_day_new_PstatQuo <- (Cost_feedstock_MTstarch_statusQuo * 
+                                    Q_starch_MT_day_new + 
+                                    Cost_ExclFeedstock_MTstarch_statusQuo) * (1 + pct_cost_reduction)
+    NR_lcu_day_new_PstatQuo <- Revenue_lcu_day_new_PstatQuo - Cost_lcu_day_new_PstatQuo
+    NR_pctChng_PstatQuo <- 100 * (NR_lcu_day_new_PstatQuo - NR_lcu_day_statusQuo) / NR_lcu_day_statusQuo
     #-----------
-    Q_root_mat[i, j] <- Q_root_MT
-    Q_starch_mat[i, j] <- Q_starch_MT
-    NR_mat[i, j] <- NR
+    NR_pctChng_QstatQuo_mat[i, j] <- 
+    NR_pctChng_PstatQuo_mat[i, j] <- 
+    
+    NR_pctChng_PstatQuo_mat[i, j]
+    NR_new_mat[i, j] <- NR
     NR_pctChng_mat[i, j] <- NR_pctChng
     #-----------
-    P_root_conv_MT_new <- exp((-1 + sqrt(1 - 2 * cv_b^2 * (log(N_surm) + log(mu_fsize) - log(Q_root_statusQuo_MT)))) / (in_mu_b * cv_b^2))
-    P_root_lcu_MT_new <- P_root_conv_MT_new / conv_factr_P
-    CostPerMTStarch_new <- MTRootsPerMTStarch * P_root_lcu_MT_new + CostExclRoots
-    Cost <- Q_starch_statusQuo_MT * CostPerMTStarch_new * (1 + pct_cost_reduction)
+    
+    Cost <- Q_starch_statusQuo_MT * Cost_starch_MT_new * (1 + pct_cost_reduction)
     NR <- P_starch_lcu_MT * Q_starch_statusQuo_MT - Cost
     NR_pctChng <- 100 * (NR - NR_statusQuo) / NR_statusQuo
     NR_pctChng_Qconst <- 100 * (NR - NR_statusQuo) / NR_statusQuo
@@ -156,106 +240,8 @@ gg
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-NR_star <- 2600
-mu_h <- 0.8
-mu_b <- mu_h / (1 - mu_h)
-C_fs_lcu_MT <- 11000
-P_fs_lcu_MT <- 2500
-lP_fs_lcu_MT <- log(P_fs_lcu_MT)
-
-sig_bsq <- 1 / lP_fs_lcu_MT * (C_fs_lcu_MT / NR_star - mu_b)
-sig_b <- sqrt(sig_bsq)
-cv_b <- sig_b / mu_b
-
-mu_fsize <- 0.5
-S <- 800
-
-N_surm <- 1 / S * mu_fsize * P_fs_lcu_MT^mu_b * exp(1/2 * (mu_b * cv_b * lP_fs_lcu_MT)^2)
-N_surm
-
-
-lP_fs_lcu_kg <- log(2.5 * 1000)
-y <- 5000 / 1000
-u <- log(y) / lP_fs_lcu_kg
-h <- u / (1 + u)
-h
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-colnames(df)[1] <- "x"
-df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
-colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
-df <- df[-c(1:2), ]
-colnames(df)[1] <- "Ampoer"
-colnames(df)[8] <- paste("Land Prep", colnames(df)[8])
-colnames(df)[15] <- paste("Harvest", colnames(df)[15])
-df_supplement <- df[97:144, ]
-df <- df[-c(96:nrow(df)), ]
-df[, -1] <- as.data.frame(apply(df[, -1], 2, as.numeric))
 #--
-df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
-df$`l(Farm size (ha))` <- log(df$`Farm size (ha)`)
-hist(df$`l(Farm size (ha))`)
-m_lfsize <- mean(df$`l(Farm size (ha))`)
-s_lfsize <- sd(df$`l(Farm size (ha))`)
-cv_lfsize <- s_lfsize / m_lfsize
-s2_lfsize <- s_lfsize^2
-mu_fsize <- exp(m_lfsize + 1 / 2 * s2_lfsize)
-mu_fsize_sample <- mean(df$`Farm size (ha)`, na.rm = T)
-#--
-df$`Yield (ton/ha)` <- df$`Yield (ton/rai) 1 ha = 6.25 rai` * 6.25
-df$`l(Yield (ton/ha))` <- log(df$`Yield (ton/ha)`)
-hist(df$`Yield (ton/ha)`)
-hist(df$`l(Yield (ton/ha))`)
-m_lyield <- mean(df$`l(Yield (ton/ha))`)
-s_lyield <- sd(df$`l(Yield (ton/ha))`)
-cv_lyield <- s_lyield / m_lyield
-s2_lyield <- s_lyield^2
-mu_yield <- exp(m_lyield + 1 / 2 * s2_lyield)
-mu_yield_sample <- mean(df$`Yield (ton/ha)`, na.rm = T)
-#--
+#Regression
 colnames(df)
 
 rm_vec <- c("Harvest Diesel fuel used  (L/rai)", "Land Prep Diesel fuel used (L/rai)",
