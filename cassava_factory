@@ -55,180 +55,267 @@ hist(df$`Chicken manure (ton/rai)`)
 length(which(df$`Chicken manure (ton/rai)` > 0))
 nrow(df)
 median(df$`Chicken manure (ton/rai)`)
+#-------------
 
-
-
+sum(df$`Surface occupied by cassava (rai)`) / sum(df$`Farm size (rai)`)
+df$`Surface occupied by cassava (ha)` <- df$`Surface occupied by cassava (rai)` / 6.25
+sum(df$`Surface occupied by cassava (ha)`)
+sum(df$`Farm size (ha)`)
 #-------------
 # Deduce number of producers (factory suppliers) from above info
-Q_root_MT_day_statusQuo <- 800
-N_root_statusQuo <- Q_root_MT_day_statusQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
-Q_chip_MT_statusQuo <- 350
+N_root_statQuo <- Q_root_MT_day_statQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
+Q_chip_MT_statQuo <- 350
 convert_root_chip <- 1 / 3.05
-N_chip_statusQuo <- Q_chip_MT_statusQuo / (convert_root_chip * mode_yield * mode_fsize)
+N_chip_statQuo <- Q_chip_MT_statQuo / (convert_root_chip * mode_yield * mode_fsize)
 #-------------
 # Deduce sig2_h1 (root and chip)
-P_root_lcu_MT_statusQuo <- 2500
-P_chip_lcu_MT_statusQuo <- 8000
-h_surmise <- 0.9
-cv_1oh_surm <- 0.2
-mu_1oh_surm <- 1 / h_surmise
-sig2_1oh_surm <- (mu_1oh_surm * cv_1oh_surm)^2
-m_lyroot_h1_statusQuo <- m_lyield + (mu_1oh_surm - 1) * log(P_root_lcu_MT_statusQuo)
-m_lyroot_h1_statusQuo
-mu_yroot_h1_statusQuo <- Q_root_MT_day_statusQuo / (N_root_statusQuo * mu_fsize) *
-  P_root_lcu_MT_statusQuo^(mu_1oh_surm - 1) * 
-  exp(-sig2_1oh_surm * log(P_root_lcu_MT_statusQuo)^2 / 2)
-mu_yroot_h1_statusQuo
-# Check (log(mu_y_h1) has to be > m_ly_h1!)
-log(mu_yroot_h1_statusQuo) - m_lyroot_h1_statusQuo
-#For just m_lyroot_h1_statusQuo:
-# Therefore, assuming lognormal distribution
-s2_lyroot_h1_statusQuo <- 2 * (log(mu_yroot_h1_statusQuo) - m_lyroot_h1_statusQuo)
-s2_lyroot_h1_statusQuo
+# h_surmise <- 0.9
+# cv_1oh_surm <- 0.2
+# mu_1oh_surm <- 1 / h_surmise
+# sig2_1oh_surm <- (mu_1oh_surm * cv_1oh_surm)^2
+# m_lyroot_h1_statQuo <- m_lyield + (mu_1oh_surm - 1) * log(P_root_lcu_MT_statQuo)
+# m_lyroot_h1_statQuo
+# mu_yroot_h1_statQuo <- Q_root_MT_day_statQuo / (N_root_statQuo * mu_fsize) *
+#   P_root_lcu_MT_statQuo^(mu_1oh_surm - 1) * 
+#   exp(-sig2_1oh_surm * log(P_root_lcu_MT_statQuo)^2 / 2)
+# mu_yroot_h1_statQuo
+# # Check (log(mu_y_h1) has to be > m_ly_h1!)
+# log(mu_yroot_h1_statQuo) - m_lyroot_h1_statQuo
+# #For just m_lyroot_h1_statQuo:
+# # Therefore, assuming lognormal distribution
+# s2_lyroot_h1_statQuo <- 2 * (log(mu_yroot_h1_statQuo) - m_lyroot_h1_statQuo)
+# s2_lyroot_h1_statQuo
+#-------------
+Q_root_MT_day_statQuo <- 800
+P_root_lcu_MT_statQuo <- 2500
+P_chip_lcu_MT_statQuo <- 8000
+P_starch_lcu_MT_statQuo <- 14000
+MTRootsPerMTStarch <- 4.21
+#-------------
+# Supply function
+Q_supply <- function(P, N, mu_A, mu_farmCost_A, cv_farmCost, l_credit = 0){
+  x <- (1 - l_credit) / P
+  Q <- N * mu_A * exp(-x * mu_farmCost_A + 
+                        (x * mu_farmCost_A * cv_farmCost)^2 / 2)
+  return(Q)
+}
+P_supply <- function(Q, N, mu_A, mu_farmCost_A, cv_farmCost, l_credit = 0){
+  sig2_farmCost <- cv_farmCost^2 * mu_farmCost_A^2
+  a <- sig2_farmCost / 2
+  b <- -mu_farmCost_A
+  c <- log(N) + log(mu_A) - log(Q)
+  xx <- (-b - sqrt(b^2 - 4 * a * c)) / (2 * a)
+  P <- (1 - l_credit) / xx
+  return(P)
+}
+FactoryNetRevenue <- function(Q_feedstock, P_output_lcu_Qoutput, fdstkToOutput_efficiency,
+                              P_feedstock_lcu_Q, CostPerQ_processing){
+  Revenue <- Q_feedstock / fdstkToOutput_efficiency * P_output_lcu_Qoutput
+  Cost <- Q_feedstock * (P_feedstock_lcu_Q + CostPerQ_processing)
+  NR <- Revenue - Cost
+  return(NR)
+}
+
+#-------------
+cv_farmCost_statQuo <- 0.15
+N_statQuo <- 150
+mu_A_statQuo <- 10
+mu_farmCost_A_statQuo <- 1600
+l_credit_statQuo <- 0
 #-------------
 Pvec_lcu_MT <- seq(1, 3000, 10)
-h_surmise_vec <- c(0.7, 0.8, 0.9, 1)
-#cv_1oh_vec <- c(0.1, 0.15, 0.25, 0.35, 0.45, 0.55)
+mu_farmCost_surmise_vec <- c(1100, 1300, 1500, 1700)
+#cv_surmise_vec <- c(0.1, 0.15, 0.25, 0.35, 0.45, 0.55)
 #-------------
-# list_Q <- list()
-# for(i in 1:length(cv_vec)){
-#   in_cv_1oh <- cv_1oh_vec[i]
-# sig2_1oh <- (mu_1oh * in_cv_1oh)^2
-# mu_yroot_h1_statusQuo <- Q_root_MT_day_statusQuo / (N_root_statusQuo * mu_fsize) *
-#   P_root_lcu_MT_statusQuo^(mu_1oh - 1) * 
-#   exp(-sig2_1oh * log(P_root_lcu_MT_statusQuo)^2 / 2)
-# print(mu_yroot_h1_statusQuo)
-#   Qvec <- N_root_statusQuo * mu_fsize * mu_yroot_h1_statusQuo * 
-#     Pvec_lcu_MT^(1 - mu_1oh_surm) * exp(1/2 * sig2_1oh *
-#     log(Pvec_lcu_MT)^2)
-#   list_Q[[i]] <- Qvec
-# }
-#---
+in_param_vec <- mu_farmCost_surmise_vec
+cv_farmCost <- cv_farmCost_statQuo
+N <- N_statQuo
+mu_A <- mu_A_statQuo
+l_credit <- l_credit_statQuo
 list_Q <- list()
-for(i in 1:length(h_surmise_vec)){
-  in_h <- h_surmise_vec[i]
-  in_mu_1oh <- 1 / in_h
-  sig2_1oh <- (in_mu_1oh * cv_1oh_surm)^2
-  Qvec <- N_root_statusQuo * mu_fsize * mu_yroot_h1_statusQuo * 
-    Pvec_lcu_MT^(1 - in_mu_1oh) *
-    exp(1/2 * sig2_1oh * log(Pvec_lcu_MT)^2)
+for(i in 1:length(mu_farmCost_surmise_vec)){
+  mu_farmCost_A <- mu_farmCost_surmise_vec[i]
+  Qvec <- Q_supply(Pvec_lcu_MT, N, mu_A, mu_farmCost_A, cv_farmCost, l_credit = 0)
   list_Q[[i]] <- Qvec
 }
 #---
 df_Q <- as.data.frame(do.call(cbind, list_Q))
 # colnames(df_Q) <- as.character(cv_1oh_vec)
-colnames(df_Q) <- as.character(h_surmise_vec)
+colnames(df_Q) <- as.character(mu_farmCost_surmise_vec)
 gathercols <- colnames(df_Q)
-df_Q$P_lcu <- Pvec_lcu_MT
+df_Q$`P (lcu/MT)` <- Pvec_lcu_MT
 # df_Q <- df_Q %>% gather_("CV", "Q", gathercols)
-df_Q <- df_Q %>% gather_("h_surm", "Q", gathercols)
+df_Q <- df_Q %>% gather_("Mean Farm Cost (lcu/Ha.)", "Q (MT)", gathercols)
 #-------------
 df_plot <- df_Q #data.frame(Q = Qvec, P_lcu = Pvec_lcu, lQ = log(Qvec), lP = log(Pvec_lcu))
-
-#gg <- ggplot(df_plot, aes(x = P_lcu, y = Q, group = CV, color = CV))
-gg <- ggplot(df_plot, aes(x = P_lcu, y = Q, group = h_surm, color = h_surm))
+gg <- ggplot(df_plot, aes(x = `P (lcu/MT)`, y = `Q (MT)`, group = `Mean Farm Cost (lcu/Ha.)`,
+                          color = `Mean Farm Cost (lcu/Ha.)`))
 gg <- gg + geom_point()
-#gg <- gg + coord_cartesian(ylim = c(0, 1000))
+gg <- gg + coord_cartesian(ylim = c(0, 1000))
 gg
-#==============
-P_starch_lcu_MT_statusQuo <- 14000
-#P_starch_conv_MT <- P_starch_lcu_MT * conv_factr_P
-MTRootsPerMTStarch <- 4.21
-Cost_starch_MT_statusQuo <- 13500
-Cost_feedstock_MTstarch_statusQuo <- MTRootsPerMTStarch * P_root_lcu_MT_statusQuo
-Cost_ExclFeedstock_MTstarch_statusQuo <- Cost_starch_MT_statusQuo - Cost_feedstock_MTstarch_statusQuo
-#pctCostNonRoot <- CostExclRoots / CostPerMTStarch
+#======================================
+Q_root_MT_day_statQuo <- 800
+P_root_lcu_MT_statQuo <- 2500
+P_starch_lcu_MT_statQuo <- 14000
+#P_ethanol_lcu_ML_statQuo <- 
+MTRootsPerMTStarch_statQuo <- 4.21
+Q_starch_MT_day_statQuo <- Q_root_MT_day_statQuo / MTRootsPerMTStarch
+Cost_rootProcessing_MTroot_statQuo <- 13500 / MTRootsPerMTStarch_statQuo - P_root_lcu_MT_statQuo
+Cost_rootProcessing_MTstarch_statQuo <- MTRootsPerMTStarch_statQuo * Cost_rootProcessing_MTroot_statQuo
+#======================================
+fdstkToOutput_efficiency_statQuo <- MTRootsPerMTStarch_statQuo
+#--
+P_feedstock_lcu_MT_statQuo <- P_root_lcu_MT_statQuo
+P_output_lcu_MToutput_statQuo <- P_starch_lcu_MT_statQuo
+#--
+P_output_lcu_MTfdstk_statQuo <- P_output_lcu_MToutput_statQuo / fdstkToOutput_efficiency_statQuo
+#--
+Q_feedstock_MT_day_statQuo <- Q_root_MT_day_statQuo
+#--
+Cost_fdstkProcessing_MTfdstk_statQuo <- Cost_rootProcessing_MTroot_statQuo
+Cost_fdstkProcessing_MToutput_statQuo <- Cost_rootProcessing_MTstarch_statQuo
 #--------------
-Q_starch_MT_day_statusQuo <- Q_root_MT_day_statusQuo / MTRootsPerMTStarch
-Cost_lcu_day_statusQuo <- Q_starch_MT_day_statusQuo * Cost_starch_MT_statusQuo
-Revenue_lcu_day_statusQuo <- P_starch_lcu_MT_statusQuo * Q_starch_MT_day_statusQuo
-NR_lcu_day_statusQuo <- Revenue_lcu_day_statusQuo - Cost_lcu_day_statusQuo
+FactoryNR_lcu_day_statQuo <- FactoryNetRevenue(Q_feedstock = Q_feedstock_MT_day_statQuo,
+                                        P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+                                        fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+                                        P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo,
+                                        CostPerQ_processing = Cost_fdstkProcessing_MTfdstk_statQuo)
+FactoryNR_lcu_day_statQuo
+#190 * (P_starch_lcu_MT_statQuo - 13500)
+#Revenue <- Q_feedstock_MT_day_statQuo / fdstkToOutput_efficiency_statQuo * P_output_lcu_MToutput_statQuo
+# Revenue <- Q_feedstock_MT_day_statQuo * P_output_lcu_MTfdstk_statQuo
+# Cost <- Q_feedstock_MT_day_statQuo * (P_feedstock_lcu_MT_statQuo + Cost_fdstkProcessing_MTfdstk_statQuo)
+# NR_day <- Revenue - Cost
+#====================================
+pct_factryCost_reduction_vec <- -seq(0.01, 0.2, 0.01)
+pct_farmCost_change_vec <- seq(0.01, 0.2, 0.01)
 #--------------
-pct_cost_reduction_vec <- -seq(0.01, 0.2, 0.01)
-pct_h_reduction_vec <- -seq(0.01, 0.2, 0.01)
-#--------------
-n_pctCostRed <- length(pct_cost_reduction_vec)
-n_pctHRed <- length(pct_h_reduction_vec)
-Q_root_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-Q_starch_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-NR_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-NR_pctChng_QstatQuo_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-NR_pctChng_PstatQuo_mat <- matrix(NA, n_pctCostRed, n_pctHRed)
-for(i in 1:n_pctCostRed){
-  pct_cost_reduction <- pct_cost_reduction_vec[i]
-  for(j in 1:n_pctHRed){
-    pct_h_reduction <- pct_h_reduction_vec[j]
-    in_h_surm <- h_surmise * (1 + pct_h_reduction)
-    in_mu_1oh <- 1 / in_h_surm
-    sig2_1oh <- (in_mu_1oh * cv_1oh_surm)^2
+n_pctFactryCostRed <- length(pct_factryCost_reduction_vec)
+n_pctFarmCostRed <- length(pct_farmCost_change_vec)
+FactoryNRday_new_QstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed)
+FactoryNRday_new_PstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed)
+FactoryNRday_pctChng_QstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed)
+FactoryNRday_pctChng_PstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed)
+for(i in 1:n_pctFactryCostRed){
+  pct_factryCost_reduction <- pct_factryCost_reduction_vec[i]
+  CostPerQ_processing <- Cost_fdstkProcessing_MTfdstk_statQuo * (1 + pct_factryCost_reduction)
+  for(j in 1:n_pctFarmCostRed){
+    pct_farmCost_change <- pct_farmCost_change_vec[j]
+    in_mu_farmCost <- mu_farmCost_A_statQuo * (1 + pct_farmCost_change)
+    #--------------------------
+    mu_farmCost_A <- in_mu_farmCost
+    #--------------------------
+    # New feedstock price to pay in order to maintain Q_statQuo
+    P_feedstock_lcu_MT_new_QstatQuo <- P_supply(Q = Q_feedstock_MT_day_statQuo,
+                                           N = N_statQuo,
+                                           mu_A = mu_A_statQuo,
+                                           mu_farmCost_A,
+                                           cv_farmCost = cv_farmCost_statQuo,
+                                           l_credit = l_credit_statQuo)
+    P_feedstock_lcu_MT_new_QstatQuo
+    P_feedstock_lcu_MT_statQuo
     #--------
-    # New root price to pay in order to maintain Q_statusQuo
-    a <- 1 / 2 * sig2_1oh
-    b <- 1 - mu_1oh_surm
-    c <- log(N_root_statusQuo) + log(mu_fsize) + log(mu_yroot_h1_statusQuo) -
-      log(Q_root_MT_day_statusQuo)
-    lP_root_lcu_MT_new <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
-    P_root_lcu_MT_new <- exp(lP_root_lcu_MT_new)
-    #-
-    Cost_feedstock_MTstarch_new <- MTRootsPerMTStarch * P_root_lcu_MT_new
-    #Cost_ExclFeedstock_MT_new <- Cost_ExclFeedstock_MT_statusQuo * (1 + pct_cost_reduction)
-    Cost_lcu_day_new_QstatQuo <- (Cost_feedstock_MTstarch_new * 
-      Q_starch_MT_day_statusQuo + 
-      Cost_ExclFeedstock_MTstarch_statusQuo) * (1 + pct_cost_reduction)
-    NR_lcu_day_new_QstatQuo <- Revenue_lcu_day_statusQuo - Cost_lcu_day_new_QstatQuo
+    # New Factory daily NR at new P same Q
+    P_feedstock_lcu_Q <- P_feedstock_lcu_MT_new_QstatQuo
+    FactoryNR_lcu_day_new_QstatQuo <- FactoryNetRevenue(Q_feedstock = Q_feedstock_MT_day_statQuo,
+                                                   P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+                                                   fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+                                                   P_feedstock_lcu_Q,
+                                                   CostPerQ_processing)
+    FactoryNR_lcu_day_new_QstatQuo
+    FactoryNR_lcu_day_statQuo
+    FactoryNR_pctChng_QstatQuo <- 100 * (FactoryNR_lcu_day_new_QstatQuo - FactoryNR_lcu_day_statQuo) / FactoryNR_lcu_day_statQuo
+    FactoryNR_pctChng_QstatQuo
+    #--------------------------
+    # New quantity obtained if paying the same price P_statQuo
+    Q_feedstock_MT_day_new_PstatQuo <- Q_supply(P = P_feedstock_lcu_MT_statQuo,
+                               N = N_statQuo,
+                               mu_A = mu_A_statQuo,
+                               mu_farmCost_A,
+                               cv_farmCost = cv_farmCost_statQuo,
+                               l_credit = l_credit_statQuo)
+    Q_feedstock_MT_day_new_PstatQuo
+    Q_feedstock_MT_day_statQuo
     #--------
-    # New quantity obtained if paying the same price P_statusQuo
-    Q_root_MT_day_new <- N_root_statusQuo * mu_fsize * mu_yroot_h1_statusQuo * 
-      P_root_lcu_MT_statusQuo^(1 - in_mu_1oh) *
-      exp(1/2 * sig2_1oh * log(P_root_lcu_MT_statusQuo)^2)
-    #-
-    Q_starch_MT_day_new <- Q_root_MT_new / MTRootsPerMTStarch
-    Revenue_lcu_day_new_PstatQuo <- Q_starch_MT_day_new * P_starch_lcu_MT_statusQuo
-    Cost_lcu_day_new_PstatQuo <- (Cost_feedstock_MTstarch_statusQuo * 
-                                    Q_starch_MT_day_new + 
-                                    Cost_ExclFeedstock_MTstarch_statusQuo) * (1 + pct_cost_reduction)
-    NR_lcu_day_new_PstatQuo <- Revenue_lcu_day_new_PstatQuo - Cost_lcu_day_new_PstatQuo
-    NR_pctChng_PstatQuo <- 100 * (NR_lcu_day_new_PstatQuo - NR_lcu_day_statusQuo) / NR_lcu_day_statusQuo
+    # New Factory daily NR at new Q same P
+    Q_feedstock <- Q_feedstock_MT_day_new_PstatQuo
+    FactoryNR_lcu_day_new_PstatQuo <- FactoryNetRevenue(Q_feedstock,
+                                               P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+                                               fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+                                               P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo,
+                                               CostPerQ_processing)
+    FactoryNR_lcu_day_new_PstatQuo
+    FactoryNR_lcu_day_statQuo
+    FactoryNR_pctChng_PstatQuo <- 100 * (FactoryNR_lcu_day_new_PstatQuo - FactoryNR_lcu_day_statQuo) / FactoryNR_lcu_day_statQuo
+    FactoryNR_pctChng_PstatQuo
     #-----------
-    NR_pctChng_QstatQuo_mat[i, j] <- 
-    NR_pctChng_PstatQuo_mat[i, j] <- 
-    
-    NR_pctChng_PstatQuo_mat[i, j]
-    NR_new_mat[i, j] <- NR
-    NR_pctChng_mat[i, j] <- NR_pctChng
+    FactoryNRday_pctChng_QstatQuo_mat[i, j] <- FactoryNR_pctChng_QstatQuo
+    FactoryNRday_pctChng_PstatQuo_mat[i, j] <- FactoryNR_pctChng_PstatQuo
+    FactoryNRday_new_QstatQuo_mat[i, j] <- FactoryNR_lcu_day_new_QstatQuo
+    FactoryNRday_new_PstatQuo_mat[i, j] <- FactoryNR_lcu_day_new_PstatQuo
     #-----------
-    
-    Cost <- Q_starch_statusQuo_MT * Cost_starch_MT_new * (1 + pct_cost_reduction)
-    NR <- P_starch_lcu_MT * Q_starch_statusQuo_MT - Cost
-    NR_pctChng <- 100 * (NR - NR_statusQuo) / NR_statusQuo
-    NR_pctChng_Qconst <- 100 * (NR - NR_statusQuo) / NR_statusQuo
-    NR_pctChng_Qconst_mat[i, j] <- NR_pctChng_Qconst
   }
 }
+#-----------------
+xtick_labs <- -pct_factryCost_reduction_vec * 100
+ytick_labs <- pct_farmCost_change_vec * 100
+#-----------------
+inMat <- FactoryNRday_pctChng_QstatQuo_mat
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plot.surface(surface, type = "C",
+             xlab = "Pct factory cost reduction",
+             ylab = "Pct farm cost increase", col = cm.colors(25))
+title(main = "Pct Change in Factory Net Revenue \nholding feedstock quantity constant",
+            cex.main = 1)
+#-----------------
+inMat <- FactoryNRday_pctChng_PstatQuo_mat
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plot.surface(surface, type = "C",
+             xlab = "Pct factory cost reduction",
+             ylab = "Pct farm cost increase", col = cm.colors(25))
+title(main = "Pct Change in Factory Net Revenue \nholding feedstock price constant",
+      cex.main = 1)
 
-image(NR_pctChng_Qconst_mat)
-image.plot(NR_pctChng_mat, col = cm.colors(64, alpha = 1), axes = F)
-contour(NR_mat, lwd = 2, labcex = 1, add = T)
 
-df_NR <- as.data.frame(NR_pctChng_Qconst_mat)
-colnames(df_NR) <- as.character(pct_h_reduction_vec)
+
+
+
+
+
+
+
+
+
+
+
+
+# image.plot(FactoryNRday_pctChng_PstatQuo_mat, col = cm.colors(64, alpha = 1), axes = T)
+# contour(inMat, lwd = 2, labcex = 1, add = T)
+
+
+df_NR <- as.data.frame(inMat)
+colnames(df_NR) <- as.character(pct_farmCost_change_vec)
 gathercols <- colnames(df_NR)
-df_NR$`chng C` <- as.character(pct_cost_reduction_vec)
-df_NR <- df_NR %>% gather_("chng h", "chng NR", gathercols)
+df_NR$`Pct chng factory cost` <- as.character(pct_factryCost_reduction_vec)
+df_NR <- df_NR %>% gather_("Pct chng farm cost", "chng NR", gathercols)
 #-------
 df_plot <- df_NR
 df_plot %>% sapply(class)
-df_plot$`chng C` <- as.numeric(df_plot$`chng C`)
-df_plot$`chng h` <- as.numeric(df_plot$`chng h`)
+df_plot$`Pct chng factory cost` <- as.numeric(df_plot$`Pct chng factory cost`)
+df_plot$`Pct chng farm cost` <- as.numeric(df_plot$`Pct chng farm cost`)
 
 # gg <- ggplot(df_plot, aes(x = `chng C`, y = `chng h`, z = `chng NR`))
 # gg <- gg + geom_contour()
 
 gg <- ggplot()
-gg <- gg + geom_raster(data = df_plot, aes(x = `chng C`, y = `chng h`, fill = `chng NR`), alpha = 0.7)
+gg <- gg + geom_raster(data = df_plot, aes(x = `Pct chng factory cost`, y = `Pct chng farm cost`, fill = `chng NR`), alpha = 0.7)
 gg <- gg + scale_fill_gradient(limits = range(df_plot$`chng NR`), high = 'purple', low = 'white')
 gg <- gg + labs(fill = "chng NR")
-gg <- gg + geom_contour(data = df_plot, aes(x = `chng C`, y = `chng h`, z = `chng NR`, color = ..level..))#, size = 1.5, binwidth = 0.3)
+gg <- gg + geom_contour(data = df_plot, aes(x = `Pct chng factory cost`, y = `Pct chng farm cost`, z = `chng NR`, color = ..level..))#, size = 1.5, binwidth = 0.3)
 gg <- gg + scale_color_gradient(limits = range(df_plot$`chng NR`), high = 'green', low = 'white')
 gg <- gg + labs(color = "chng NR")
 gg <- gg + theme_minimal()
