@@ -61,6 +61,7 @@ df_fruitAgg$commodity <- "Fruits"
 df_fruitAgg <- df_fruitAgg[, colnames(df)]
 df <- rbind(df, df_fruitAgg)
 #-----------------------------
+df <- subset(df, commodity != "Fruits & Veggies")
 #================================
 #--
 unique(df$scenario)
@@ -83,7 +84,7 @@ df_pctChng <- df_diff %>%
          `Pct Change (CC)` = fun(`Value CC`))
 df_pctChng$`PP Diff` <- df_pctChng$`Pct Change (CC)` - df_pctChng$`Pct Change (No CC)`
 
-
+unique(df_pctChng$commodity)
 
 #----Commodity groups plot----
 
@@ -186,8 +187,11 @@ grid.draw(grobTree(rectGrob(gp = gpar(fill = colorhex, lwd = 0)),
 
 
 
-df_table <- subset(df_plot, year %in% 2050)
-df_table <- df_table[, c(1, 5:7)]
+#df_table <- subset(df_plot, year %in% 2050)
+#df_table <- df_table[, c(1, 5:7)]
+df_table <- subset(df_plot, year %in% c(2030, 2040, 2050))
+df_table <- df_table[, c(1, 2, 7)]
+df_table <- df_table %>% spread(year, `PP Diff`)
 #colnames(df_table)[2:3] <- paste(colnames(df_table)[2:3], "2050" )
 df_table[, 2:ncol(df_table)] <- round(df_table[, 2:ncol(df_table)], 1)
 
@@ -198,13 +202,18 @@ write.table(df_table, file = "Yield PP Diff General.csv", row.names = FALSE, sep
 #this_country <- "SSA-Ivory Coast"
 this_country <- "SSA-Mali"
 this_group <- "CER"
+#this_group <- "PUL"
 #this_group <- "R&T"
 #this_group <- "F&V"
+#this_group <- "Fruits"
 #this_group <- "AllA"
 #this_group <- "COT"
 #this_group <- "CC Resilient Commodities"
 
-resilient_commodities <- c("R&T-Cassava", "R&T-Yams", "Fruits-Tropical Fruit", "Fruits-Plantain")
+resilient_commodities_IC <- c("R&T-Cassava", "R&T-Yams", "Fruits-Tropical Fruit", "Fruits-Plantain")
+resilient_commodities_Mali <- c("R&T-Sweet Potato", "R&T-Yams", "Fruits-Banana", "AMT-Beef")
+resilient_commodities <- resilient_commodities_Mali
+
 
 if(this_group == "CER"){this_group_label <- "Cereals"}
 if(this_group == "R&T"){this_group_label <- "Roots & Tubers"}
@@ -212,6 +221,9 @@ if(this_group == "F&V"){this_group_label <- "Fruits & Veggies"}
 if(this_group == "AllA"){this_group_label <- "Livestock"}
 if(this_group == "COT" & this_country == "SSA-Ivory Coast"){this_group_label <- "Cacao, other"}
 if(this_group == "COT" & this_country == "SSA-Mali"){this_group_label <- "Cotton, other"}
+if(this_group == "PUL"){this_group_label <- "Pulses"}
+if(this_group == "Fruits"){this_group_label <- "Fruits"}
+if(this_group == "Veggies"){this_group_label <- "Veggies"}
 if(this_group == "CC Resilient Commodities"){this_group_label <- this_group}
 
 
@@ -245,6 +257,15 @@ group_label <- paste0("`", this_group_label, "`")
 gg <- ggplot(df_plot, aes_string(x = "year", y = "`PP Diff`", color = group_label, group = group_label))
 gg <- gg + geom_line()
 gg
+
+
+df_table <- subset(df_plot, year %in% 2050)
+df_table <- df_table[, c(1, 5:7)]
+#colnames(df_table)[2:3] <- paste(colnames(df_table)[2:3], "2050" )
+df_table[, 2:ncol(df_table)] <- round(df_table[, 2:ncol(df_table)], 1)
+
+write.table(df_table, file = "Yield PP Diff Specific.csv", row.names = FALSE, sep = ",")
+
 
 #---------------Cereals plot
 if(this_group == "CER"){
@@ -307,8 +328,8 @@ grid.draw(grobTree(rectGrob(gp = gpar(fill = colorhex, lwd = 0)),
                      #widths = c(3, 3, 6),
                      layout_matrix = rbind(c(1, 2),
                                            c(3, 3)),
-                     #top = textGrob("Percentage Change in Cote d'Ivoire Yields Over 2018 Levels,\nPotentially Resilient Commodities",
-                     top = textGrob("Percentage Change in Cote d'Ivoire Yields Over 2018 Levels,\nCereals",
+                     top = textGrob("Percentage Change in Mali Yields Over 2018 Levels,\nPotentially Resilient Commodities",
+                     #top = textGrob("Percentage Change in Mali Yields Over 2018 Levels,\nCereals",
                                     x = 0.025, hjust = 0, y = 0, vjust = 0.3,
                                     gp = gpar(fontsize = 34, font = 11, col = "orange"))
                    )))
@@ -321,20 +342,11 @@ grid.draw(grobTree(rectGrob(gp = gpar(fill = colorhex, lwd = 0)),
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-df_table <- subset(df_plot, year %in% 2050)
-df_table <- df_table[, c(1, 5:7)]
+# df_table <- subset(df_plot, year %in% 2050)
+# df_table <- df_table[, c(1, 5:7)]
+df_table <- subset(df_plot, year %in% c(2030, 2040, 2050))
+df_table <- df_table[, c(1, 2, 7)]
+df_table <- df_table %>% spread(year, `PP Diff`)
 #colnames(df_table)[2:3] <- paste(colnames(df_table)[2:3], "2050" )
 df_table[, 2:ncol(df_table)] <- round(df_table[, 2:ncol(df_table)], 1)
 
@@ -361,8 +373,8 @@ gg
 commodity_groups_crops <- c("CER", "OLS", "OIL", "MLS", "COT", "R&T", "SGC", "PUL", "Fruits", "Veggies", "AllC")
 commodity_groups_cropsAnimals <- c("CER", "OLS", "OIL", "MLS", "SGR", "COT", "R&T", "SGC", "PUL", "Fruits", 
                                    "Veggies", "AMT", "AOT", "All")
-#this_country <- "SSA-Ivory Coast"
-this_country <- "SSA-Mali"
+this_country <- "SSA-Ivory Coast"
+#this_country <- "SSA-Mali"
 #this_param <- "Area"
 this_param <- "PerCapKCalC"
 if(this_param == "Area"){these_groups <- commodity_groups_crops}
@@ -429,8 +441,8 @@ write.table(df_table_out, file = "Shares CC and No CC General.csv", row.names = 
 #--Area and Kcal shares, specific commodities
 #this_country <- "SSA-Ivory Coast"
 this_country <- "SSA-Mali"
-this_group <- "CER"
-#this_group <- "R&T"
+#this_group <- "CER"
+this_group <- "R&T"
 #this_group <- "AllA"
 #this_group <- "F&V"
 #this_param <- "PerCapKCalC"
@@ -492,24 +504,26 @@ write.table(df_table_out, file = "Shares CC and No CC Specific.csv", row.names =
 
 #======================================
 #Trade
-#this_country <- "SSA-Ivory Coast"
-this_country <- "SSA-Mali"
-this_group <- "CER"
-#this_group <- "R&T"
+this_country <- "SSA-Ivory Coast"
+#this_country <- "SSA-Mali"
+#this_group <- "CER"
+this_group <- "R&T"
 #this_group <- "F&V"
 #this_group <- "COT"
 #this_group <- "AMT"
+#this_group <- "Fruits"
 
 if(this_group == "CER"){this_group_label <- "Cereals"}
 if(this_group == "R&T"){this_group_label <- "Roots & Tubers"}
 if(this_group == "F&V"){this_group_label <- "Fruits & Veggies"}
 if(this_group == "COT"){this_group_label <- "COT"}
 if(this_group == "AMT"){this_group_label <- "AMT"}
+if(this_group == "Fruits"){this_group_label <- "Fruits"}
 
 unique(df_diff$impactparameter)
 
-df_t <- subset(df_diff, impactparameter == "Net Trade Share of Demand" & region == this_country)
-#df_t <- subset(df_diff, impactparameter == "Net Trade" & region == this_country)
+#df_t <- subset(df_diff, impactparameter == "Net Trade Share of Demand" & region == this_country)
+df_t <- subset(df_diff, impactparameter == "Net Trade" & region == this_country)
 #df_t <- subset(df_diff, impactparameter == "Import" & region == this_country)
 #-
 u <- df_t$commodity
