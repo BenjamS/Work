@@ -1,0 +1,87 @@
+
+
+dir <- "//dapadfs/workspace_cluster_3/bid-cc-agricultural-sector/01-climate-data/monthly_data/Future/multimodel_mean/by_country/clim_chg_seasonal_stats_"
+
+country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
+
+this_country <- country_vec[1]
+this_country <- "Honduras"
+txtfile <- paste0(dir, this_country, ".txt")
+df <- read.table(txtfile, stringsAsFactors = F)
+colnames(df) <- df[1, ]
+df <- df[-1, ]
+df[, -c(1, 2)] <- apply(df[, -c(1, 2)], 2, as.numeric)
+#-------
+ind_prec <- which(df$Variable == "prec")
+ind_tmax <- which(df$Variable == "tmax")
+ind_tmin <- which(df$Variable == "tmin")
+#-------
+
+str1 <- "On average,"
+str_prec <- "rainfall is"
+str_tmax <- "maximum temperatures are"
+str_tmin <- "minimum temperatures are"
+str_inc <- "projected to increase across the country"
+str_dec <- "projected to decrease across the country"
+str_period <- "."
+str_during <- "during"
+str_and <- "and"
+str_while <- "while"
+str_djf <- "December-February"
+str_mam <- "March-May"
+str_jja <- "June-August"
+str_son <- "September-November"
+
+
+#-------
+
+str_var <- str_prec
+ind_thisvar <- ind_prec
+
+ind_pos <- which(df$Change[ind_thisvar] > 0)
+ind_neg <- which(df$Change[ind_thisvar] < 0)
+only_posOrNeg <- 0
+if(length(ind_pos) == 0 | length(ind_neg) == 0){
+  only_posOrNeg <- 1
+  if(length(ind_pos) == 0){
+    
+  }
+  if(length(ind_neg) == 0){
+    
+  }
+}
+if(only_posOrNeg == 0){
+  seas_pos <- df$Season[ind_pos]
+  seas_neg <- df$Season[ind_neg]
+  seas_vec_list <- list(seas_pos, seas_neg)
+  for(i in c(1:2)){
+    str_chng <- c(str_inc, str_dec)[i]
+    seas_vec <- seas_vec_list[[i]]
+    n_seas <- length(seas_vec)
+      if(n_seas > 1){
+        if(n_seas > 2){
+          seas_str <- paste(seas_vec[1:(n_seas - 1)], collapse = ", ")
+          seas_str <- paste(seas_str, ", and ", seas_vec[n_seas])
+          Sent <- paste(str1, str_var, str_chng, str_during, seas_str)
+        }else{
+          seas_str <- paste(seas_vec[1:(n_seas - 1)], collapse = "and ")
+          seas_str <- paste(seas_str, " and ", seas_vec[n_seas])
+          Sent <- paste(str1, str_var, str_chng, str_during, seas_str)
+        }
+      }
+  }
+
+}
+
+
+
+#-------
+
+# General intro splurb at region level
+"In assessing future climate impacts, this study utilized nine general
+circulation models (GCMs), selected for their strong performance in
+the Latin American and Caribbean (LAC) region. Overall, temperatures are predicted to increase by 1–4 °C across the
+LAC region, with the Caribbean and tropical South America
+projected to warm at higher rates than the more temperate areas of
+Mexico and the Southern Cone."
+
