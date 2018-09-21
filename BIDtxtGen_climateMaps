@@ -1,80 +1,105 @@
 
 
-dir <- "//dapadfs/workspace_cluster_3/bid-cc-agricultural-sector/01-climate-data/monthly_data/Future/multimodel_mean/by_country/clim_chg_seasonal_stats_"
+#dir <- "//dapadfs/workspace_cluster_3/bid-cc-agricultural-sector/01-climate-data/monthly_data/Future/multimodel_mean/by_country/clim_chg_seasonal_stats_"
+setwd("C:/Users/bensc/OneDrive/Documents/CIAT work") 
+
 
 country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
 
-this_country <- country_vec[1]
-this_country <- "Honduras"
-txtfile <- paste0(dir, this_country, ".txt")
+this_country <- country_vec[3]
+#this_country <- "Honduras"
+#txtfile <- paste0(dir, this_country, ".txt")
+txtfile <- paste0("clim_chg_seasonal_stats_", this_country, ".txt")
 df <- read.table(txtfile, stringsAsFactors = F)
 colnames(df) <- df[1, ]
 df <- df[-1, ]
 df[, -c(1, 2)] <- apply(df[, -c(1, 2)], 2, as.numeric)
+#--
+u <- df$Season
+df$Season[grep("djf", u)] <- "December-February"
+df$Season[grep("mam", u)] <- "March-May"
+df$Season[grep("jja", u)] <- "June-August"
+df$Season[grep("son", u)] <- "September-November"
 #-------
 ind_prec <- which(df$Variable == "prec")
 ind_tmax <- which(df$Variable == "tmax")
 ind_tmin <- which(df$Variable == "tmin")
+ind_var_list <- list(ind_prec, ind_tmax, ind_tmin)
 #-------
-
-str1 <- "On average,"
-str_prec <- "rainfall is"
-str_tmax <- "maximum temperatures are"
-str_tmin <- "minimum temperatures are"
+#str1 <- "On average,"
+str_prec <- "Rainfall is"
+str_tmax <- "Maximum temperatures are"
+str_tmin <- "Minimum temperatures are"
 str_inc <- "projected to increase across the country"
 str_dec <- "projected to decrease across the country"
 str_period <- "."
 str_during <- "during"
 str_and <- "and"
 str_while <- "while"
-str_djf <- "December-February"
-str_mam <- "March-May"
-str_jja <- "June-August"
-str_son <- "September-November"
+str_especially <- "especially"
 
+str_var_vec <- c(str_prec, str_tmax, str_tmin)
 
-#-------
-
-str_var <- str_prec
-ind_thisvar <- ind_prec
-
-ind_pos <- which(df$Change[ind_thisvar] > 0)
-ind_neg <- which(df$Change[ind_thisvar] < 0)
-only_posOrNeg <- 0
-if(length(ind_pos) == 0 | length(ind_neg) == 0){
-  only_posOrNeg <- 1
-  if(length(ind_pos) == 0){
-    
-  }
-  if(length(ind_neg) == 0){
-    
-  }
-}
-if(only_posOrNeg == 0){
-  seas_pos <- df$Season[ind_pos]
-  seas_neg <- df$Season[ind_neg]
-  seas_vec_list <- list(seas_pos, seas_neg)
-  for(i in c(1:2)){
-    str_chng <- c(str_inc, str_dec)[i]
-    seas_vec <- seas_vec_list[[i]]
-    n_seas <- length(seas_vec)
+#--------------
+outlist <- list()
+for(v in 1:3){
+  
+  #str_var <- str_prec
+  #ind_thisvar <- ind_prec
+  
+  str_var <- str_var_vec[v]
+  ind_thisvar <- ind_var_list[[v]]
+  df_thisvar <- df[ind_thisvar, ]
+  
+  ind_pos <- which(df_thisvar$Change > 0)
+  ind_neg <- which(df_thisvar$Change < 0)
+  only_posOrNeg <- 0
+  if(length(ind_pos) == 0 | length(ind_neg) == 0){only_posOrNeg <- 1}
+  #--------------
+  if(only_posOrNeg == 1){
+    only_pos <- 0; if(length(ind_pos) > 0){only_pos <- 1}
+    u <- df_thisvar$Change
+    if(only_pos == 1){
+      seas_str <- df_thisvar$Season[which(u == max(u))]
+      str_chng <- str_inc
+    }else{
+      seas_str <- df_thisvar$Season[which(u == min(u))]
+      str_chng <- str_dec
+    }
+    str1 <- paste(str_var, str_chng)
+    str1 <- paste0(str1, ",")
+    str2 <- paste0(seas_str, str_period)
+    Sent <- paste(str1, str_especially, str_during, str2)
+    Parag <- Sent
+    #--------------
+  }else{
+    seas_pos <- df_thisvar$Season[ind_pos]
+    seas_neg <- df_thisvar$Season[ind_neg]
+    Sent_vec <- c()
+    for(s in c(1:2)){
+      str_chng <- c(str_inc, str_dec)[s]
+      seas_vec <- list(seas_pos, seas_neg)[[s]]
+      n_seas <- length(seas_vec)
       if(n_seas > 1){
         if(n_seas > 2){
           seas_str <- paste(seas_vec[1:(n_seas - 1)], collapse = ", ")
-          seas_str <- paste(seas_str, ", and ", seas_vec[n_seas])
-          Sent <- paste(str1, str_var, str_chng, str_during, seas_str)
+          seas_str <- paste0(seas_str, ", and ", seas_vec[n_seas])
         }else{
-          seas_str <- paste(seas_vec[1:(n_seas - 1)], collapse = "and ")
-          seas_str <- paste(seas_str, " and ", seas_vec[n_seas])
-          Sent <- paste(str1, str_var, str_chng, str_during, seas_str)
+          seas_str <- paste(seas_vec, collapse = "and ")
         }
+      }else{
+        seas_str <- seas_vec
       }
+      Sent <- paste(str_var, str_chng, str_during, seas_str)
+      Sent_vec[s] <- Sent
+    }
+    Parag <- paste(Sent_vec, collapse = ". ")
+    Parag <- paste0(Parag, ".")
   }
-
+outlist[[v]] <- Parag
 }
 
-
-
+outlist
 #-------
 
 # General intro splurb at region level
