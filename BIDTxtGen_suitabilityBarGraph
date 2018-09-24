@@ -1,0 +1,20 @@
+dir <- "//dapadfs/workspace_cluster_3/bid-cc-agricultural-sector/11-EcoCrop_runs/impacts/"
+outdir <- "D:/OneDrive - CGIAR/Documents/BID country briefs/"
+infile <- paste0(dir, "summary_table_countries.csv")
+outfile <- paste0(outdir, "suitabilityBargraphsTxt.txt")
+
+country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
+countryCode_vec <- c("COL", "PER", "URY", "CRI", "MEX", "PAN")
+
+df <- read.csv(infile, stringsAsFactors = F)
+df <- subset(df, !(Crop %in% c("coffea_arabica", "coffea_robusta")))
+
+
+for(i in 1:length(country_vec)){
+  this_country <- country_vec[i]
+  this_countryCode <- countryCode_vec[i]
+  df_thisCountry <- subset(df, Region == this_countryCode)
+  Suitability_chng <- round(100 * (df_thisCountry$Future.area..km2. - df_thisCountry$Current.area..km2.) / df_thisCountry$Current.area..km2., 2)
+  
+  
+}
