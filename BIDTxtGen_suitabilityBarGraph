@@ -1,3 +1,4 @@
+library("stringr")
 dir <- "//dapadfs/workspace_cluster_3/bid-cc-agricultural-sector/11-EcoCrop_runs/impacts/"
 outdir <- "D:/OneDrive - CGIAR/Documents/BID country briefs/"
 infile <- paste0(dir, "summary_table_countries.csv")
@@ -10,11 +11,74 @@ df <- read.csv(infile, stringsAsFactors = F)
 df <- subset(df, !(Crop %in% c("coffea_arabica", "coffea_robusta")))
 
 
+
+#-------------------
+str_SuitArea <- "Suitable area for "
+str_inc <- " cultivation is projected to increase by "
+str_dec <- " cultivation is projected to decrease by "
+str_chng_vec <- c(str_inc, str_dec)
+#str_subst <- " substantially"
+str_and <- " and"
+str_resp <- ", respectively"
+#-------------------
+
+commify_wordlist <- function(word_vec){
+  n_words <- length(word_vec)
+  if(n_words > 1){
+    if(n_words > 2){
+      xx <- paste(word_vec[1:(n_words - 1)], collapse = ", ")
+      outstr <- paste0(xx, ", and ", word_vec[n_words])  
+    }else{
+      outstr <- paste(word_vec, collapse = " and ")
+    }
+  }else{
+    outstr <- word_vec
+  }
+  return(outstr)
+}
+#-------------------
+signifThresh <- 8
+sentveci <- c()
 for(i in 1:length(country_vec)){
   this_country <- country_vec[i]
   this_countryCode <- countryCode_vec[i]
   df_thisCountry <- subset(df, Region == this_countryCode)
-  Suitability_chng <- round(100 * (df_thisCountry$Future.area..km2. - df_thisCountry$Current.area..km2.) / df_thisCountry$Current.area..km2., 2)
-  
+  #these_crops <- df_thisCountry$Crop
+  suitChng <- round(100 * (df_thisCountry$Future.area..km2. - df_thisCountry$Current.area..km2.) / df_thisCountry$Current.area..km2., 1)
+  absSuitChng <- abs(suitChng)
+  # ind_chng <- which(absSuitChng >= 8 & absSuitChng < 20)
+  # ind_substantialChng <- which(absSuitChng >= 20)
+  ind_signifChng_pos <- which(suitChng > 0 & absSuitChng >= signifThresh)
+  ind_signifChng_neg <- which(suitChng < 0 & absSuitChng >= signifThresh)
+  ind_list <- list(ind_signifChng_pos, ind_signifChng_neg)
+  sentvecj <- c()
+  t <- 0
+  for(j in 1:2){
+    indvec <- ind_list[[j]]
+    if(length(indvec) != 0){
+      str_chng <- str_chng_vec[j]
+      these_crops <- df_thisCountry$Crop[indvec]
+      chngs <- paste0(absSuitChng[indvec], "%")
+      str_crops <- commify_wordlist(these_crops)
+      str_chngs <- commify_wordlist(chngs)
+      n_crops <- length(these_crops)
+      sent <- ifelse(n_crops > 1,
+                      paste0(str_SuitArea, str_crops, str_chng, str_chngs, ", respectively."),
+                     paste0(str_SuitArea, str_crops, str_chng, str_chngs, "."))
+      t <- t + 1
+      sentvecj[t] <- sent
+    }
+    
+  }  
+sentveci[i] <- paste(sentvecj, collapse = " ")
   
 }
+
+sentvec <- paste(country_vec, sentveci, collapse = " ")
+sentvec
+sentveci
+
+#General splurb
+"Crop suitability is determined by projected temperature and rainfall
+data, independent of crop profitability, deforestation and other drivers
+of management change."
