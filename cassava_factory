@@ -108,18 +108,77 @@ P_supply <- function(Q, N, mu_A, mu_farmCost_A, k, cv_farmCost, l_credit = 0){
   return(P)
 }
 FactoryNetRevenue <- function(Q_feedstock, P_output_lcu_Qoutput, fdstkToOutput_efficiency,
-                              P_feedstock_lcu_Q, CostPerQ_processing){
+                              P_feedstock_lcu_Q, beta){
   Revenue <- Q_feedstock / fdstkToOutput_efficiency * P_output_lcu_Qoutput
-  Cost <- Q_feedstock * (P_feedstock_lcu_Q + CostPerQ_processing)
+  Cost_feedstock <- Q_feedstock * P_feedstock_lcu_Q
+  Cost_processing <- Q_feedstock * Q_feedstock^beta
+  Cost <-  Cost_feedstock + Cost_processing
   NR <- Revenue - Cost
   return(NR)
 }
 
+FactoryNRstar <- function(Q_feedstock, P_output_lcu_Qoutput,
+                              P_feedstock_lcu_Q, beta, mu_Cq, cv_Cq, k){
+  s2_Cq <- (cv_Cq * mu_Cq)^2
+  eta_QP <- (mu_Cq - k) / P - s2_Cq / P^2
+  Cost_feedstock <- Q_feedstock * P_feedstock_lcu_Q
+  Cost_processing <- Q_feedstock * Q_feedstock^beta
+  NRstar <- Cost_feedstock / eta_QP - Cost_processing * (1 - beta)
+  return(NRstar)
+}
+
+# FactoryQstar <- function(NR_targ, P_output_lcu_Qoutput,
+#                           P_feedstock_lcu_Q, beta){
+#   s2_Cq <- (cv_Cq * mu_Cq)^2
+#   eta_QP <- (mu_Cq - k) / P - s2_Cq / P^2
+#   Cost_processing <- Q_feedstock^beta
+#   Qstar <- eta_QP / P_feedstock_lcu_Q * (NR_targ + Cost_processing * (1 - beta))
+#   return(Qstar)
+# }
+
+FactoryStar <- function(P_output_lcu_Qoutput, P_feedstock_lcu_Q,
+                         fdstkToOutput_efficiency, beta, mu_Cq, cv_Cq, k){
+  sig2_Cq <- (mu_Cq * cv_Cq)^2
+  eta_QP <- (mu_Cq - k) / P_feedstock_lcu_Q - sig2_Cq / P_feedstock_lcu_Q^2
+  term <- (P_output_lcu_Qoutput * fdstkToOutput_efficiency - P_feedstock_lcu_Q * (1 - 1 / eta_QP))
+  Qstar <- (term / (1 + beta))^(1 / beta)
+  Revenue <- Qstar * P_output_lcu_Qoutput * fdstkToOutput_efficiency
+  Cost_feedstock <- Qstar * P_feedstock_lcu_Q
+  Cost_processing_perunit_feedstock <- Qstar^beta
+  Cost_processing <- Qstar * Cost_processing_perunit_feedstock
+  Cost <- Cost_feedstock + Cost_processing
+  NRstar <- Revenue - Cost
+  outvec <- c(Qstar, NRstar)
+  return(outvec)
+}
+
+# P_fdstk_vec <- seq(0, 6000, 1)
+# Qstar_vec <- c()
+# NRstar_vec <- c()
+# for(i in 1:length(P_fdstk_vec)){
+#   P_fdstk <- P_fdstk_vec[i]
+#   outFactoryStar <- FactoryStar(P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+#                                 P_feedstock_lcu_Q = P_fdstk,
+#                                 fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+#                                 beta = beta_statQuo,
+#                                 mu_Cq = mu_Cq_statQuo,
+#                                 cv_Cq = cv_Cq_statQuo,
+#                                 k = k_statQuo)
+#   Qstar_vec[i] <- outFactoryStar[1]
+#   NRstar_vec[i] <- outFactoryStar[2]
+#   
+# }
+# df_plot <- data.frame(Qstar = Qstar_vec, NRstar = NRstar_vec, P = P_fdstk_vec)
+# gg <- ggplot(df_plot, aes(x = Qstar, y = NRstar)) + geom_line()
+# gg
+
+
 #-------------
-cv_farmCost_statQuo <- 0.15
-N_statQuo <- 700
+# Farm population parameters
+cv_Cq_statQuo <- 0.15
+N0_statQuo <- 700
 mu_A_statQuo <- 10
-mu_farmCost_A_statQuo <- 1100
+mu_Cq_statQuo <- 1100
 k_statQuo <- 4300
 l_credit_statQuo <- 0
 #-------------
@@ -129,7 +188,7 @@ mu_farmCost_surmise_vec <- c(500, 1100, 1700, 2300)
 #-------------
 in_param_vec <- mu_farmCost_surmise_vec
 cv_farmCost <- cv_farmCost_statQuo
-N <- N_statQuo
+N <- N0_statQuo
 mu_A <- mu_A_statQuo
 l_credit <- l_credit_statQuo
 list_Q <- list()
@@ -155,6 +214,7 @@ gg <- gg + geom_point(aes(x = P_root_lcu_MT_statQuo, y = Q_root_MT_day_statQuo),
 gg <- gg + coord_cartesian(ylim = c(0, 7100))
 gg
 #======================================
+# Factory parameters
 Q_chip_MT_statQuo <- 350
 MTRootsPerMTStarch <- 1 / 3.05
 #N_chip_statQuo <- Q_chip_MT_statQuo / (convert_root_chip * mode_yield * mode_fsize)
@@ -165,7 +225,8 @@ P_starch_lcu_MT_statQuo <- 14000
 MTRootsPerMTStarch_statQuo <- 4.21
 Q_starch_MT_day_statQuo <- Q_root_MT_day_statQuo / MTRootsPerMTStarch
 Cost_rootProcessing_MTroot_statQuo <- 13500 / MTRootsPerMTStarch_statQuo - P_root_lcu_MT_statQuo
-Cost_rootProcessing_MTstarch_statQuo <- MTRootsPerMTStarch_statQuo * Cost_rootProcessing_MTroot_statQuo
+#Cost_rootProcessing_MTstarch_statQuo <- MTRootsPerMTStarch_statQuo * Cost_rootProcessing_MTroot_statQuo
+beta_statQuo <- log(Cost_rootProcessing_MTroot_statQuo) / log(Q_root_MT_day_statQuo)
 #======================================
 fdstkToOutput_efficiency_statQuo <- MTRootsPerMTStarch_statQuo
 #--
@@ -183,13 +244,29 @@ FactoryNR_lcu_day_statQuo <- FactoryNetRevenue(Q_feedstock = Q_feedstock_MT_day_
                                                P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
                                                fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
                                                P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo,
-                                               CostPerQ_processing = Cost_fdstkProcessing_MTfdstk_statQuo)
+                                               beta = beta_statQuo)
 FactoryNR_lcu_day_statQuo
-#190 * (P_starch_lcu_MT_statQuo - 13500)
+Q_feedstock_MT_day_statQuo / fdstkToOutput_efficiency_statQuo * (P_starch_lcu_MT_statQuo - 13500)
 #Revenue <- Q_feedstock_MT_day_statQuo / fdstkToOutput_efficiency_statQuo * P_output_lcu_MToutput_statQuo
 # Revenue <- Q_feedstock_MT_day_statQuo * P_output_lcu_MTfdstk_statQuo
 # Cost <- Q_feedstock_MT_day_statQuo * (P_feedstock_lcu_MT_statQuo + Cost_fdstkProcessing_MTfdstk_statQuo)
 # NR_day <- Revenue - Cost
+
+FactoryNRstar_lcu_day_statQuo <- FactoryNRstar(Q_feedstock = Q_feedstock_MT_day_statQuo,
+                                               P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+                                               P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo,
+                                               beta = beta_statQuo,
+                                               mu_Cq = mu_Cq_statQuo,
+                                               cv_Cq = cv_Cq_statQuo,
+                                               k = k_statQuo)
+FactoryNRstar_lcu_day_statQuo
+
+Qstar_statQuo <- FactoryQstar(P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+                          P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo, 
+                          fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo, 
+                          beta = beta_statQuo)
+Qstar_statQuo
+
 #====================================
 pct_factryCost_reduction_vec <- -seq(0.01, 0.2, 0.01)
 pct_farmCost_change_vec <- seq(0.01, 0.2, 0.01)
@@ -201,22 +278,31 @@ FactoryNRday_new_PstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed
 FactoryNRday_pctChng_QstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed)
 FactoryNRday_pctChng_PstatQuo_mat <- matrix(NA, n_pctFactryCostRed, n_pctFarmCostRed)
 for(i in 1:n_pctFactryCostRed){
-  pct_factryCost_reduction <- pct_factryCost_reduction_vec[i]
-  CostPerQ_processing <- Cost_fdstkProcessing_MTfdstk_statQuo * (1 + pct_factryCost_reduction)
+  #pct_factryCost_reduction <- pct_factryCost_reduction_vec[i]
+  #CostPerQ_processing <- Cost_fdstkProcessing_MTfdstk_statQuo * (1 + pct_factryCost_reduction)
+  pp_reduc <- pct_factryCost_reduction_vec[i]
+  beta <- beta_statusQuo + pp_reduc
   for(j in 1:n_pctFarmCostRed){
     pct_farmCost_change <- pct_farmCost_change_vec[j]
-    in_mu_farmCost <- mu_farmCost_A_statQuo * (1 + pct_farmCost_change)
     #--------------------------
-    mu_farmCost_A <- in_mu_farmCost
+    mu_Cq_new <- mu_Cq_statQuo * (1 + pct_farmCost_change)
     #--------------------------
     # New feedstock price to pay in order to maintain Q_statQuo
-    P_feedstock_lcu_MT_new_QstatQuo <- P_supply(Q = Q_feedstock_MT_day_statQuo,
-                                                N = N_statQuo,
-                                                mu_A = mu_A_statQuo,
-                                                mu_farmCost_A,
-                                                k = k_statQuo,
-                                                cv_farmCost = cv_farmCost_statQuo,
-                                                l_credit = l_credit_statQuo)
+    # P_feedstock_lcu_MT_new_QstatQuo <- P_supply(Q = Q_feedstock_MT_day_statQuo,
+    #                                             N = N0_statQuo,
+    #                                             mu_A = mu_A_statQuo,
+    #                                             mu_farmCost_A,
+    #                                             k = k_statQuo,
+    #                                             cv_farmCost = cv_farmCost_statQuo,
+    #                                             l_credit = l_credit_statQuo)
+    # New optimal factory feedstock quantity given change in farm productivity
+    Qstar_new <- FactoryQstar(P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
+                          P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo, 
+                          fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo, 
+                          beta = beta_statQuo,
+                          mu_Cq = mu_Cq_new,
+                          cv_Cq = cv_farmCost_statQuo, 
+                          k = k_statQuo)
     P_feedstock_lcu_MT_new_QstatQuo
     P_feedstock_lcu_MT_statQuo
     #--------
@@ -234,7 +320,7 @@ for(i in 1:n_pctFactryCostRed){
     #--------------------------
     # New quantity obtained if paying the same price P_statQuo
     Q_feedstock_MT_day_new_PstatQuo <- Q_supply(P = P_feedstock_lcu_MT_statQuo,
-                                                N = N_statQuo,
+                                                N = N0_statQuo,
                                                 mu_A = mu_A_statQuo,
                                                 mu_farmCost_A,
                                                 k = k_statQuo,
