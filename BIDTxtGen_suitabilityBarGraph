@@ -6,12 +6,51 @@ outfile <- paste0(outdir, "suitabilityBargraphsTxt.txt")
 
 country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
 countryCode_vec <- c("COL", "PER", "URY", "CRI", "MEX", "PAN")
-
 df <- read.csv(infile, stringsAsFactors = F)
 df <- subset(df, !(Crop %in% c("coffea_arabica", "coffea_robusta")))
+df <- df[, c(2, 3, 6, 7)]
+u <- df$Region
+for(i in 1:length(country_vec)){
+  df$Region[grep(countryCode_vec[i], u)] <- country_vec[i]
+}
+rm(u)
+df <- subset(df, Region %in% country_vec)
+colnames(df)[3:4] <- c("Current", "Future")
+#-----------------
+dir_coffee <- "C:/Users/bschiek/Dropbox/BID 2.0 - Foresight Briefs/Analytics/Bunn_Analysis/"
+coffeeType <- c("arabica", "robusta")
+coffeeWhen <- c("current", "future")
+df_list_out <- list()
+for(i in 1:2){
+  this_type <- coffeeType[i]
+  df_list <- list()
+  for(j in 1:2){
+    this_when <- coffeeWhen[j]
+    this_coffee_file <- paste0(dir_coffee, "regional_", this_type, this_when, ".csv")
+    indf <- read.csv(this_coffee_file, stringsAsFactors = F)
+    indf <- indf[, c(2, ncol(indf))]
+    if(i == 1){cnames <- colnames(indf)}
+    colnames(indf) <- cnames
+    indf$type <- this_type
+    indf$when <- this_when
+    df_list[[j]] <- indf
+    
+  }
+  df_list_out[[i]] <- do.call(rbind, df_list)
+  }
+df_coffee <- do.call(rbind, df_list_out)
+df_coffee <- df_coffee %>% spread(when, SUM)
+colnames(df_coffee) <- c("Region", "Crop", "Current", "Future")
+df_coffee$Crop <- paste(df_coffee$Crop, "coffee")
+# u <- df_coffee$Crop
+# df_coffee$Crop[grep("arabica", u)] <- "arabica coffee"
+# df_coffee$Crop[grep("robusta", u)] <- "robusta coffee"
+# rm(u)
+df_coffee <- df_coffee[, c(2, 1, 3, 4)]
 
-
-
+#write.csv(df_coffee, paste0(dir_coffee, "coffeeSuitability_all.csv"))
+#-------------------
+df <- rbind(df, df_coffee)
 #-------------------
 str_SuitArea <- "Suitable area for "
 str_inc <- " cultivation is projected to increase by "
@@ -40,12 +79,13 @@ commify_wordlist <- function(word_vec){
 signifThresh <- 8
 sentveci <- c()
 for(i in 1:length(country_vec)){
+  #i=6
   this_country <- country_vec[i]
-  this_countryCode <- countryCode_vec[i]
-  df_thisCountry <- subset(df, Region == this_countryCode)
+  df_thisCountry <- subset(df, Region == this_country)
   #these_crops <- df_thisCountry$Crop
-  suitChng <- round(100 * (df_thisCountry$Future.area..km2. - df_thisCountry$Current.area..km2.) / df_thisCountry$Current.area..km2., 1)
+  suitChng <- round(100 * (df_thisCountry$Future - df_thisCountry$Current) / df_thisCountry$Current, 1)
   absSuitChng <- abs(suitChng)
+  df_thisCountry$suitChng <- suitChng
   # ind_chng <- which(absSuitChng >= 8 & absSuitChng < 20)
   # ind_substantialChng <- which(absSuitChng >= 20)
   ind_signifChng_pos <- which(suitChng > 0 & absSuitChng >= signifThresh)
