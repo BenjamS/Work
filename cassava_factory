@@ -3,9 +3,9 @@ library(tidyr)
 library(fields)
 #-------------
 # Thai Cassava farm survey
-# setwd("D:/OneDrive - CGIAR/Documents")
-# df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+setwd("D:/OneDrive - CGIAR/Documents")
+df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+#df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
 colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
@@ -49,6 +49,8 @@ gg <- ggplot(df, aes(x = `Yield (ton/rai) 1 ha = 6.25 rai`,
                      y = `Surface occupied by cassava (rai)`))
 gg <- gg + geom_point()
 gg
+cor(df$`Surface occupied by cassava (rai)`, df$`Yield (ton/rai) 1 ha = 6.25 rai`)
+
 df$`Surface occupied by cassava (rai)`
 hist(df$`N (kg/rai)`)
 hist(df$`P (kg/rai)`)
@@ -84,13 +86,7 @@ sum(df$`Farm size (ha)`)
 # # Therefore, assuming lognormal distribution
 # s2_lyroot_h1_statQuo <- 2 * (log(mu_yroot_h1_statQuo) - m_lyroot_h1_statQuo)
 # s2_lyroot_h1_statQuo
-#-------------
-Q_root_MT_day_statQuo <- 800
-P_root_lcu_MT_statQuo <- 2500
-P_chip_lcu_MT_statQuo <- 8000
-P_starch_lcu_MT_statQuo <- 14000
-MTRootsPerMTStarch <- 4.21
-#-------------
+#====================================
 # Supply function
 Q_supply <- function(P, N0, mu_A, mu_Cq, k, cv_Cq, l_credit = 0){
   x <- (1 - l_credit) / P
@@ -118,7 +114,7 @@ FactoryNetRevenue <- function(Q_feedstock, P_output_lcu_Qoutput, fdstkToOutput_e
 }
 
 Qstar <- function(P_output_lcu_Qoutput, P_feedstock_lcu_Q,
-                        fdstkToOutput_efficiency, beta, mu_Cq, cv_Cq, k){
+                  fdstkToOutput_efficiency, beta, mu_Cq, cv_Cq, k){
   sig2_Cq <- (mu_Cq * cv_Cq)^2
   eta_QP <- (mu_Cq + k) / P_feedstock_lcu_Q - sig2_Cq / P_feedstock_lcu_Q^2
   term <- (P_output_lcu_Qoutput / fdstkToOutput_efficiency - P_feedstock_lcu_Q * (1 + 1 / eta_QP))
@@ -127,12 +123,91 @@ Qstar <- function(P_output_lcu_Qoutput, P_feedstock_lcu_Q,
 }
 #======================================
 # Farm population parameters
-cv_Cq_statQuo <- 0.15
-N0_statQuo <- 700
-mu_A_statQuo <- 10
-mu_Cq_statQuo <- 1100
-k_statQuo <- 4300
+#--Area
+mu_A_statQuo <- mu_fsize
+m_A_statQuo <- m_lfsize
+cv_lA_statQuo <- cv_lfsize
+s2_A_statQuo <- s2_lfsize
+mu_A_statQuo - exp(m_A_statQuo + s2_A_statQuo / 2)
+#--Yield
+#mu_y_statQuo <- mu_yield
+#s2_y_statQuo <- s2_lyield
+#cv_ly_statQuo <- cv_lyield
+m_y_statQuo <- m_lyield * 0.95
+cv_ly_statQuo <- 0.3
+s2_y_statQuo <- m_y_statQuo^2 * cv_ly_statQuo^2
+mu_y_statQuo <- exp(m_y_statQuo + s2_y_statQuo / 2)
+mu_y_statQuo
+#--Yield ceiling surmise
+m_yCeil_statQuo <- m_y_statQuo * 1.05
+cv_lyCeil_statQuo <- cv_ly_statQuo
+s2_yCeil_statQuo <- cv_lyCeil_statQuo^2 * m_yCeil_statQuo^2
+mu_yCeil_statQuo <- exp(m_yCeil_statQuo + s2_yCeil_statQuo / 2)
+mu_yCeil_statQuo
+# mu_yCeil_statQuo <- 30
+# cv_lyCeil_statQuo <- cv_ly_statQuo
+# a <- cv_lyCeil_statQuo^2 / 2
+# b <- 1
+# c <- -log(mu_yCeil_statQuo)
+# m_yCeil_statQuo <- exp((-b + sqrt(b^2 - 4 * a * c)) / (2 * a))
+# s2_yCeil_statQuo <- cv_lyCeil_statQuo^2 * m_yCeil_statQuo^2
+# mu_yCeil_statQuo - exp(m_yCeil_statQuo + s2_yCeil_statQuo / 2)
+#--Derived cost per unit output
+#======================================
+P <- 2500
+#======================================
+mu_Cq_statQuo <- P * (m_yCeil_statQuo - m_y_statQuo)
+cv_Cq_statQuo <- 0.02
+# term <- log(mu_y_statQuo) - m_yCeil_statQuo + mu_Cq_statQuo / P
+# cv2_Cq_statQuo <- (2 * term - s2_yCeil_statQuo) * P^2 / mu_Cq_statQuo^2
+# cv_Cq_statQuo <- sqrt(cv2_Cq_statQuo)
+# cv_Cq_statQuo
+sig2_Cq_statQuo <- mu_Cq_statQuo^2 * cv_Cq_statQuo^2
+#--Derived production
+m_q_statQuo <- m_A_statQuo + m_yCeil_statQuo - mu_Cq_statQuo / P
+cv_lq_statQuo <- 0.2
+s2_q_statQuo <- m_q_statQuo^2 * cv_lq_statQuo^2
+mu_q_statQuo <- exp(m_q_statQuo + s2_q_statQuo / 2)
+mu_q_statQuo
+mu_q_statQuo / mu_y_statQuo
+#======================================
+# Price of credit
 l_credit_statQuo <- 0
+#======================================
+# Graph the density
+qstarvec <- seq(1, 200, 1)
+x <- qstarvec
+m_x <- m_q_statQuo
+s2_x <- s2_q_statQuo
+pdens_q <- 1 / (x * sqrt(2 * pi * s2_x)) * exp(-(log(x) - m_x)^2 / (2 * s2_x))
+Cqvec <- seq(1, 4000, 1)
+m_x <- mu_Cq_statQuo
+s2_x <- sig2_Cq_statQuo
+pdens_lq <- 1 / (x * sqrt(2 * pi * s2_x)) * exp(-(log(x) - m_x)^2 / (2 * s2_x))
+
+df_plot <- data.frame(q = qstarvec, pq = pdens_q)
+
+gg <- ggplot(df_plot, aes(x = q, y = p)) +geom_line()
+gg
+
+
+
+Cq_max <- 4000; Cq_min <- 200
+A_max <- 50; A_min <- 0.1
+yCeil_max <- 38; yCeil_min <- 10
+Cq_vec <- seq(Cq_min, Cq_max, 10)
+n <- length(Cq_vec)
+A_step <- (A_max - A_min) / (n - 1)
+A_vec <- seq(A_min, A_max, A_step)
+yCeil_step <- (yCeil_max - yCeil_min) / (n - 1)
+yCeil_vec <- seq(yCeil_min, yCeil_max, yCeil_step)
+
+
+
+
+
+
+
 #======================================
 # Factory parameters
 Q_chip_MT_statQuo <- 350
@@ -185,12 +260,12 @@ NRstar_vec <- c()
 for(i in 1:length(P_fdstk_vec)){
   P_fdstk <- P_fdstk_vec[i]
   outQstar <- Qstar(P_output_lcu_Qoutput = 15000, #P_output_lcu_MToutput_statQuo,
-                                P_feedstock_lcu_Q = P_fdstk,
-                                fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
-                                beta = 0.98,#beta_statQuo,
-                                mu_Cq = mu_Cq_statQuo,
-                                cv_Cq = cv_Cq_statQuo,
-                                k = 10000)#k_statQuo)
+                    P_feedstock_lcu_Q = P_fdstk,
+                    fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+                    beta = 0.98,#beta_statQuo,
+                    mu_Cq = mu_Cq_statQuo,
+                    cv_Cq = cv_Cq_statQuo,
+                    k = 10000)#k_statQuo)
   Qstar_vec[i] <- outQstar[1]
   NRstar_vec[i] <- outQstar[2]
   
@@ -204,13 +279,13 @@ gg
 P_feedstock_lcu_MT_statQuo <- 2304
 
 outQstar <- Qstar(P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
-                              P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo,
-                              fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
-                              alpha = alpha_statQuo,
-                              beta = beta_statQuo,
-                              mu_Cq = mu_Cq_statQuo,
-                              cv_Cq = cv_Cq_statQuo,
-                              k = k_statQuo)
+                  P_feedstock_lcu_Q = P_feedstock_lcu_MT_statQuo,
+                  fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+                  alpha = alpha_statQuo,
+                  beta = beta_statQuo,
+                  mu_Cq = mu_Cq_statQuo,
+                  cv_Cq = cv_Cq_statQuo,
+                  k = k_statQuo)
 NRstar_statQuo <- outQstar[[2]]
 NRstar_statQuo
 class(NRstar_statQuo)
@@ -266,13 +341,13 @@ for(j in 1:last_j){
                          l_credit = 0)
     #list_QSup[[i]] <- QSup_vec
     outQstar <- Qstar(P_output_lcu_Qoutput = P_output_lcu_MToutput_statQuo,
-                                  P_feedstock_lcu_Q = Pvec_lcu_MT,
-                                  fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
-                                  alpha = alpha_statQuo,
-                                  beta = this_beta,
-                                  mu_Cq = this_mu_Cq,
-                                  cv_Cq = cv_Cq_statQuo,
-                                  k = k_statQuo)
+                      P_feedstock_lcu_Q = Pvec_lcu_MT,
+                      fdstkToOutput_efficiency = fdstkToOutput_efficiency_statQuo,
+                      alpha = alpha_statQuo,
+                      beta = this_beta,
+                      mu_Cq = this_mu_Cq,
+                      cv_Cq = cv_Cq_statQuo,
+                      k = k_statQuo)
     QDem_vec <- outQstar[[1]]
     NRstar_vec <- outQstar[[2]]
     #list_QDem[[i]] <- QDem_vec
