@@ -3,9 +3,9 @@ library(tidyr)
 library(fields)
 #-------------
 # Thai Cassava farm survey
-setwd("D:/OneDrive - CGIAR/Documents")
-df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-#df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+# setwd("D:/OneDrive - CGIAR/Documents")
+# df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
 colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
@@ -17,7 +17,8 @@ df_supplement <- df[97:144, ]
 df <- df[-c(96:nrow(df)), ]
 df[, -1] <- as.data.frame(apply(df[, -1], 2, as.numeric))
 #--
-df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
+#df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
+df$`Farm size (ha)` <- df$`Surface occupied by cassava (rai)` / 6.25
 df$`l(Farm size (ha))` <- log(df$`Farm size (ha)`)
 hist(df$`Farm size (ha)`)
 hist(df$`l(Farm size (ha))`)
@@ -43,55 +44,43 @@ sig_yield_sample <- sd(df$`Yield (ton/ha)`, na.rm = T)
 mode_yield <- exp(m_lyield - s2_lyield)
 cv_yield_sample <- sig_yield_sample / mu_yield_sample
 #--
-df$`pct. cass cult` <- df$`Surface occupied by cassava (rai)` / df$`Farm size (rai)`
-hist(df$`pct. cass cult`)
-gg <- ggplot(df, aes(x = `Yield (ton/rai) 1 ha = 6.25 rai`,
-                     y = `Surface occupied by cassava (rai)`))
-gg <- gg + geom_point()
-gg
-cor(df$`Surface occupied by cassava (rai)`, df$`Yield (ton/rai) 1 ha = 6.25 rai`)
-
-df$`Surface occupied by cassava (rai)`
-hist(df$`N (kg/rai)`)
-hist(df$`P (kg/rai)`)
-hist(df$`K (kg/rai)`)
-hist(df$`Chicken manure (ton/rai)`)
-length(which(df$`Chicken manure (ton/rai)` > 0))
-nrow(df)
-median(df$`Chicken manure (ton/rai)`)
+# df$`pct. cass cult` <- df$`Surface occupied by cassava (rai)` / df$`Farm size (rai)`
+# hist(df$`pct. cass cult`)
+# gg <- ggplot(df, aes(x = `Yield (ton/rai) 1 ha = 6.25 rai`,
+#                      y = `Surface occupied by cassava (rai)`))
+# gg <- gg + geom_point()
+# gg
+# cor(df$`Surface occupied by cassava (rai)`, df$`Yield (ton/rai) 1 ha = 6.25 rai`)
+# 
+# df$`Surface occupied by cassava (rai)`
+# hist(df$`N (kg/rai)`)
+# hist(df$`P (kg/rai)`)
+# hist(df$`K (kg/rai)`)
+# hist(df$`Chicken manure (ton/rai)`)
+# length(which(df$`Chicken manure (ton/rai)` > 0))
+# nrow(df)
+# median(df$`Chicken manure (ton/rai)`)
 #-------------
-
-sum(df$`Surface occupied by cassava (rai)`) / sum(df$`Farm size (rai)`)
-df$`Surface occupied by cassava (ha)` <- df$`Surface occupied by cassava (rai)` / 6.25
-sum(df$`Surface occupied by cassava (ha)`)
-sum(df$`Farm size (ha)`)
+# sum(df$`Surface occupied by cassava (rai)`) / sum(df$`Farm size (rai)`)
+# df$`Surface occupied by cassava (ha)` <- df$`Surface occupied by cassava (rai)` / 6.25
+# sum(df$`Surface occupied by cassava (ha)`)
+# sum(df$`Farm size (ha)`)
 #-------------
 # Deduce number of producers (factory suppliers) from above info
 # N_root_statQuo <- Q_root_MT_day_statQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
-#-------------
-# Deduce sig2_h1 (root and chip)
-# h_surmise <- 0.9
-# cv_1oh_surm <- 0.2
-# mu_1oh_surm <- 1 / h_surmise
-# sig2_1oh_surm <- (mu_1oh_surm * cv_1oh_surm)^2
-# m_lyroot_h1_statQuo <- m_lyield + (mu_1oh_surm - 1) * log(P_root_lcu_MT_statQuo)
-# m_lyroot_h1_statQuo
-# mu_yroot_h1_statQuo <- Q_root_MT_day_statQuo / (N_root_statQuo * mu_fsize) *
-#   P_root_lcu_MT_statQuo^(mu_1oh_surm - 1) * 
-#   exp(-sig2_1oh_surm * log(P_root_lcu_MT_statQuo)^2 / 2)
-# mu_yroot_h1_statQuo
-# # Check (log(mu_y_h1) has to be > m_ly_h1!)
-# log(mu_yroot_h1_statQuo) - m_lyroot_h1_statQuo
-# #For just m_lyroot_h1_statQuo:
-# # Therefore, assuming lognormal distribution
-# s2_lyroot_h1_statQuo <- 2 * (log(mu_yroot_h1_statQuo) - m_lyroot_h1_statQuo)
-# s2_lyroot_h1_statQuo
 #====================================
 # Supply function
-Q_supply <- function(P, N0, mu_A, mu_Cq, k, cv_Cq, l_credit = 0){
+Q_supply <- function(P, n0, m_A, s2_A, yCeil, mu_Cq, cv_Cq, qStar_breakEven, l_credit = 0){
+  sig2_Cq <- (mu_Cq * cv_Cq)^2
+  m_qStar <- m_A + log(yCeil) - mu_Cq / P
+  s_qStar <- sqrt(s2_A + sig2_Cq / P^2)
+  d <- (log(qStar_breakEven) - m_qStar) / s_qStar
+  N <- pnorm(d)
+  Participation <- 1 - N
   x <- (1 - l_credit) / P
-  Q <- N * mu_A * exp(-x * (mu_Cq + k) + 
-                        (x * mu_Cq * cv_Cq)^2 / 2)
+  mu_A <- exp(m_A + s2_A / 2)
+  Q <- n0 * mu_A * yCeil * exp(-x * mu_Cq + 
+                        (x * mu_Cq * cv_Cq)^2 / 2) * Participation
   return(Q)
 }
 P_supply <- function(Q, N0, mu_A, mu_Cq, k, cv_Cq, l_credit = 0){
@@ -128,82 +117,177 @@ mu_A_statQuo <- mu_fsize
 m_A_statQuo <- m_lfsize
 cv_lA_statQuo <- cv_lfsize
 s2_A_statQuo <- s2_lfsize
+#check
 mu_A_statQuo - exp(m_A_statQuo + s2_A_statQuo / 2)
 #--Yield
-#mu_y_statQuo <- mu_yield
-#s2_y_statQuo <- s2_lyield
-#cv_ly_statQuo <- cv_lyield
-m_y_statQuo <- m_lyield * 0.95
-cv_ly_statQuo <- 0.3
-s2_y_statQuo <- m_y_statQuo^2 * cv_ly_statQuo^2
-mu_y_statQuo <- exp(m_y_statQuo + s2_y_statQuo / 2)
+mu_y_statQuo <- mu_yield
+m_y_statQuo <- m_lyield
+s2_y_statQuo <- s2_lyield
+cv_ly_statQuo <- cv_lyield
+#check
+mu_y_statQuo - exp(m_y_statQuo + s2_y_statQuo / 2)
 mu_y_statQuo
 #--Yield ceiling surmise
-m_yCeil_statQuo <- m_y_statQuo * 1.05
-cv_lyCeil_statQuo <- cv_ly_statQuo
-s2_yCeil_statQuo <- cv_lyCeil_statQuo^2 * m_yCeil_statQuo^2
-mu_yCeil_statQuo <- exp(m_yCeil_statQuo + s2_yCeil_statQuo / 2)
-mu_yCeil_statQuo
-# mu_yCeil_statQuo <- 30
-# cv_lyCeil_statQuo <- cv_ly_statQuo
-# a <- cv_lyCeil_statQuo^2 / 2
-# b <- 1
-# c <- -log(mu_yCeil_statQuo)
-# m_yCeil_statQuo <- exp((-b + sqrt(b^2 - 4 * a * c)) / (2 * a))
-# s2_yCeil_statQuo <- cv_lyCeil_statQuo^2 * m_yCeil_statQuo^2
-# mu_yCeil_statQuo - exp(m_yCeil_statQuo + s2_yCeil_statQuo / 2)
+q <- quantile(df$`Yield (ton/ha)`, probs = 0.98)
+ind <- which(df$`Yield (ton/ha)` > q)
+#View(df[ind, ])
+yCeil_statQuo <- 1.05 * as.numeric(q)
+yCeil_statQuo
 #--Derived cost per unit output
-#======================================
+#-------------------------------------
 P <- 2500
-#======================================
-mu_Cq_statQuo <- P * (m_yCeil_statQuo - m_y_statQuo)
-cv_Cq_statQuo <- 0.02
-# term <- log(mu_y_statQuo) - m_yCeil_statQuo + mu_Cq_statQuo / P
-# cv2_Cq_statQuo <- (2 * term - s2_yCeil_statQuo) * P^2 / mu_Cq_statQuo^2
-# cv_Cq_statQuo <- sqrt(cv2_Cq_statQuo)
-# cv_Cq_statQuo
+#-------------------------------------
+mu_Cq_statQuo <- P * (log(yCeil_statQuo) - m_y_statQuo)
+mu_Cq_statQuo
+cv_Cq_statQuo <- 0.2
 sig2_Cq_statQuo <- mu_Cq_statQuo^2 * cv_Cq_statQuo^2
-#--Derived production
-m_q_statQuo <- m_A_statQuo + m_yCeil_statQuo - mu_Cq_statQuo / P
-cv_lq_statQuo <- 0.2
-s2_q_statQuo <- m_q_statQuo^2 * cv_lq_statQuo^2
-mu_q_statQuo <- exp(m_q_statQuo + s2_q_statQuo / 2)
-mu_q_statQuo
-mu_q_statQuo / mu_y_statQuo
+# Cq <- P * (log(yCeil_statQuo) - df$`l(Yield (ton/ha))`)
+# hist(Cq)
+# View(df[which(Cq < 0),])
+# cor(Cq, df$`l(Farm size (ha))`)
+# plot(Cq, df$`l(Farm size (ha))`)
+#--Producer participation in market
+abslyieldGap_vec <- abs(log(yCeil_statQuo) - log(yStar_vec) - 1)
+abslyieldGap_min <- min(abslyieldGap_vec)
+ind_breakEven <- which(abslyieldGap_vec == abslyieldGap_min)
+abslyieldGap_vec[ind_breakEven]
+yStar_breakEven <- yStar_vec[ind_breakEven]
+yStar_breakEven
+
+df$qStar <- df$`Farm size (ha)` * df$`Yield (ton/ha)`
+m_qStar_statQuo <- mean(df$lqStar)
+s2_qStar_statQuo <- sd(df$lqStar)
+df$qStar_check <- df$`Farm size (ha)` * yCeil_statQuo * exp(-Cq / P)
+plot(df$qStar, df$qStar_check)
+mean(df$qStar - df$qStar_check)
+df$lqStar <- log(df$qStar)
+hist(log(df$qStar))
+plot(df$`l(Farm size (ha))`, log(df$qStar))
+plot(df$`l(Yield (ton/ha))`, log(df$qStar))
+Diff <- df$lqStar - df$`l(Farm size (ha))` - log(yCeil_statQuo) + 1
+AbsDiff <- abs(Diff)
+plot(df$lqStar, (df$`l(Farm size (ha))` - log(yCeil_statQuo) + 1))
+minAbsDiff <- min(AbsDiff)
+ind_qStar_breakEven <- which(AbsDiff == minAbsDiff)
+qStar_breakEven <- df$qStar[ind_qStar_breakEven]
+qStar_breakEven
+#--
+qStar_min <- 1
+qStar_max <- as.numeric(quantile(df$qStar, 0.98))
+n <- 100
+interval <- (qStar_max - qStar_min) / (n - 1)
+qStar_vec <- seq(qStar_min, qStar_max, interval)
+n - length(qStar_vec) #check
+x <- qStar_vec
+m_x <- m_qStar_statQuo
+s2_x <- s2_qStar_statQuo
+s_x <- sqrt(s2_x)
+cv_x <-s_x / m_x
+cv_x
+pdens_qStar <- dlnorm(x, m_x, s2_x)
+#--
+qStar_graphMin <- 0
+df_plot <- data.frame(qStar = qStar_vec, pdens_qStar)
+# gg <- ggplot(df_plot, aes(x = qStar, y = pdens_qStar)) + geom_line()
+# gg <- gg + geom_vline(xintercept = qStar_breakEven)
+# gg <- gg + coord_cartesian(xlim = c(12, qStar_max))
+gg <- ggplot(df_plot, aes(qStar))
+gg <- gg + stat_function(fun = dlnorm, 
+                         args = list(mean = m_x, sd = s_x),
+                         xlim = c(qStar_graphMin, qStar_max),
+                         size = 1,
+                         color = "gray")
+gg <- gg + stat_function(fun = dlnorm, 
+                         args = list(mean = m_x, sd = s_x),
+                         xlim = c(qStar_breakEven, qStar_max),
+                         geom = "area",
+                         fill = "blue",
+                         alpha = 0.4)
+gg <- gg + stat_function(fun = dlnorm, 
+                         args = list(mean = m_x, sd = s_x),
+                         xlim = c(qStar_graphMin, qStar_breakEven),
+                         geom = "area",
+                         fill = "orange",
+                         alpha = 0.4)
+gg <- gg + theme(axis.title = element_blank(),
+                 #axis.text = element_blank(),
+                 axis.ticks = element_blank(),
+                 axis.text.y = element_blank())
+
+gg
+
+
+P = 2500
+n0 = n0_statQuo
+m_A = m_A_statQuo
+s2_A = s2_A_statQuo
+yCeil = yCeil_statQuo
+mu_Cq = mu_Cq_statQuo 
+cv_Cq = cv_Cq_statQuo
+qStar_breakEven = qStar_breakEven
+l_credit = 0
+
+
+sig2_Cq <- (mu_Cq * cv_Cq)^2
+m_qStar <- m_A + log(yCeil) - mu_Cq / P
+s_qStar <- sqrt(s2_A + sig2_Cq / P^2)
+d <- (log(qStar_breakEven) - m_qStar) / s_qStar
+N <- pnorm(d)
+Participation <- 1 - N
+x <- (1 - l_credit) / P
+mu_A <- exp(m_A + s2_A / 2)
+Q <- n0 * mu_A * yCeil * exp(-x * mu_Cq + 
+                               (x * mu_Cq * cv_Cq)^2 / 2) * Participation
+
+
 #======================================
 # Price of credit
 l_credit_statQuo <- 0
 #======================================
-# Graph the density
-qstarvec <- seq(1, 200, 1)
-x <- qstarvec
-m_x <- m_q_statQuo
-s2_x <- s2_q_statQuo
-pdens_q <- 1 / (x * sqrt(2 * pi * s2_x)) * exp(-(log(x) - m_x)^2 / (2 * s2_x))
-Cqvec <- seq(1, 4000, 1)
-m_x <- mu_Cq_statQuo
-s2_x <- sig2_Cq_statQuo
-pdens_lq <- 1 / (x * sqrt(2 * pi * s2_x)) * exp(-(log(x) - m_x)^2 / (2 * s2_x))
+n0_statQuo <- 40
 
-df_plot <- data.frame(q = qstarvec, pq = pdens_q)
-
-gg <- ggplot(df_plot, aes(x = q, y = p)) +geom_line()
+P_vec <- seq(10, 34000, 10)
+Q_vec <- Q_supply(P = P_vec,
+         n0 = n0_statQuo,
+         m_A = m_A_statQuo,
+         s2_A = s2_A_statQuo,
+         yCeil = yCeil_statQuo,
+         mu_Cq = mu_Cq_statQuo, 
+         cv_Cq = cv_Cq_statQuo,
+         qStar_breakEven = qStar_breakEven,
+         l_credit = 0)
+  
+df_plot <- data.frame(Q = Q_vec, P = P_vec)
+gg <- ggplot(df_plot, aes(P, Q)) + geom_point()
+gg <- gg + coord_cartesian(ylim = c(0, 19000))
 gg
 
 
 
-Cq_max <- 4000; Cq_min <- 200
-A_max <- 50; A_min <- 0.1
-yCeil_max <- 38; yCeil_min <- 10
-Cq_vec <- seq(Cq_min, Cq_max, 10)
-n <- length(Cq_vec)
-A_step <- (A_max - A_min) / (n - 1)
-A_vec <- seq(A_min, A_max, A_step)
-yCeil_step <- (yCeil_max - yCeil_min) / (n - 1)
-yCeil_vec <- seq(yCeil_min, yCeil_max, yCeil_step)
 
-
-
+df_QS <- as.data.frame(do.call(cbind, list_QSup))
+df_QD <- as.data.frame(do.call(cbind, list_QDem))
+df_QS$Type <- "Supply"
+df_QD$Type <- "Demand"
+df_Q <- rbind(df_QS, df_QD)
+colnames(df_Q)[1:length(mu_Cq_change_vec)] <- as.character(mu_Cq_change_vec)
+gathercols <- colnames(df_Q)[1:length(mu_Cq_change_vec)]
+# colnames(df_Q)[1:length(cv_surmise_vec)] <- as.character(cv_surmise_vec)
+# gathercols <- colnames(df_Q)[1:length(cv_surmise_vec)]
+df_Q$`P (lcu/MT)` <- Pvec_lcu_MT
+#df_Q <- df_Q %>% gather_("CV", "Q (MT)", gathercols)
+df_Q <- df_Q %>% gather_("Mean Farm Cost (lcu/MT root)", "Q (MT)", gathercols)
+#-------------
+df_plot <- df_Q
+gg <- ggplot()
+gg <- gg + geom_point(data = df_plot, aes(x = `P (lcu/MT)`, y = `Q (MT)`, 
+                                          group = `Mean Farm Cost (lcu/MT root)`,
+                                          color = `Mean Farm Cost (lcu/MT root)`))
+# group = CV,
+# color = CV))
+gg <- gg + geom_point(aes(x = P_equilib_vec, y = Q_equilib_vec), color="blue", size = 4)
+gg <- gg + coord_cartesian(ylim = c(0, 1900))
+gg
 
 
 
@@ -429,30 +513,6 @@ title(main = "Pct Change in Factory Net Revenue \nholding feedstock price consta
 
 
 #---
-df_QS <- as.data.frame(do.call(cbind, list_QSup))
-df_QD <- as.data.frame(do.call(cbind, list_QDem))
-df_QS$Type <- "Supply"
-df_QD$Type <- "Demand"
-df_Q <- rbind(df_QS, df_QD)
-colnames(df_Q)[1:length(mu_Cq_change_vec)] <- as.character(mu_Cq_change_vec)
-gathercols <- colnames(df_Q)[1:length(mu_Cq_change_vec)]
-# colnames(df_Q)[1:length(cv_surmise_vec)] <- as.character(cv_surmise_vec)
-# gathercols <- colnames(df_Q)[1:length(cv_surmise_vec)]
-df_Q$`P (lcu/MT)` <- Pvec_lcu_MT
-#df_Q <- df_Q %>% gather_("CV", "Q (MT)", gathercols)
-df_Q <- df_Q %>% gather_("Mean Farm Cost (lcu/MT root)", "Q (MT)", gathercols)
-#-------------
-df_plot <- df_Q
-gg <- ggplot()
-gg <- gg + geom_point(data = df_plot, aes(x = `P (lcu/MT)`, y = `Q (MT)`, 
-                                          group = `Mean Farm Cost (lcu/MT root)`,
-                                          color = `Mean Farm Cost (lcu/MT root)`))
-# group = CV,
-# color = CV))
-gg <- gg + geom_point(aes(x = P_equilib_vec, y = Q_equilib_vec), color="blue", size = 4)
-gg <- gg + coord_cartesian(ylim = c(0, 1900))
-gg
-
 
 #====================================
 pct_factryCost_reduction_vec <- -seq(0.01, 0.2, 0.01)
