@@ -1,0 +1,218 @@
+library(stringr)
+library(tidyr)
+library(raster)
+
+dir <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/YieldsWeight/Test/"
+outdir <- "D:/OneDrive - CGIAR/Documents/BID country briefs/"
+outfile <- paste0(outdir, "yieldBargraphsTxt.txt")
+#====================================================
+dataF <- list.files(path = dir,pattern= ".csv",full.names = T)
+dataF <- lapply(dataF, read.csv, stringsAsFactors = F)
+dataF <- do.call(rbind, dataF)
+cfiles <- dataF %>% spread("year", "Area_Wgtd_Mean")
+
+cfiles[,"ymean"] <- apply(cfiles[, 5:ncol(cfiles)], 1, mean)
+cfiles <- cfiles[,c("crop", "FPU", "sys", "sce","ymean")]
+cfiles <- cfiles %>% spread(sce, ymean)
+cfiles[,"meanGCM"] <- apply(cfiles[, 4:12], 1, mean)
+cfiles <- cfiles[,c("crop","FPU","sys","WFD","meanGCM")]
+
+cfiles$change <- 100 * (cfiles$meanGCM - cfiles$WFD) / cfiles$WFD
+cfiles$change[which(is.na(cfiles$change))] <- 0
+cfiles <- cfiles[!(cfiles$change == 0),]
+
+# define a function to remove outliers
+FindOutliers <- function(data) {
+  lowerq = quantile(data)[2]
+  upperq = quantile(data)[4]
+  iqr = upperq - lowerq 
+  #Or use IQR(data)
+  # we identify extreme outliers
+  extreme.threshold.upper = (iqr * 3) + upperq
+  extreme.threshold.lower = lowerq - (iqr * 3)
+  result <- which(data > extreme.threshold.upper | data < extreme.threshold.lower)
+}
+
+
+# use the function to identify outliers
+temp <- FindOutliers(cfiles$change)
+cfOut <- cfiles[temp,]
+cfilesNEt <- cfiles[-temp,]
+cfilesNEt$sys<- plyr::revalue(cfilesNEt$sys, c("IRRI"="Irrigated","RA"="Rainfed"))
+#
+map <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/Shape_files/"
+alc <- shapefile(paste0(map,"Latino_America1.shp"))
+fpuMaps <- shapefile(paste0(map,"FPU_Latinoamerica.shp"))
+#Map_LatinAmerica1<- fortify(alc)
+cfpuData <- (fpuMaps@data); cfpuData<- cfpuData[,c("New_FPU", "Region_Nam")]
+#cfpeCen<-  (fpuMaps@data); cfpeCen<- cfpeCen[,c("New_FPU", "Region_BID")]
+colnames(cfpuData) <- c("FPU", "Country")
+#
+cfilesJoin <- left_join(cfilesNEt, cfpuData, by = ("FPU"))
+#====================================================
+
+df <- cfilesJoin
+crop_vec <- unique(df$crop)
+country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
+df <- subset(df, Country %in% country_vec)
+n_crops <- length(crop_vec)
+df$crop <- tolower(df$crop)
+df$sys <- tolower(df$sys)
+#-------------------
+str_inc <- "Yield is projected to increase for "
+str_dec <- "Yield is projected to decrease for "
+str_chng_vec <- c(str_inc, str_dec)
+#str_subst <- " substantially"
+str_by <- " by "
+str_and <- " and"
+str_resp <- ", respectively"
+#-------------------
+
+commify_wordlist <- function(word_vec){
+  n_words <- length(word_vec)
+  if(n_words > 1){
+    if(n_words > 2){
+      xx <- paste(word_vec[1:(n_words - 1)], collapse = ", ")
+      outstr <- paste0(xx, ", and ", word_vec[n_words])  
+    }else{
+      outstr <- paste(word_vec, collapse = " and ")
+    }
+  }else{
+    outstr <- word_vec
+  }
+  return(outstr)
+}
+#-------------------
+signifThresh <- 8
+sentveci <- c()
+for(i in 1:length(country_vec)){
+  #i=5
+  this_country <- country_vec[i]
+  df_thisCountry <- subset(df, Country == this_country)
+  #these_crops <- df_thisCountry$Crop
+  yieldChng <- round(df_thisCountry$change, 1)
+  absyieldChng <- abs(yieldChng)
+  ind_signifChng_pos <- which(yieldChng > 0 & absyieldChng >= signifThresh)
+  ind_signifChng_neg <- which(yieldChng < 0 & absyieldChng >= signifThresh)
+  ind_list <- list(ind_signifChng_pos, ind_signifChng_neg)
+  sentvecj <- c()
+  t <- 0
+  for(j in 1:2){
+    indvec <- ind_list[[j]]
+    if(length(indvec) != 0){
+      str_chng <- str_chng_vec[j]
+      these_crops <- paste(df_thisCountry$sys[indvec], df_thisCountry$crop[indvec])
+      chngs <- paste0(absyieldChng[indvec], "%")
+      str_crops <- commify_wordlist(these_crops)
+      str_chngs <- commify_wordlist(chngs)
+      n_crops <- length(these_crops)
+      sent <- ifelse(n_crops > 1,
+                     paste0(str_chng, str_crops, str_by, str_chngs, ", respectively."),
+                     paste0(str_chng, str_crops, str_by, str_chngs, "."))
+      t <- t + 1
+      sentvecj[t] <- sent
+    }
+    
+  }  
+  sentveci[i] <- paste(sentvecj, collapse = " ")
+  
+}
+
+sentvec <- paste(country_vec, sentveci, collapse = " ")
+sentvec
+sentveci
+
+#General splurb
+"Five crops were modeled for yield change for the Latin America
+and Caribbean region in this study: bean, maize, rice, wheat
+and soybean."
+
+# "Across the CEN region, results for a ‘no adaptation’
+# scenario project declines in irrigated and rainfed maize yield of roughly
+# 23% and 27%, respectively, and declines in irrigated and rainfed bean
+# yield of 14% and 22%, respectively"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fname <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/ResultsIMPACT/AggregationBID/Phase2/V2_allRegions.csv"
+
+md <- read.csv(fname, stringsAsFactors = F)
+
+mdsub<-subset(md,md$impactparameter=="QSXAgg -- Total Production" | 
+                md$impactparameter=="TAreaXAgg -- Total Area" |
+                md$impactparameter== "QNXAgg -- Net Trade" | 
+                md$impactparameter== "QDXAgg -- Total Demand" |
+                md$impactparameter=="TYldXAgg -- Total Yield")
+
+mdsub$impactparameter<- as.character(mdsub$impactparameter)
+mdsub$scenario<- as.character(mdsub$scenario)
+mdsub$commodity<- as.character(mdsub$commodity)
+mdsub$region<- as.character(mdsub$region)
+mdsub$productiontype<- as.character(mdsub$productiontype)
+
+mdsub$impactparameter<-revalue(mdsub$impactparameter, c("QDXAgg -- Total Demand"="Total Demand",
+                                                        "QNXAgg -- Net Trade"="Net Trade",
+                                                        "QSXAgg -- Total Production"="Total Production",
+                                                        "TAreaXAgg -- Total Area"="Total Area",
+                                                        "TYldXAgg -- Total Yield"="Total Yield"))
+
+#Hacer un subconjunto que sólo contenga los cinco cultivos analizados
+mdsubcrop<-subset(mdsub,mdsub$commodity=="jbean"| mdsub$commodity=="jmaiz" |
+                    mdsub$commodity=="jrice" | mdsub$commodity=="cs" |
+                    mdsub$commodity=="jwhea" | mdsub$commodity=="cbean" |
+                    mdsub$commodity=="cmaiz" | mdsub$commodity=="crice" |
+                    mdsub$commodity=="js" | mdsub$commodity=="cwhea")
+
+
+alc<- mdsubcrop[grep(pattern = "LAC-",x = mdsubcrop$region, ignore.case = T),]
+alc$region<-  gsub("^LAC-", "",alc$region)
+
+#reshape
+mdwide<- alc %>% spread(year, Val)
+mdwide$commodity<- revalue(mdwide$commodity, c("cbean"= "Bean",
+                                               "cmaiz"="Maize",
+                                               "crice"="Rice",
+                                               "cs"="Soybean",
+                                               "cwhea"="Wheat",
+                                               "jbean"="Bean",
+                                               "jmaiz"="Maize",
+                                               "jrice"="Rice",
+                                               "js"="Soybean",
+                                               "jwhea"="Wheat"))
+
+mdwide<-data.frame(mdwide,"Cat"=ifelse(mdwide$scenario=="NoCC","NoCC","CC"))
+
+rend_all<- mdwide[,-c(6:20)]
+rend_all$Percentage_Change<-((rend_all$X2050-rend_all$X2020)/rend_all$X2020)*100
+#write.csv(rend_all,paste(grd, "Data.csv", sep = ""))
+
+#Mediana de los cambios porcentuales por categorias.
+anal_datag<- aggregate(rend_all[,"Percentage_Change"],
+                       by=list(rend_all$region,rend_all$impactparameter,
+                               rend_all$commodity,rend_all$Cat),
+                       FUN=median)
+colnames(anal_datag)<- c("Region", "Parameter", "Crop", "Sce", "Val")
+anal_datag$Sce<- as.character(anal_datag$Sce)
+# write.csv(anal_datag,paste(grd, "DataMedian.csv", sep = ""))
+# write.csv(anal_datag,paste(grd, "NolabelsDataMedian.csv", sep = ""))
+
+# croput<- c("Soya", "Trigo") ### Cultivos para eliminar 
+# anal_datag<- anal_datag %>% dplyr::filter(.,!Crop %in% croput)
+
+################################ Graficos de IMPACT model ###############################
+
+pl<-NULL
+# i=1
+pots<- unique(anal_datag$Region)
+
