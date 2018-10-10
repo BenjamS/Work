@@ -1,0 +1,285 @@
+library(plyr)
+library(dplyr)
+#dir <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/BID2version/"
+setwd("//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/ResultsIMPACT/AggregationBID")
+
+################################ Cargando datos ######################################
+
+#Cargar marco de datos principal
+md <- read.csv("Phase2/V2_allRegions.csv", header = T, stringsAsFactors = F)
+
+
+#Hacer un subconjunto que sólo contenga las variables de mi interés
+mdsub<-subset(md,md$impactparameter=="QSXAgg -- Total Production" | 
+                md$impactparameter=="TAreaXAgg -- Total Area" |
+                md$impactparameter== "QNXAgg -- Net Trade" | 
+                md$impactparameter== "QDXAgg -- Total Demand" |
+                md$impactparameter=="TYldXAgg -- Total Yield")
+
+mdsub$impactparameter<- as.character(mdsub$impactparameter)
+mdsub$scenario<- as.character(mdsub$scenario)
+mdsub$commodity<- as.character(mdsub$commodity)
+mdsub$region<- as.character(mdsub$region)
+mdsub$productiontype<- as.character(mdsub$productiontype)
+
+mdsub$impactparameter<-revalue(mdsub$impactparameter, c("QDXAgg -- Total Demand"="Total Demand",
+                                                        "QNXAgg -- Net Trade"="Net Trade",
+                                                        "QSXAgg -- Total Production"="Total Production",
+                                                        "TAreaXAgg -- Total Area"="Total Area",
+                                                        "TYldXAgg -- Total Yield"="Total Yield"))
+
+#Hacer un subconjunto que sólo contenga los cinco cultivos analizados
+mdsubcrop<-subset(mdsub,mdsub$commodity=="jbean"| mdsub$commodity=="jmaiz" |
+                    mdsub$commodity=="jrice" | mdsub$commodity=="cs" |
+                    mdsub$commodity=="jwhea" | mdsub$commodity=="cbean" |
+                    mdsub$commodity=="cmaiz" | mdsub$commodity=="crice" |
+                    mdsub$commodity=="js" | mdsub$commodity=="cwhea")
+
+
+alc<- mdsubcrop[grep(pattern = "LAC-",x = mdsubcrop$region, ignore.case = T),]
+alc$region<-  gsub("^LAC-", "",alc$region)
+
+#reshape
+mdwide<- alc %>% spread(year, Val)
+mdwide$commodity<- revalue(mdwide$commodity, c("cbean"= "Bean",
+                                               "cmaiz"="Maize",
+                                               "crice"="Rice",
+                                               "cs"="Soybean",
+                                               "cwhea"="Wheat",
+                                               "jbean"="Bean",
+                                               "jmaiz"="Maize",
+                                               "jrice"="Rice",
+                                               "js"="Soybean",
+                                               "jwhea"="Wheat"))
+
+mdwide<-data.frame(mdwide,"Cat"=ifelse(mdwide$scenario=="NoCC","NoCC","CC"))
+
+rend_all<- mdwide[,-c(6:20)]
+rend_all$Percentage_Change<-((rend_all$X2050-rend_all$X2020)/rend_all$X2020)*100
+#write.csv(rend_all,paste(grd, "Data.csv", sep = ""))
+
+#Mediana de los cambios porcentuales por categorias.
+anal_datag<- aggregate(rend_all[,"Percentage_Change"],
+                       by=list(rend_all$region,rend_all$impactparameter,
+                               rend_all$commodity,rend_all$Cat),
+                       FUN=median)
+colnames(anal_datag)<- c("Region", "Parameter", "Crop", "Sce", "Val")
+anal_datag$Sce<- as.character(anal_datag$Sce)
+# write.csv(anal_datag,paste(grd, "DataMedian.csv", sep = ""))
+# write.csv(anal_datag,paste(grd, "NolabelsDataMedian.csv", sep = ""))
+
+# croput<- c("Soya", "Trigo") ### Cultivos para eliminar 
+# anal_datag<- anal_datag %>% dplyr::filter(.,!Crop %in% croput)
+################################ Graficos de IMPACT model ###############################
+#======================================
+# df for net trade
+df_NT <- subset(rend_all, impactparameter == "Net Trade")
+colnames(df_NT)
+df_NT <- df_NT[, c("Cat", "commodity", "region", "X2020", "X2050")]
+colnames(df_NT)[c(4, 5)] <- c("2020", "2050")
+df_NT <- df_NT %>% gather(Year, Value, `2020`:`2050`)
+df_NT <- df_NT %>% group_by(region, commodity, Year, Cat) %>% summarise_all(funs(mean))
+df_NT <- df_NT %>% spread(Year, Value)
+df_NT$Chng <- df_NT$`2050` - df_NT$`2020`
+df_NT$PctChng <- 100 * (df_NT$`2050` - df_NT$`2020`) / df_NT$`2020` * sign(df_NT$`2050`)
+df_NT_CC <- subset(df_NT, Cat == "CC")
+df_NT_CC$Cat <- NULL
+colnames(df_NT_CC)[3:6] <- paste(colnames(df_NT_CC)[3:6], "CC")
+df_NT_NoCC <- subset(df_NT, Cat == "NoCC")
+df_NT_NoCC$Cat <- NULL
+colnames(df_NT_NoCC)[3:6] <- paste(colnames(df_NT_NoCC)[3:6], "NoCC")
+df_NT <- merge(df_NT_CC, df_NT_NoCC, by = c("region", "commodity"))
+df_NT$PPDiff <- df_NT$`PctChng CC` - df_NT$`PctChng NoCC`
+#======================================
+df <- anal_datag
+df <- df %>% spread(Sce, Val)
+df$PPDiff <- df$CC - df$NoCC
+df$Crop <- tolower(df$Crop)
+df$PPDiff <- round(df$PPDiff, 1)
+rm(anal_datag, alc, md, mdwide, mdsub, mdsubcrop)
+#======================================
+country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
+#======================================
+commify_wordlist <- function(word_vec){
+  n_words <- length(word_vec)
+  if(n_words > 1){
+    if(n_words > 2){
+      xx <- paste(word_vec[1:(n_words - 1)], collapse = ", ")
+      outstr <- paste0(xx, ", and ", word_vec[n_words])  
+    }else{
+      outstr <- paste(word_vec, collapse = " and ")
+    }
+  }else{
+    outstr <- word_vec
+  }
+  return(outstr)
+}
+#======================================
+#intro string
+str_intro <- "When advances in research and the economic context are taken into account, agricultural production is projected to increase out to 2050 under both CC and No-CC scenarios for most modeled crops."
+#sent 1
+str_signifImpact <- "However, the introduction of climate stressors into the economic modeling has a considerable impact on the outlook for "
+str_insignifImpact <- "The introduction of climate stressors into the economic modeling has little impact on the outlook for "
+str_fall <- ", with production falling below the No-CC benchmark by "
+str_rise <- ", with production rising above the No-CC benchmark by "
+str_none <- ", with production diverging from the No-CC benchmark by less than 1.5 "
+str_PP <- " percentage points"
+str_respectively <- "respectively"
+str_stop <- "."
+#sent 2
+str_meanwhile <- "Meanwhile, "
+str_fall2 <- "production is projected to fall below the No-CC benchmark by "
+str_rise2 <- "production is projected to rise above the No-CC benchmark by "
+str_none2 <- "production is projected to change little with respect to the No-CC benchmark."
+str_for <- "for"
+#======================================
+Paragraph_vec <- c()
+for(i in 1:length(country_vec)){
+  this_country <- country_vec[i]
+  df_thisCountry <- subset(df, Region == this_country)
+  df_thisCountry_prod <- subset(df_thisCountry, Parameter == "Total Production")
+  u <- df_thisCountry_prod$PPDiff
+  ind_pos <- which(u > 1.5)
+  ind_neg <- which(u < -1.5)
+  ind_none <- which(u >= -1.5 & u <= 1.5)
+  n_pos <- length(ind_pos)
+  n_neg <- length(ind_neg)
+  n_none <- length(ind_none)
+  n_vec <- c(n_pos, n_neg, n_none)
+  ind_max <- which(n_vec == max(n_vec))
+  what <- c("n_pos", "n_neg", "n_none")
+  val <- c(n_pos, n_neg, n_none)
+  dfxx <- data.frame(what, val)
+  dfxx <- subset(dfxx, val > 0)
+  dfxx <- arrange(dfxx, desc(val))
+  dfxx$what <- as.character(dfxx$what)
+  #--------------------
+  # Sent 1
+  whatsThis <- dfxx$what[1]
+  n_these_crops <- dfxx$val[1]
+  str_typeImpact <- ifelse(whatsThis != "n_none", str_signifImpact, str_insignifImpact)
+  if(whatsThis != "n_none"){
+    if(whatsThis == "n_neg"){
+      str_change <- str_fall
+      ind_these_crops <- ind_neg
+    }else{
+      str_change <- str_rise
+      ind_these_crops <- ind_pos
+    }
+  }else{
+    str_change <- str_none
+    ind_these_crops <- ind_none
+    
+  }
+  these_crops <- df_thisCountry_prod$Crop[ind_these_crops]
+  these_crops <- commify_wordlist(these_crops)
+  PP_numvec <- abs(df_thisCountry_prod$PPDiff[ind_these_crops])
+  PP_strvec <- as.character(PP_numvec)
+  PP_vecstr <- commify_wordlist(PP_strvec)
+  #--
+  str_root <- str_typeImpact
+  PP_vec <- df_thisCountry_prod$PPDiff
+  str_end <- ifelse(n_these_crops > 1, paste0(", ", str_respectively, str_stop), str_stop)
+  sent1 <- paste0(str_root, these_crops, str_change, PP_vecstr, str_PP, str_end)
+  sent1
+  #--------------------
+  if(nrow(dfxx) > 1){
+  # Sent 2
+  whatsThis <- dfxx$what[2]
+  n_these_crops <- dfxx$val[2]
+  if(whatsThis != "n_none"){
+    if(whatsThis == "n_neg"){
+      str_change <- str_fall2
+      ind_these_crops <- ind_neg
+    }else{
+      str_change <- str_rise2
+      ind_these_crops <- ind_pos
+    }
+  }else{
+    str_change <- str_none2
+    ind_these_crops <- ind_none
+    
+  }
+  these_crops <- df_thisCountry_prod$Crop[ind_these_crops]
+  these_crops <- commify_wordlist(these_crops)
+  if(whatsThis == "n_none"){
+    PP_vecstr <- ""
+    str_end <- ""
+  }else{
+    PP_numvec <- abs(df_thisCountry_prod$PPDiff[ind_these_crops])
+    PP_strvec <- as.character(PP_numvec)
+    PP_vecstr <- commify_wordlist(PP_strvec)
+    str_end <- ifelse(n_these_crops > 1, paste0(", ", str_respectively, str_stop), str_stop)
+    str_end <- paste0(PP_vecstr, str_PP, str_end)
+  }
+  
+  str_root <- str_meanwhile
+  sent2 <- paste0(str_root, these_crops, " ", str_change, str_end)
+  sent2
+  }else{
+    sent2 <- ""
+  }
+  #--------------------
+  # Sent 3 (Net Trade)
+  str_currentBalNeg <- "The current negative balance of trade in key commodity crops"
+  str_currentBalPos <- "The current positive balance of trade in key commodity crops"
+  str_stayCourse <- "is projected to continue out to 2050 under both CC and No-CC scenarios"
+  str_chngUp <- "is projected to grow out to 2050"
+  str_chngDown <- "is projected to diminish out to 2050 under both CC and No-CC scenarios"
+  # str_mostCrops <- "for most of the modeled crops "
+  # str_someCrops <- "for some of the modeled crops "
+  str_however <- "However, the trend of "
+  str_incImports <- "increasing import dependency on "
+  str_decImports <- "decreasing import dependency on "
+  str_offset <- "is projected to be considerably offset by climate change"
+  str_aggrav <- "is projected to be considerably aggravated by climate change"
+  
+  
+  df_thisCountry_NT <- subset(df_NT, region == this_country)
+  u <- df_thisCountry_NT$`2020 CC`
+  ind_pos <- which(u > 0)
+  ind_neg <- which(u < 0)
+  n_pos <- length(ind_pos)
+  n_neg <- length(ind_neg)
+  n_vec <- c(n_pos, n_neg)
+  ind_max <- which(n_vec == max(n_vec))
+  what <- c("n_pos", "n_neg")
+  val <- c(n_pos, n_neg)
+  dfxx <- data.frame(what, val)
+  dfxx <- subset(dfxx, val > 0)
+  dfxx <- arrange(dfxx, desc(val))
+  dfxx$what <- as.character(dfxx$what)
+  whatsThis <- dfxx$what[1]
+  if(whatsThis == "n_neg"){
+    str_currentBal <- str_currentBalNeg
+    ind_these_crops <- ind_neg
+  }else{
+    str_currentBal <- str_currentBalPos
+    ind_these_crops <- ind_pos
+  }
+  #--
+  df_thisCountry_NT_these_crops <- df_thisCountry_NT[ind_these_crops, ]
+  ind_especially <- which(abs(df_thisCountry_NT_these_crops$`PctChng CC`) >= 10 & 
+                            abs(df_thisCountry_NT_these_crops$`Chng CC`) >= 400)
+  especially_crops <- df_thisCountry_NT_these_crops$commodity[ind_especially]
+  #--
+  sd(df_thisCountry_NT_these_crops$`Chng CC`)
+  
+  
+  paste0(str_currentBal, especially_crops)
+
+  
+  
+  
+  
+  
+  
+  
+  
+  #--------------------
+  # Paste together with intro
+  out_this <- paste(this_country, str_intro, sent1, sent2, collapse = " ")
+  Paragraph_vec[i] <- out_this
+}
+
+cat(paste(Paragraph_vec, collapse = "\n"))
