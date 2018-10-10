@@ -70,17 +70,19 @@ cv_yield_sample <- sig_yield_sample / mu_yield_sample
 # N_root_statQuo <- Q_root_MT_day_statQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
 #====================================
 # Supply function
-Q_supply <- function(P, n0, m_A, s2_A, yCeil, mu_Cq, cv_Cq, qStar_breakEven, l_credit = 0){
-  sig2_Cq <- (mu_Cq * cv_Cq)^2
+Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq, l_credit = 0){
+  mu_r <- mu_Cq / P
+  sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
+  mu_chi <- exp(-mu_r + sig2_r / 2)
   m_qStar <- m_A + log(yCeil) - mu_Cq / P
-  s_qStar <- sqrt(s2_A + sig2_Cq / P^2)
-  d <- (log(qStar_breakEven) - m_qStar) / s_qStar
-  N <- pnorm(d)
-  Participation <- 1 - N
-  x <- (1 - l_credit) / P
+  s2_qStar <- s2_A + sig2_r
+  s_qStar <- sqrt(s2_qStar)
   mu_A <- exp(m_A + s2_A / 2)
-  Q <- n0 * mu_A * yCeil * exp(-x * mu_Cq + 
-                        (x * mu_Cq * cv_Cq)^2 / 2) * Participation
+  arg <- (1 - mu_r - s2_qStar) / s_qStar
+  rho <- 3 / 2 - pnorm(arg)
+  x <- (1 - l_credit) / P
+  mu_r <- exp(-x * mu_Cq + (x * mu_Cq * cv_Cq)^2 / 2)
+  Q <- N0 * mu_A * yCeil * mu_chi
   return(Q)
 }
 P_supply <- function(Q, N0, mu_A, mu_Cq, k, cv_Cq, l_credit = 0){
@@ -141,8 +143,13 @@ mu_Cq_statQuo <- P * (log(yCeil_statQuo) - m_y_statQuo)
 mu_Cq_statQuo
 cv_Cq_statQuo <- 0.2
 sig2_Cq_statQuo <- mu_Cq_statQuo^2 * cv_Cq_statQuo^2
-# Cq <- P * (log(yCeil_statQuo) - df$`l(Yield (ton/ha))`)
-# hist(Cq)
+Cq <- P * (log(yCeil_statQuo) - df$`l(Yield (ton/ha))`)
+hist(Cq)
+cor(Cq, df$`l(Farm size (ha))`)
+df$lqStar <- df$`l(Yield (ton/ha))` + df$`l(Farm size (ha))`
+plot(Cq, df$`l(Yield (ton/ha))`)
+plot(Cq, df$lqStar)
+plot(df$`l(Yield (ton/ha))`, df$lqStar)
 # View(df[which(Cq < 0),])
 # cor(Cq, df$`l(Farm size (ha))`)
 # plot(Cq, df$`l(Farm size (ha))`)
