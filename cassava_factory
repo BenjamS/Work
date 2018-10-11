@@ -1,11 +1,13 @@
 library(ggplot2)
+library(plyr)
+library(dplyr)
 library(tidyr)
 library(fields)
 #-------------
 # Thai Cassava farm survey
-# setwd("D:/OneDrive - CGIAR/Documents")
-# df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+setwd("D:/OneDrive - CGIAR/Documents")
+df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+#df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
 colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
@@ -70,7 +72,7 @@ cv_yield_sample <- sig_yield_sample / mu_yield_sample
 # N_root_statQuo <- Q_root_MT_day_statQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
 #====================================
 # Supply function
-Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq, l_credit = 0){
+Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq, subsidy = 0, l_credit = 0){
   lambda <- l_credit
   mu_r <- mu_Cq / P
   sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
@@ -79,12 +81,17 @@ Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq, l_credit = 0){
   s2_qStar <- s2_A + sig2_r
   s_qStar <- sqrt(s2_qStar)
   mu_A <- exp(m_A + s2_A / 2)
-  v0 <- (-mu_r - s2_qStar) / s_qStar
-  v1 <- (1 - mu_r - s2_qStar) / s_qStar
+  v0 <- (-mu_r + s2_qStar) / s_qStar
+  v1 <- (1 + subsidy - mu_r + s2_qStar) / s_qStar
   mu_qStar <- mu_A * yCeil * mu_chi
-  Q <- N0 * mu_qStar * (1 - pnorm(v1) + pnorm(v0))
-  return(Q)
+  Nv0 <- pnorm(v0)
+  Nv1 <- pnorm(v1)
+  mkt_participation <- 1 - Nv1 + Nv0
+  Q <- N0 * mu_qStar * mkt_participation
+  df_out <- data.frame(Q, P, mkt_participation, Nv0, Nv1)
+  return(df_out)
 }
+
 P_supply <- function(Q, N0, mu_A, mu_Cq, k, cv_Cq, l_credit = 0){
   sig2_Cq <- cv_Cq^2 * mu_Cq^2
   a <- sig2_Cq / 2
@@ -145,32 +152,33 @@ mu_Cq_statQuo
 cv_Cq_statQuo <- 0.2
 sig2_Cq_statQuo <- mu_Cq_statQuo^2 * cv_Cq_statQuo^2
 Cq <- P * (log(yCeil_statQuo) - df$`l(Yield (ton/ha))`)
-hist(Cq)
-cor(Cq, df$`l(Farm size (ha))`)
-df$lqStar <- df$`l(Yield (ton/ha))` + df$`l(Farm size (ha))`
-plot(Cq, df$`l(Yield (ton/ha))`)
-plot(Cq, df$lqStar)
-plot(df$`l(Yield (ton/ha))`, df$lqStar)
+# hist(Cq)
+# cor(Cq, df$`l(Farm size (ha))`)
+# df$lqStar <- df$`l(Yield (ton/ha))` + df$`l(Farm size (ha))`
+# plot(Cq, df$`l(Yield (ton/ha))`)
+# plot(Cq, df$lqStar)
+# plot(df$`l(Yield (ton/ha))`, df$lqStar)
 # View(df[which(Cq < 0),])
 # cor(Cq, df$`l(Farm size (ha))`)
 # plot(Cq, df$`l(Farm size (ha))`)
 #=====================================
 
-Pvec <- seq(10, 5000, 10)
+Pvec <- seq(100, 10000, 50)
 cv_Cq_vec <- c(0.1, 0.5, 0.7, 0.9)
 last_i <- length(cv_Cq_vec)
 Qvec_list <- list()
 for(i in 1:last_i){
   this_cv <- cv_Cq_vec[i]
-  Qvec <- Q_supply(P = Pvec,
+  df_Q <- Q_supply(P = Pvec,
                    N0 = N0_statQuo,
                    m_A = m_A_statQuo,
                    s2_A = s2_A_statQuo,
                    yCeil = yCeil_statQuo,
                    mu_Cq = mu_Cq_statQuo,
                    cv_Cq = this_cv,
+                   subsidy = 0,
                    l_credit = 0)
-  Qvec_list[[i]] <- Qvec
+  Qvec_list[[i]] <- df_Q$Q
 }
 df <- as.data.frame(do.call(cbind, Qvec_list))
 colnames(df) <- as.character(cv_Cq_vec)
@@ -182,44 +190,162 @@ df_plot <- df
 gg <- ggplot(df_plot, aes(x = P, y = Q,
                           group = `Coefficient \nof variation (r)`,
                           color = `Coefficient \nof variation (r)`)) + geom_point()
-gg <- gg + coord_cartesian(ylim = c(0, 9000))
-gg <- gg + xlab("Root price (lcu/MT)") + ylab("Quantity (MT)")
+gg <- gg + coord_cartesian(ylim = c(0, 8000))
+gg <- gg + xlab("Price (lcu/MT)") + ylab("Quantity (MT)")
 gg
 
 
 
 
 
-Pvec <- seq(10, 5000, 10)
+Pvec <- seq(100, 10000, 50)
 mu_r_vec <- c(0.5, 1, 1.5)
 last_i <- length(mu_r_vec)
 Qvec_list <- list()
 for(i in 1:last_i){
   this_mu_r <- mu_r_vec[i]
   this_mu_Cq <- P * this_mu_r
-  Qvec <- Q_supply(P = Pvec,
+  df_Q <- Q_supply(P = Pvec,
                    N0 = N0_statQuo,
                    m_A = m_A_statQuo,
                    s2_A = s2_A_statQuo,
                    yCeil = yCeil_statQuo,
                    mu_Cq = this_mu_Cq,
                    cv_Cq = cv_Cq_statQuo,
+                   subsidy = 0,
                    l_credit = 0)
-  Qvec_list[[i]] <- Qvec
+  Qvec_list[[i]] <- df_Q$Q
 }
 df <- as.data.frame(do.call(cbind, Qvec_list))
 colnames(df) <- as.character(mu_r_vec)
 gathercols <- colnames(df)
 df$P <- Pvec
-df <- df %>% gather_("Mean cost to \nprice ratio", "Q", gathercols)
+df <- df %>% gather_("Mean cost to\nprice ratio", "Q", gathercols)
+#------------
+df_plot <- df
+gg <- ggplot(df_plot, aes(x = P, y = Q,
+                          group = `Mean cost to\nprice ratio`,
+                          color = `Mean cost to\nprice ratio`)) + geom_point()
+gg <- gg + coord_cartesian(ylim = c(0, 8000))
+gg <- gg + xlab("Price (lcu/MT)") + ylab("Quantity (MT)")
+gg
+
+
+
+
+Pvec <- seq(100, 10000, 50)
+subsidy_vec <- c(0, 0.2, 0.8)
+last_i <- length(subsidy_vec)
+Qvec_list <- list()
+for(i in 1:last_i){
+  this_subsidy <- subsidy_vec[i]
+  df_Q <- Q_supply(P = Pvec,
+                   N0 = N0_statQuo,
+                   m_A = m_A_statQuo,
+                   s2_A = s2_A_statQuo,
+                   yCeil = yCeil_statQuo,
+                   mu_Cq = mu_Cq_statQuo,
+                   cv_Cq = cv_Cq_statQuo,
+                   subsidy = this_subsidy,
+                   l_credit = 0)
+  Qvec_list[[i]] <- df_Q$Q
+}
+df <- as.data.frame(do.call(cbind, Qvec_list))
+colnames(df) <- as.character(subsidy_vec)
+gathercols <- colnames(df)
+df$P <- Pvec
+df <- df %>% gather_("Subsidy\nper unit cost\nper unit output", "Q", gathercols)
+df$`Subsidy\nper unit cost\nper unit output` <- as.numeric(df$`Subsidy\nper unit cost\nper unit output`) * 100
+df$`Subsidy\nper unit cost\nper unit output` <- paste(as.character(df$`Subsidy\nper unit cost\nper unit output`), "%")
 #------------
 df_plot <- df
 gg <- ggplot(df_plot, aes(x = P, y = Q, 
-                          group = `Mean cost to \nprice ratio`,
-                          color = `Mean cost to \nprice ratio`)) + geom_point()
-gg <- gg + coord_cartesian(ylim = c(0, 6000))
-gg <- gg + xlab("Root price (lcu/MT)") + ylab("Quantity (MT)")
+                          group = `Subsidy\nper unit cost\nper unit output`,
+                          color = `Subsidy\nper unit cost\nper unit output`)) + geom_point()
+gg <- gg + coord_cartesian(ylim = c(0, 8000))
+gg <- gg + xlab("Price (lcu/MT)") + ylab("Quantity (MT)")
 gg
+
+
+
+
+
+
+
+
+
+
+Pvec <- seq(70, 10000, 10)
+df_Q <- Q_supply(P = Pvec,
+                 N0 = N0_statQuo,
+                 m_A = m_A_statQuo,
+                 s2_A = s2_A_statQuo,
+                 yCeil = yCeil_statQuo,
+                 mu_Cq = mu_Cq_statQuo,
+                 cv_Cq = cv_Cq_statQuo,
+                 subsidy = 0,
+                 l_credit = 0)
+
+colnames(df_Q)[1] <- "Quantity\n(MT)"
+df_plot <- df_Q
+gg <- ggplot(df_plot, aes(x = P, y = mkt_participation, color = `Quantity\n(MT)`)) + geom_point()
+gg <- gg + xlab("Price (lcu/MT)") + ylab("Producer Market Participation")
+gg
+
+gg <- ggplot(df_plot, aes(x = P, y = Nv1, color = `Quantity\n(MT)`)) + geom_point()
+gg <- gg + xlab("Price (lcu/MT)") #+ ylab("Producer Market Participation")
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -331,15 +457,15 @@ n0_statQuo <- 40
 
 P_vec <- seq(10, 34000, 10)
 Q_vec <- Q_supply(P = P_vec,
-         n0 = n0_statQuo,
-         m_A = m_A_statQuo,
-         s2_A = s2_A_statQuo,
-         yCeil = yCeil_statQuo,
-         mu_Cq = mu_Cq_statQuo, 
-         cv_Cq = cv_Cq_statQuo,
-         qStar_breakEven = qStar_breakEven,
-         l_credit = 0)
-  
+                  n0 = n0_statQuo,
+                  m_A = m_A_statQuo,
+                  s2_A = s2_A_statQuo,
+                  yCeil = yCeil_statQuo,
+                  mu_Cq = mu_Cq_statQuo, 
+                  cv_Cq = cv_Cq_statQuo,
+                  qStar_breakEven = qStar_breakEven,
+                  l_credit = 0)
+
 df_plot <- data.frame(Q = Q_vec, P = P_vec)
 gg <- ggplot(df_plot, aes(P, Q)) + geom_point()
 gg <- gg + coord_cartesian(ylim = c(0, 19000))
