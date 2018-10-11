@@ -90,6 +90,8 @@ df_NT_NoCC$Cat <- NULL
 colnames(df_NT_NoCC)[3:6] <- paste(colnames(df_NT_NoCC)[3:6], "NoCC")
 df_NT <- merge(df_NT_CC, df_NT_NoCC, by = c("region", "commodity"))
 df_NT$PPDiff <- df_NT$`PctChng CC` - df_NT$`PctChng NoCC`
+df_NT$PPDiff <- round(df_NT$PPDiff, 1)
+df_NT$commodity <- tolower(df_NT$commodity)
 #======================================
 df <- anal_datag
 df <- df %>% spread(Sce, Val)
@@ -221,11 +223,11 @@ for(i in 1:length(country_vec)){
   }
   #--------------------
   # Sent 3 (Net Trade)
-  str_currentBalNeg <- "The current negative balance of trade in key commodity crops"
-  str_currentBalPos <- "The current positive balance of trade in key commodity crops"
-  str_stayCourse <- "is projected to continue out to 2050 under both CC and No-CC scenarios"
-  str_chngUp <- "is projected to grow out to 2050"
-  str_chngDown <- "is projected to diminish out to 2050 under both CC and No-CC scenarios"
+  str_currentBalNeg <- "The current negative balance of trade in key commodity crops "
+  str_currentBalPos <- "The current positive balance of trade in key commodity crops "
+  str_chngNone <- "is projected to continue out to 2050 under both CC and No-CC scenarios"
+  str_chngInc <- "is projected to grow out to 2050 under both CC and No-CC scenarios"
+  str_chngDec <- "is projected to diminish out to 2050 under both CC and No-CC scenarios"
   # str_mostCrops <- "for most of the modeled crops "
   # str_someCrops <- "for some of the modeled crops "
   str_however <- "However, the trend of "
@@ -233,7 +235,7 @@ for(i in 1:length(country_vec)){
   str_decImports <- "decreasing import dependency on "
   str_offset <- "is projected to be considerably offset by climate change"
   str_aggrav <- "is projected to be considerably aggravated by climate change"
-  
+  str_espFor <- ", especially for"
   
   df_thisCountry_NT <- subset(df_NT, region == this_country)
   u <- df_thisCountry_NT$`2020 CC`
@@ -250,6 +252,7 @@ for(i in 1:length(country_vec)){
   dfxx <- arrange(dfxx, desc(val))
   dfxx$what <- as.character(dfxx$what)
   whatsThis <- dfxx$what[1]
+  #---
   if(whatsThis == "n_neg"){
     str_currentBal <- str_currentBalNeg
     ind_these_crops <- ind_neg
@@ -258,28 +261,107 @@ for(i in 1:length(country_vec)){
     ind_these_crops <- ind_pos
   }
   #--
-  df_thisCountry_NT_these_crops <- df_thisCountry_NT[ind_these_crops, ]
+  df_thisCountry_NT_these_crops <-
+    df_thisCountry_NT[ind_these_crops, c("region", "commodity", "Chng CC" , "PctChng CC", "Chng NoCC", "PctChng NoCC", "PPDiff")]
+  n_signifChngNeg <- length(which(df_thisCountry_NT_these_crops$`Chng CC` < -100))
+  n_signifChngPos <- length(which(df_thisCountry_NT_these_crops$`Chng CC` > 100))
+  n_insignifChng <- length(df_thisCountry_NT_these_crops$`Chng CC`) - n_signifChngNeg - n_signifChngPos
+  #--
+  if(whatsThis == "n_neg"){
+    if(n_signifChngNeg >= 3){str_futureBal <- str_chngInc}
+    if(n_signifChngPos >= 3){str_futureBal <- str_chngDec}
+    if(n_insignifChng >= 3){str_futureBal <- str_chngNone}
+  }else{
+    if(n_signifChngNeg >= 3){str_futureBal <- str_chngDec}
+    if(n_signifChngPos >= 3){str_futureBal <- str_chngInc}
+    if(n_insignifChng >= 3){str_futureBal <- str_chngNone}
+  }
+  #--
   ind_especially <- which(abs(df_thisCountry_NT_these_crops$`PctChng CC`) >= 10 & 
                             abs(df_thisCountry_NT_these_crops$`Chng CC`) >= 400)
-  especially_crops <- df_thisCountry_NT_these_crops$commodity[ind_especially]
+  df_espCrops <- df_thisCountry_NT_these_crops[ind_especially, ]
+  especially_crops <- df_espCrops$commodity
+  especially_crops <- commify_wordlist(especially_crops)
   #--
-  sd(df_thisCountry_NT_these_crops$`Chng CC`)
+  if(length(ind_especially) == 0){
+    sent3a <- paste0(str_currentBal, str_futureBal, ".")
+  }else{
+    sent3a <- paste0(str_currentBal, str_futureBal, str_espFor, " ", especially_crops, ".")
+  }
+  sent3a
+  #--
+  ind_espCrops_signifPPDiff <- which(abs(df_espCrops$`PPDiff`) >= 10)
+  if(length(ind_espCrops_signifPPDiff) > 0){
+    especially_crops_signifPPDiff <- df_espCrops$commodity[ind_espCrops_signifPPDiff]
+    n_especially_crops_signifPPDiff <- length(especially_crops_signifPPDiff)
+    PP_numvec <- df_espCrops$PPDiff[ind_espCrops_signifPPDiff]
+    PP_strvec <- as.character(abs(PP_numvec))
+    PP_strvec <- paste(PP_strvec, "pp")
+    PP_vecstr <- commify_wordlist(PP_strvec)
+    #--
+    str_ClimChng <- "However, climate change is projected to "
+    str_offset <- "offset"
+    str_amplify <- "amplify"
+    str_dobj <- " the trend for "
+    str_by <- " by "
+    str_while <- ", while "
+    #--
+    impactType_vec <- c()
+    for(j in 1:n_especially_crops_signifPPDiff){
+      if(whatsThis == "n_neg"){
+        if(PP_numvec[j] > 0){impactType_vec[j] <- "offset"}else{impactType_vec[j] <- "amplify"}
+      }else{
+        if(PP_numvec[j] > 0){impactType_vec[j] <- "amplify"}else{impactType_vec[j] <- "offset"}
+      }
+      
+    }
+    ind_offset <- which(impactType_vec == "offset")
+    ind_amplify <- which(impactType_vec == "amplify")
+    crops_offset <- especially_crops_signifPPDiff[ind_offset]
+    crops_amplify <- especially_crops_signifPPDiff[ind_amplify]
+    n_offset <- length(crops_offset)
+    n_amplify <- length(crops_amplify)
+    n_groups <- ifelse(n_offset > 0 & n_amplify > 0, 2, 1)
+    indvec_list <- list(ind_offset, ind_amplify)
+    type_vec <- c(str_offset, str_amplify)
+    t <- 0
+    str_vec <- c()
+    n_words_vec <- c()
+    for(j in 1:2){
+      this_indvec <- indvec_list[[j]]
+      if(length(this_indvec) == 0){next()}
+      t <- t + 1
+      these_espCrops_signifPPDiff <- especially_crops_signifPPDiff[this_indvec]
+      str_PPvec <- PP_strvec[this_indvec]
+      these_espCrops_signifPPDiff <- commify_wordlist(these_espCrops_signifPPDiff)
+      str_PPvec <- commify_wordlist(str_PPvec)
+      n_words <- length(these_espCrops_signifPPDiff)
+      str1 <- ifelse(t == 1, str_ClimChng, str_while)
+      str_chng <- type_vec[j]
+      str_chng <- ifelse(t == 1, str_chng, paste0(str_chng, "ing"))
+      str_vec[t] <- paste0(str1, str_chng, str_dobj, these_espCrops_signifPPDiff, str_by, str_PPvec)
+      n_words_vec[t] <- n_words
+    }
+    
+    #--
+    sent3b <- paste(str_vec, collapse = "")
+    str_end <- ifelse(TRUE %in% (n_words_vec > 1), ", respectively.", ".")
+    sent3b <- paste0(sent3b, str_end)
+    sent3b
+    #--
+    
+  }else{
+    sent3b <- NULL
+  }
   
-  
-  paste0(str_currentBal, especially_crops)
-
-  
-  
-  
-  
-  
-  
-  
-  
+  sent3 <- ifelse(is.null(sent3b), sent3a, 
+                  paste(sent3a, sent3b, collapse = " "))
+  sent3
   #--------------------
   # Paste together with intro
-  out_this <- paste(this_country, str_intro, sent1, sent2, collapse = " ")
+  out_this <- paste(this_country, str_intro, sent1, sent2, sent3, collapse = " ")
   Paragraph_vec[i] <- out_this
+  out_this
 }
 
 cat(paste(Paragraph_vec, collapse = "\n"))
