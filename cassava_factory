@@ -147,6 +147,7 @@ yCeil_statQuo
 P <- 2500
 #-------------------------------------
 N0_statQuo <- 40
+#-------------------------------------
 mu_Cq_statQuo <- P * (log(yCeil_statQuo) - m_y_statQuo)
 mu_Cq_statQuo
 cv_Cq_statQuo <- 0.2
@@ -300,8 +301,16 @@ gg
 
 
 
-
-
+#==========================
+s2_A_statQuo
+s_A_vec <- seq(-4, 4, 0.01)
+PMPRmax_vec <- 1 - pnorm(s_A_vec + 1 / s_A_vec) + pnorm(s_A_vec)
+df_plot <- data.frame(rhoMax = PMPRmax_vec, s_A <- s_A_vec)
+gg <- ggplot(df_plot, aes(x = s_A, y = rhoMax)) + geom_line()
+gg <- gg + ylab("Maximum Producer Market Participation")
+gg <- gg + xlab("Standard Deviation of Logged Farm Size")
+gg
+#==========================
 
 
 
