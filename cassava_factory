@@ -72,19 +72,21 @@ cv_yield_sample <- sig_yield_sample / mu_yield_sample
 # N_root_statQuo <- Q_root_MT_day_statQuo / (mu_yield * mu_fsize)#(mode_yield * mode_fsize)
 #====================================
 # Supply function
-Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
-                     l_credit = 0, mu_awSqtInprod, mu_C_bar, mu_C_transition){
+Q_supply <- function(P, P_statQuo, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
+                     l_credit = 0, mu_C_bar, mu_C_transition){
   lambda <- l_credit
   mu_r <- mu_Cq / P
   sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
   s2_qStar <- s2_A + sig2_r
   s_qStar <- sqrt(s2_qStar)
   mu_A <- exp(m_A + s2_A / 2)
+  mu_awSqtInprod2 <- mu_Cq / P_statQuo * mu_A * yCeil * 
+    exp(-mu_Cq / P_statQuo) * (1 - l_credit)
   #--
   r_Lmax <- 0
   #--
-  a <- mu_awSqtInprod^2 / (1 - l_credit)
-  b <- -mu_awSqtInprod^2
+  a <- mu_awSqtInprod2 / (1 - l_credit)
+  b <- -mu_awSqtInprod2
   c <- -(l_credit * mu_C_bar + mu_C_transition)
   r_L0_inv <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
   r_L0 <- 1 / r_L0_inv
@@ -161,10 +163,11 @@ yCeil_statQuo <- 1.05 * as.numeric(q)
 yCeil_statQuo
 #--Derived cost per unit output
 #-------------------------------------
+P_equilib_statQuo <- 2500
 P <- 2500
 l_credit_statQuo <- 0.1
 #-------------------------------------
-N0_statQuo <- 15
+N0_statQuo <- 20
 #-------------------------------------
 mu_Cq_statQuo <- P * (log(yCeil_statQuo) - m_y_statQuo)
 mu_Cq_statQuo
@@ -175,7 +178,7 @@ mu_Cq_bar_statQuo <- 1.2 * mu_Cq_statQuo
 mu_C_bar_statQuo <- mu_Cq_bar_statQuo * mu_A_statQuo * yCeil_statQuo * exp(-mu_Cq_bar_statQuo / P)
 mu_C_bar_statQuo
 mu_awSqtInprod_statQuo <- sqrt(mu_C_bar_statQuo * mu_Cq_bar_statQuo / P * (1 - l_credit_statQuo))
-mu_C_transition_statQuo <- 200000
+mu_C_transition_statQuo <- 0
 # hist(Cq)
 # cor(Cq, df$`l(Farm size (ha))`)
 # df$lqStar <- df$`l(Yield (ton/ha))` + df$`l(Farm size (ha))`
@@ -187,43 +190,43 @@ mu_C_transition_statQuo <- 200000
 # plot(Cq, df$`l(Farm size (ha))`)
 #=====================================
 
-P = 2500
-N0 = N0_statQuo
-m_A = m_A_statQuo
-s2_A = s2_A_statQuo
-yCeil = yCeil_statQuo
-mu_Cq = mu_Cq_statQuo
-cv_Cq = cv_Cq_statQuo
-l_credit = 0 #l_credit_statQuo
-mu_awSqtInprod = mu_awSqtInprod_statQuo
-mu_C_bar = mu_C_bar_statQuo
-mu_C_transition = 0#mu_C_transition_statQuo
-
-lambda <- l_credit
-mu_r <- mu_Cq / P
-sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
-s2_qStar <- s2_A + sig2_r
-s_qStar <- sqrt(s2_qStar)
-mu_A <- exp(m_A + s2_A / 2)
-#--
-r_Lmax <- 0
-#--
-a <- mu_awSqtInprod^2 / (1 - l_credit)
-b <- -mu_awSqtInprod^2
-c <- -(l_credit * mu_C_bar + mu_C_transition)
-r_L0_inv <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
-r_L0 <- 1 / r_L0_inv
-#--
-v_rLmax <- (r_Lmax - mu_r + s2_qStar) / s_qStar
-v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
-Nv_rLmax <- pnorm(v_rLmax)
-Nv_rL0 <- pnorm(v_rL0)
-mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
-m_qStar <- m_A - mu_r
-mu_qStar <- yCeil * exp(m_qStar + s2_qStar / 2)
-QS <- N0 * mu_qStar * mkt_participation
-df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax)
-
+# P = 2500
+# N0 = N0_statQuo
+# m_A = m_A_statQuo
+# s2_A = s2_A_statQuo
+# yCeil = yCeil_statQuo
+# mu_Cq = mu_Cq_statQuo
+# cv_Cq = cv_Cq_statQuo
+# l_credit = 0 #l_credit_statQuo
+# mu_awSqtInprod = mu_awSqtInprod_statQuo
+# mu_C_bar = mu_C_bar_statQuo
+# mu_C_transition = 0#mu_C_transition_statQuo
+# 
+# lambda <- l_credit
+# mu_r <- mu_Cq / P
+# sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
+# s2_qStar <- s2_A + sig2_r
+# s_qStar <- sqrt(s2_qStar)
+# mu_A <- exp(m_A + s2_A / 2)
+# #--
+# r_Lmax <- 0
+# #--
+# a <- mu_awSqtInprod^2 / (1 - l_credit)
+# b <- -mu_awSqtInprod^2
+# c <- -(l_credit * mu_C_bar + mu_C_transition)
+# r_L0_inv <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
+# r_L0 <- 1 / r_L0_inv
+# #--
+# v_rLmax <- (r_Lmax - mu_r + s2_qStar) / s_qStar
+# v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
+# Nv_rLmax <- pnorm(v_rLmax)
+# Nv_rL0 <- pnorm(v_rL0)
+# mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
+# m_qStar <- m_A - mu_r
+# mu_qStar <- yCeil * exp(m_qStar + s2_qStar / 2)
+# QS <- N0 * mu_qStar * mkt_participation
+# df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax)
+# 
 
 
 
@@ -255,6 +258,7 @@ Qvec_list <- list()
 for(i in 1:last_i){
   this_cv <- cv_Cq_vec[i]
   df_Q <- Q_supply(P = Pvec,
+                   P_statQuo = P_equilib_statQuo,
                    N0 = N0_statQuo,
                    m_A = m_A_statQuo,
                    s2_A = s2_A_statQuo,
@@ -262,7 +266,6 @@ for(i in 1:last_i){
                    mu_Cq = mu_Cq_statQuo,
                    cv_Cq = this_cv,
                    l_credit = l_credit_statQuo,
-                   mu_awSqtInprod = mu_awSqtInprod_statQuo,
                    mu_C_bar = mu_C_bar_statQuo,
                    mu_C_transition = mu_C_transition_statQuo)
   Qvec_list[[i]] <- df_Q$Q
@@ -277,7 +280,7 @@ df_plot <- df
 gg <- ggplot(df_plot, aes(x = P, y = Q,
                           group = `Coefficient \nof variation (r)`,
                           color = `Coefficient \nof variation (r)`)) + geom_point()
-gg <- gg + coord_cartesian(ylim = c(0, 4000))
+gg <- gg + coord_cartesian(ylim = c(0, 5000))
 gg <- gg + xlab("Price (lcu/MT)") + ylab("Quantity (MT)")
 gg
 
@@ -293,6 +296,7 @@ for(i in 1:last_i){
   this_mu_r <- mu_r_vec[i]
   this_mu_Cq <- P * this_mu_r
   df_Q <- Q_supply(P = Pvec,
+                   P_statQuo = P_equilib_statQuo,
                    N0 = N0_statQuo,
                    m_A = m_A_statQuo,
                    s2_A = s2_A_statQuo,
@@ -300,7 +304,6 @@ for(i in 1:last_i){
                    mu_Cq = this_mu_Cq,
                    cv_Cq = cv_Cq_statQuo,
                    l_credit = l_credit_statQuo,
-                   mu_awSqtInprod = mu_awSqtInprod_statQuo,
                    mu_C_bar = mu_C_bar_statQuo,
                    mu_C_transition = mu_C_transition_statQuo)
   Qvec_list[[i]] <- df_Q$Q
@@ -315,7 +318,7 @@ df_plot <- df
 gg <- ggplot(df_plot, aes(x = P, y = Q,
                           group = `Mean cost to\nprice ratio`,
                           color = `Mean cost to\nprice ratio`)) + geom_point()
-gg <- gg + coord_cartesian(ylim = c(0, 4000))
+gg <- gg + coord_cartesian(ylim = c(0, 5000))
 gg <- gg + xlab("Price (lcu/MT)") + ylab("Quantity (MT)")
 gg
 
@@ -360,6 +363,7 @@ gg
 
 Pvec <- seq(100, 10000, 100)
 df_Q <- Q_supply(P = Pvec,
+                 P_statQuo = P_equilib_statQuo,
                  N0 = N0_statQuo,
                  m_A = m_A_statQuo,
                  s2_A = s2_A_statQuo,
@@ -367,7 +371,6 @@ df_Q <- Q_supply(P = Pvec,
                  mu_Cq = mu_Cq_statQuo,
                  cv_Cq = cv_Cq_statQuo,
                  l_credit = l_credit_statQuo,
-                 mu_awSqtInprod = mu_awSqtInprod_statQuo,
                  mu_C_bar = mu_C_bar_statQuo,
                  mu_C_transition = mu_C_transition_statQuo)
 
@@ -397,6 +400,7 @@ for(i in 1:last_i){
   #this_mu_Cq <- Pvec * this_mu_r
   this_mu_Cq <- mu_Cq_vec[i]
   df_QS <- Q_supply(P = Pvec,
+                    P_statQuo = P_equilib_statQuo,
                     N0 = N0_statQuo,
                     m_A = m_A_statQuo,
                     s2_A = s2_A_statQuo,
@@ -404,7 +408,6 @@ for(i in 1:last_i){
                     mu_Cq = this_mu_Cq,
                     cv_Cq = cv_Cq_statQuo,
                     l_credit = l_credit_statQuo,
-                    mu_awSqtInprod = mu_awSqtInprod_statQuo,
                     mu_C_bar = mu_C_bar_statQuo,
                     mu_C_transition = mu_C_transition_statQuo)
   mktParticip_vec_list[[i]] <- df_QS$mkt_participation
@@ -451,13 +454,15 @@ gg
 #======================================
 # Factory parameters
 Q_chip_MT_statQuo <- 350
-MTRootsPerMTStarch <- 1 / 3.05
 #N_chip_statQuo <- Q_chip_MT_statQuo / (convert_root_chip * mode_yield * mode_fsize)
-Q_root_MT_day_statQuo <- 800
+#Q_root_MT_day_statQuo <- 800
+Q_root_MT_day_statQuo <- 1100
 P_root_lcu_MT_statQuo <- 2500
 P_starch_lcu_MT_statQuo <- 14000
-#P_ethanol_lcu_ML_statQuo <- 
+P_ethanol_lcu_kL_statQuo <- 18000
 MTRootsPerMTStarch_statQuo <- 4.21
+Q_ethanol_kL_day_statQuo <- 343.6
+MTRootsPerkLEthanol_statQuo <- Q_root_MT_day_statQuo / Q_ethanol_kL_day_statQuo
 Q_starch_MT_day_statQuo <- Q_root_MT_day_statQuo / MTRootsPerMTStarch
 Cost_rootProcessing_MTroot_statQuo <- 13500 / MTRootsPerMTStarch_statQuo - P_root_lcu_MT_statQuo
 #Cost_rootProcessing_MTstarch_statQuo <- MTRootsPerMTStarch_statQuo * Cost_rootProcessing_MTroot_statQuo
@@ -466,12 +471,15 @@ Cost_processing_day_statQuo <- Q_feedstock_MT_day_statQuo * Cost_rootProcessing_
 #alpha_statQuo <- exp(log(Cost_rootProcessing_MTroot_statQuo) - beta_statQuo * log(Q_feedstock_MT_day_statQuo))
 # alpha_statQuo <- exp(log(Cost_processing_day_statQuo) - beta_statQuo * log(Q_feedstock_MT_day_statQuo))
 # alpha_statQuo * Q_root_MT_day_statQuo^beta_statQuo - Cost_processing_day_statQuo
-beta_statQuo <- log(Cost_processing_day_statQuo) / log(Q_feedstock_MT_day_statQuo) - 1
+#beta_statQuo <- log(Cost_processing_day_statQuo) / log(Q_feedstock_MT_day_statQuo) - 1
+beta_statQuo <- 0.98
 #======================================
-fdstkToOutput_efficiency_statQuo <- MTRootsPerMTStarch_statQuo
+#fdstkToOutput_efficiency_statQuo <- MTRootsPerMTStarch_statQuo
+fdstkToOutput_efficiency_statQuo <- MTRootsPerkLEthanol_statQuo
 #--
 P_feedstock_lcu_MT_statQuo <- P_root_lcu_MT_statQuo
-P_output_lcu_MToutput_statQuo <- P_starch_lcu_MT_statQuo
+#P_output_lcu_MToutput_statQuo <- P_starch_lcu_MT_statQuo
+P_output_lcu_MToutput_statQuo <- P_ethanol_lcu_kL_statQuo
 #--
 P_output_lcu_MTfdstk_statQuo <- P_output_lcu_MToutput_statQuo / fdstkToOutput_efficiency_statQuo
 #--
@@ -479,6 +487,8 @@ Q_feedstock_MT_day_statQuo <- Q_root_MT_day_statQuo
 #--
 Cost_fdstkProcessing_MTfdstk_statQuo <- Cost_rootProcessing_MTroot_statQuo
 #Cost_fdstkProcessing_MToutput_statQuo <- Cost_rootProcessing_MTstarch_statQuo
+#--
+fixed_cost_statQuo <- 0
 #======================================
 # Check
 # NR <- FactoryNetRevenue(Q_feedstock = Q_feedstock_MT_day_statQuo,
@@ -494,8 +504,8 @@ Cost_fdstkProcessing_MTfdstk_statQuo <- Cost_rootProcessing_MTroot_statQuo
 # NR_day <- Revenue - Cost
 #======================================
 # QS, QD, equilibrium price/quantity
-P_fdstk_vec <- seq(100, 5000, 50)
-mu_Cq_vec <- seq(1000, 3000, 1000)
+P_fdstk_vec <- seq(100, 5000, 10)
+mu_Cq_vec <- seq(1000, 3000, 500)
 last_i <- length(mu_Cq_vec)
 mktParticip_vec_list <- list()
 QS_vec_list <- list()
@@ -506,6 +516,7 @@ Q_equilib_vec <- c()
 for(i in 1:last_i){
   this_mu_Cq <- mu_Cq_vec[i]
   df_QS <- Q_supply(P = P_fdstk_vec,
+                    P_statQuo = P_equilib_statQuo,
                     N0 = N0_statQuo,
                     m_A = m_A_statQuo,
                     s2_A = s2_A_statQuo,
@@ -513,7 +524,6 @@ for(i in 1:last_i){
                     mu_Cq = this_mu_Cq,
                     cv_Cq = cv_Cq_statQuo,
                     l_credit = l_credit_statQuo,
-                    mu_awSqtInprod = mu_awSqtInprod_statQuo,
                     mu_C_bar = mu_C_bar_statQuo,
                     mu_C_transition = mu_C_transition_statQuo)
   mktParticip_vec <- df_QS$mkt_participation
@@ -577,7 +587,7 @@ gg <- gg + geom_line(data = df_Q_mktPart,
                      size = 2)
 gg <- gg + geom_point(data = df_Equilib, aes(x = P_equilib, y = Q_equilib), size = 3)
 #gg <- gg + geom_line(data = df_Equilib, aes(x = P_equilib, y = Q_equilib), color="blue", size = 1.5)
-gg <- gg + coord_cartesian(ylim = c(0, 2200), xlim = c(0, 2500))
+gg <- gg + coord_cartesian(ylim = c(0, 2500), xlim = c(0, 2500))
 gg <- gg + xlab("Feedstock price (lcu/MT)")
 gg <- gg + ylab("Feedstock supply quantity (MT)")
 gg
@@ -585,11 +595,11 @@ gg
 #======================================
 # Heatmap time
 #-------------
-P_fdstk_vec <- seq(10, 10000, 1)
+P_fdstk_vec <- seq(10, 7000, 1)
 #-------------
 beta_change_vec <- -seq(0, 0.2, 0.01)
 beta_new_vec <- beta_statQuo + beta_change_vec
-mu_Cq_change_vec <- seq(0, .6, 0.02)
+mu_Cq_change_vec <- seq(0, .5, 0.025)
 mu_Cq_new_vec <- mu_Cq_statQuo * (1 + mu_Cq_change_vec)
 mu_Cq_new_vec
 #-------------
@@ -605,11 +615,19 @@ mktParticip_mat <- matrix(NA, n_FactryCostChng, n_FarmCostChng)
 adoptRate_mat <- matrix(NA, n_FactryCostChng, n_FarmCostChng)
 last_i <- length(mu_Cq_change_vec)
 last_j <- length(beta_change_vec)
+df_Equilib_list <- list()
 for(j in 1:last_j){
   this_beta <- beta_statQuo + beta_change_vec[j]
+  QS_vec_list <- list()
+  QD_vec_list <- list()
+  mktParticip_vec_list <- list()
+  P_equilib_vec <- c()
+  Q_equilib_vec <- c()
+  NR_equilib_vec <- c()
   for(i in 1:last_i){
     this_mu_Cq <- mu_Cq_new_vec[i]
     df_QS <- Q_supply(P = P_fdstk_vec,
+                      P_statQuo = P_equilib_statQuo,
                       N0 = N0_statQuo,
                       m_A = m_A_statQuo,
                       s2_A = s2_A_statQuo,
@@ -617,7 +635,6 @@ for(j in 1:last_j){
                       mu_Cq = this_mu_Cq,
                       cv_Cq = cv_Cq_statQuo,
                       l_credit = l_credit_statQuo,
-                      mu_awSqtInprod = mu_awSqtInprod_statQuo,
                       mu_C_bar = mu_C_bar_statQuo,
                       mu_C_transition = mu_C_transition_statQuo)
     mktParticip_vec <- df_QS$mkt_participation
@@ -652,8 +669,83 @@ for(j in 1:last_j){
     NR_equilib_mat[j, i] <- NR_equilib
     NR_pctChng_mat[j, i] <- 100 * (NR_equilib - NRstar_statQuo) / NRstar_statQuo
     adoptRate_mat[j, i] <- mktParticip_equilib / mktParticip_statQuo
+    #-------
+    QS_vec_list[[i]] <- QS_vec
+    QD_vec_list[[i]] <- QD_vec
+    mktParticip_vec_list[[i]] <- mktParticip_vec
+    P_equilib_vec[i] <- P_equilib
+    Q_equilib_vec[i] <- Q_equilib
+    NR_equilib_vec[i] <- NR_equilib
   }
+  
+  
+  # df_QS <- as.data.frame(do.call(cbind, QS_vec_list))
+  # df_QD <- as.data.frame(do.call(cbind, QD_vec_list))
+  # df_mktPart <- as.data.frame(do.call(cbind, mktParticip_vec_list))
+  # colnames(df_QS) <- as.character(mu_Cq_new_vec)
+  # colnames(df_QD) <- as.character(mu_Cq_new_vec)
+  # colnames(df_mktPart) <- as.character(mu_Cq_new_vec)
+  # gathercols <- colnames(df_QS)
+  # df_QS$P <- P_fdstk_vec
+  # df_QS <- df_QS %>% gather_("Mean production\ncost (lcu/MT)", "QS", gathercols)
+  # gathercols <- colnames(df_QD)
+  # df_QD$P <- P_fdstk_vec
+  # df_QD <- df_QD %>% gather_("Mean production\ncost (lcu/MT)", "QD", gathercols)
+  # gathercols <- colnames(df_mktPart)
+  # df_mktPart$P <- P_fdstk_vec
+  # df_mktPart <- df_mktPart %>% gather_("Mean production\ncost (lcu/MT)", "Mkt. Participation", gathercols)
+  # df_Q_mktPart <- join_all(list(df_QS, df_QD, df_mktPart))
+  # 
+  df_Equilib <- data.frame(P_equilib = P_equilib_vec,
+                           Q_equilib = Q_equilib_vec,
+                           NR_equilib = NR_equilib_vec,
+                           mu_Cq_vec = mu_Cq_new_vec)
+  # #------------
+  # gg <- ggplot()
+  # gg <- gg + geom_line(data = df_Q_mktPart,
+  #                      aes(x = P, y = QS, 
+  #                          group = `Mean production\ncost (lcu/MT)`,
+  #                          color = `Mean production\ncost (lcu/MT)`),
+  #                      size = 2)
+  # gg <- gg + geom_line(data = df_Q_mktPart,
+  #                      aes(x = P, y = QD, 
+  #                          group = `Mean production\ncost (lcu/MT)`,
+  #                          color = `Mean production\ncost (lcu/MT)`),
+  #                      size = 2)
+  # gg <- gg + geom_point(data = df_Equilib, aes(x = P_equilib, y = Q_equilib), size = 3)
+  # #gg <- gg + geom_line(data = df_Equilib, aes(x = P_equilib, y = Q_equilib), color="blue", size = 1.5)
+  # gg <- gg + coord_cartesian(ylim = c(0, 2500), xlim = c(250, 2500))
+  # gg <- gg + xlab("Feedstock price (lcu/MT)")
+  # gg <- gg + ylab("Feedstock supply quantity (MT)")
+  # gg <- gg + theme(legend.position = "none")
+  # gg
+  #print("Hello")
+  #Sys.sleep(1)
+  #------------------
+  df_Equilib$`PP reduction\nfactory processing\n cost` <- -beta_change_vec[j] * 100
+  df_Equilib_list[[j]] <- df_Equilib
+  
 }
+#-----------------
+df_Equilib <- do.call(rbind, df_Equilib_list)
+df_Equilib[, 5] <- as.integer(df_Equilib[, 5])
+df_plot <- df_Equilib
+ind_keep <- which(df_plot[, 5] %% 2 == 0)
+df_plot <- df_plot[ind_keep, ]
+
+
+
+gg <- ggplot(df_plot, aes(x = P_equilib, y = Q_equilib,
+                             # group = `PP reduction\nfactory processing\n cost`,
+                             # color = `PP reduction\nfactory processing\n cost`))
+                          group = mu_Cq_vec,
+                          color = mu_Cq_vec))
+gg <- gg + geom_line(size = 2)
+gg <- gg + xlab("Equilibrium Price (lcu/MT)") + ylab("Equilibrium Quantity (MT)")
+gg <- gg + ggtitle("Equilibrium Supply Curve")
+gg
+
+
 
 
 #-----------------
@@ -667,7 +759,7 @@ surface <- list(x = xtick_labs,
 plot.surface(surface, type = "C",
              xlab = "Pct Point reduction\nfactory processing cost",
              ylab = "Pct increase\nmean farm cost per unit output", col = cm.colors(25))
-title(main = "Mkt. Particip", cex.main = 1)
+title(main = "Adoption Rate", cex.main = 1)
 #-----------------
 inMat <- NR_pctChng_mat
 surface <- list(x = xtick_labs,
@@ -704,7 +796,7 @@ surface <- list(x = xtick_labs,
 plot.surface(surface, type = "C",
              xlab = "Pct Point reduction\nfactory processing cost",
              ylab = "Pct increase\nmean farm cost per unit output", col = cm.colors(25))
-title(main = "Mkt. Particip", cex.main = 1)
+title(main = "Market Participation", cex.main = 1)
 
 
 
