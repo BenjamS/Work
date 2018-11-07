@@ -73,28 +73,47 @@ cv_yield_sample <- sig_yield_sample / mu_yield_sample
 #====================================
 # Supply function
 Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
-                    P_alt = 0, pctChng_costPerOutput = 0, l_credit = 0){
+                    P_alt = 0, pctChng_costPerOutput = 0, l_credit = 0,
+                    plot_particip = F){
+  #--
   if(P_alt != 0){oppCost <- T}else{oppCost <- F}
+  #--
+  if(oppCost == T){
+    pctChng <- pctChng_costPerOutput
+    r_L0 <- (1 - P_alt / P) / (1 - 1 / pctChng)
+    #mu_r <- (mu_Cq * (1 - 1 / pctChng) + P_alt) / P
+    r_L0_alt <- 1
+    mu_Cq_alt <- mu_Cq / pctChng
+    mu_r_alt <- mu_Cq_alt / P_alt
+    #--
+    sig2_r_alt <- (mu_Cq_alt * cv_Cq)^2 / P^2
+    s2_yStar_implied_alt <- sig2_r_alt
+    s2_qStar_alt <- s2_A + s2_yStar_implied_alt
+    s_qStar_alt <- sqrt(s2_qStar_alt)
+    #--
+    v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+  }else{
+    r_L0 <- 1
+    #mu_r <- mu_Cq / P
+  }
   mu_r <- mu_Cq / P
+  r_Lmax <- 0
+  #--
   sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
   s2_yStar_implied <- sig2_r
   m_yStar_implied <- log(yCeil) - mu_r
   mu_yStar_implied <- exp(m_yStar_implied + s2_yStar_implied / 2)
   mu_A <- exp(m_A + s2_A / 2)
   #--
-  if(oppCost == T){
-    r_L0 <- (1 - P_alt / P) / (1 - pctChng_costPerOutput)
-  }else{
-    r_L0 <- 1
-  }
-  r_Lmax <- 0
-  #--
   s2_qStar <- s2_A + s2_yStar_implied
   s_qStar <- sqrt(s2_qStar)
+  #--
   v_rLmax <- (r_Lmax - mu_r + s2_qStar) / s_qStar
   v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
+  #--
   Nv_rLmax <- pnorm(v_rLmax)
   Nv_rL0 <- pnorm(v_rL0)
+  #--
   mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
   #--
   # m_qStar <- m_A - mu_r
@@ -102,22 +121,24 @@ Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
   # QS <- N0 * mu_qStar * mkt_participation
   QS <- N0 * mu_A * mu_yStar_implied * mkt_participation
   df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
+  #--
+  if(plot_particip == T | length(P) > 1){
+    p1 <- ggplot(data = data.frame(x = c(-3, 3)), aes(x))
+    p1 <- p1 + stat_function(fun = dnorm, n = 101, 
+                             args = list(mean = 0, sd = 1))
+    p1 <- p1 + ylab("")
+    p1 <- p1 + scale_y_continuous(breaks = NULL)
+    p1 <- p1 + geom_vline(xintercept = c(v_rL0, v_rLmax), color = "green")
+    if(oppCost == T){
+      p1 <- p1 + geom_vline(xintercept = v_rL0_alt, color = "orange")
+    }
+    print(p1)
+  }
+  #--
   return(df_out)
 }
 
-
-# mu_awSqtInprod2 <- (1 - l_credit) * C_statQuo * mu_Cq^2 / Pe_statQuo
-# #--
-# r_Lmax <- 0
-# #--
-# a <- mu_awSqtInprod2 / (1 - l_credit)
-# b <- -mu_awSqtInprod2
-# c <- -(l_credit * mu_C_bar + mu_C_transition)
-# r_L0_inv <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
-# r_L0 <- 1 / r_L0_inv
-
-
-
+#============================
 QD_NR_factory_star <- function(P_output_lcu_Qoutput, P_feedstock_lcu_Q,
                                fdstkToOutput_efficiency, beta, mu_Cq, cv_Cq, fixed_cost = NULL){
   sig2_Cq <- (mu_Cq * cv_Cq)^2
@@ -177,6 +198,140 @@ mu_awSqtInprod_statQuo <- sqrt(mu_C_bar_statQuo * mu_Cq_bar_statQuo / P * (1 - l
 mu_C_transition_statQuo <- 0
 #-------------------------------------
 
+#=====================================
+P <- P_equilib_statQuo
+N0 <- N0_statQuo
+m_A <- m_A_statQuo
+s2_A <- s2_A_statQuo
+yCeil <- yCeil_statQuo
+mu_Cq <- 3000
+cv_Cq <- cv_Cq_statQuo
+P_alt <- P * 1.05
+pctChng_costPerOutput <- 1.10
+l_credit <- 0
+plot_particip <- T
+#--
+if(P_alt != 0){oppCost <- T}else{oppCost <- F}
+#--
+if(oppCost == T){
+  r_L0_base <- 1
+  v_rL0_base <- (r_L0_base - mu_r + s2_qStar) / s_qStar
+  #--
+  pctChng <- pctChng_costPerOutput
+  #--
+  r_L0 <- (1 - P_alt / P) / (1 - pctChng)
+  r_L0_base <- 1
+  #--
+  mu_Cq_alt <- mu_Cq * pctChng
+  mu_r_alt <- mu_Cq_alt / P_alt
+  #--
+  sig2_r_alt <- (mu_r_alt * cv_Cq)^2
+  s2_yStar_implied_alt <- sig2_r_alt
+  s2_qStar_alt <- s2_A + s2_yStar_implied_alt
+  s_qStar_alt <- sqrt(s2_qStar_alt)
+  #--
+  r_L0_alt <- 1
+  r_Lmax_alt <- r_L0
+  v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+  v_rLmax_alt <- (r_Lmax_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+}else{
+  r_L0 <- 1
+}
+r_Lmax <- 0
+mu_r <- mu_Cq / P
+#--
+sig2_r <- (mu_r * cv_Cq)^2
+s2_yStar_implied <- sig2_r
+m_yStar_implied <- log(yCeil) - mu_r
+mu_yStar_implied <- exp(m_yStar_implied + s2_yStar_implied / 2)
+mu_A <- exp(m_A + s2_A / 2)
+#--
+s2_qStar <- s2_A + s2_yStar_implied
+s_qStar <- sqrt(s2_qStar)
+#--
+v_rLmax <- (r_Lmax - mu_r + s2_qStar) / s_qStar
+v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
+#--
+Nv_rLmax <- pnorm(v_rLmax)
+Nv_rL0 <- pnorm(v_rL0)
+#--
+mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
+Nv_rL0 - Nv_rLmax
+#--
+QS <- N0 * mu_A * mu_yStar_implied * mkt_participation
+df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
+#--
+if(plot_particip == T){
+  xlims <- c(-3, 3)
+  x <- seq(xlims[1], xlims[2], 0.01)
+  df_x <- data.frame(x = x, y = dnorm(x))
+  df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax & x < v_rL0,
+                                        "Participating", "Not Participating"))
+  if(oppCost == T){
+    df_x <- df_x %>% mutate(area = ifelse(x >= v_rL0 & x < v_rL0_base,
+                                          "Switch", area))
+    Nv_rL0_base <- pnorm(v_rL0_base)
+    mkt_participation_base <- 1 - Nv_rL0_base + Nv_rLmax
+    adopt_rate <- mkt_participation - mkt_participation_base
+  }
+  p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area))
+  p1 <- p1 + geom_ribbon()
+  p1 <- p1 + theme(legend.title = element_blank())
+  p1
+  print(p1)
+}
+#=====================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -195,7 +350,8 @@ for(i in 1:last_i){
                    cv_Cq = this_cv,
                    P_alt = 0,
                    pctChng_costPerOutput = 0,
-                   l_credit = l_credit_statQuo)
+                   l_credit = l_credit_statQuo,
+                   plot_particip = F)
   Qvec_list[[i]] <- df_Q$Q
 }
 df <- as.data.frame(do.call(cbind, Qvec_list))
@@ -232,7 +388,8 @@ for(i in 1:last_i){
                    cv_Cq = cv_Cq_statQuo,
                    P_alt = 0,
                    pctChng_costPerOutput = 0,
-                   l_credit = l_credit_statQuo)
+                   l_credit = l_credit_statQuo,
+                   plot_particip = F)
   Qvec_list[[i]] <- df_Q$Q
 }
 df <- as.data.frame(do.call(cbind, Qvec_list))
@@ -518,14 +675,14 @@ for(j in 1:last_j){
   NR_equilib_vec <- c()
   for(i in 1:last_i){
     this_pctChng_costPerOutput <- mu_Cq_change_vec[i]
-    df_QS <- Q_supply(P = Pe_statQuo_baseTech,
+    df_QS <- Q_supply(P = P_fdstk_vec,
                       N0 = N0_statQuo,
                       m_A = m_A_statQuo,
                       s2_A = s2_A_statQuo,
                       yCeil = yCeil_statQuo,
                       mu_Cq = mu_Cq_statQuo,
                       cv_Cq = cv_Cq_statQuo,
-                      P_alt = P_fdstk_vec,
+                      P_alt = Pe_statQuo_baseTech,
                       pctChng_costPerOutput = this_pctChng_costPerOutput,
                       l_credit = l_credit_statQuo)
     mktParticip_vec <- df_QS$mkt_participation
