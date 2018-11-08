@@ -5,9 +5,9 @@ library(tidyr)
 library(fields)
 #-------------
 # Thai Cassava farm survey
-# setwd("D:/OneDrive - CGIAR/Documents")
-# df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+setwd("D:/OneDrive - CGIAR/Documents")
+df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+#df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
 colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
@@ -73,8 +73,8 @@ cv_yield_sample <- sig_yield_sample / mu_yield_sample
 #====================================
 # Supply function
 Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
-                    P_alt = 0, pctChng_costPerOutput = 0, l_credit = 0,
-                    plot_particip = F){
+                     P_alt = 0, pctChng_costPerOutput = 0, l_credit = 0,
+                     plot_particip = F){
   #--
   if(P_alt != 0){oppCost <- T}else{oppCost <- F}
   #--
@@ -207,7 +207,7 @@ yCeil <- yCeil_statQuo
 mu_Cq <- 3000
 cv_Cq <- cv_Cq_statQuo
 P_alt <- P * 1.05
-pctChng_costPerOutput <- 1.10
+pctChng_costPerOutput <- .95
 l_credit <- 0
 plot_particip <- T
 #--
@@ -231,9 +231,13 @@ if(oppCost == T){
   s_qStar_alt <- sqrt(s2_qStar_alt)
   #--
   r_L0_alt <- 1
-  r_Lmax_alt <- r_L0
+  r_Lmax_alt <- 0
   v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
   v_rLmax_alt <- (r_Lmax_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+  Nv_rLmax_alt <- pnorm(v_rLmax_alt)
+  Nv_rL0_alt <- pnorm(v_rL0_alt)
+  mkt_participation_alt <- 1 - Nv_rL0_alt + Nv_rLmax_alt
+  mkt_participation_alt
 }else{
   r_L0 <- 1
 }
@@ -256,6 +260,8 @@ Nv_rLmax <- pnorm(v_rLmax)
 Nv_rL0 <- pnorm(v_rL0)
 #--
 mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
+#mkt_participation <- Nv_rL0 - Nv_rLmax
+mkt_participation
 Nv_rL0 - Nv_rLmax
 #--
 QS <- N0 * mu_A * mu_yStar_implied * mkt_participation
@@ -272,13 +278,50 @@ if(plot_particip == T){
                                           "Switch", area))
     Nv_rL0_base <- pnorm(v_rL0_base)
     mkt_participation_base <- 1 - Nv_rL0_base + Nv_rLmax
+    #mkt_participation_base <- Nv_rL0_base - Nv_rLmax
     adopt_rate <- mkt_participation - mkt_participation_base
+    adopt_rate
+    #--
+    df_x <- df_x %>% mutate(area_alt = ifelse(x >= v_rLmax_alt & x < v_rL0_alt,
+                                          "Participating", "Not Participating"))
+    
+    p2 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area_alt))
+    p2 <- p2 + geom_ribbon()
+    p2 <- p2 + theme(legend.title = element_blank())
+    p2
+    
+    df_x <- df_x %>% mutate(area_base = ifelse(x >= v_rLmax & x < v_rL0_base,
+                                           "Participating", "Not Participating"))
+    
+    p3 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area_base))
+    p3 <- p3 + geom_ribbon()
+    p3 <- p3 + theme(legend.title = element_blank())
+    p3
+    
+    
   }
   p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area))
   p1 <- p1 + geom_ribbon()
   p1 <- p1 + theme(legend.title = element_blank())
   p1
   print(p1)
+  
+  #----
+  #Yield particip
+  sig_r <- sqrt(sig2_r)
+  x <- seq(0, 50, 0.1)
+  df_y <- data.frame(x = x, y = dlnorm(x, meanlog = log(yCeil) - mu_r, sdlog = sig_r))
+  yStar_min <- yCeil * exp(-1)
+  yStar_max <- yCeil * exp(-0)
+  df_y <- df_y %>% mutate(area = ifelse(x >= yStar_min,
+                                        "Participating", "Not Participating"))
+  p1 <- ggplot(data = df_y, aes(x = x, ymin = 0, ymax = y, fill = area))
+  p1 <- p1 + geom_ribbon()
+  p1 <- p1 + theme(legend.title = element_blank())
+  p1
+  
+  #----
+  
 }
 #=====================================
 
@@ -623,14 +666,14 @@ df_Equilib <- data.frame(P_equilib = P_equilib_vec,
 #------------
 gg <- ggplot()
 gg <- gg + geom_line(data = df_Q_mktPart,
-                      aes(x = P, y = QS, 
-                          group = `Mean production\ncost (lcu/MT)`,
-                          color = `Mean production\ncost (lcu/MT)`),
+                     aes(x = P, y = QS, 
+                         group = `Mean production\ncost (lcu/MT)`,
+                         color = `Mean production\ncost (lcu/MT)`),
                      size = 2)
 gg <- gg + geom_line(data = df_Q_mktPart,
-                      aes(x = P, y = QD, 
-                          group = `Mean production\ncost (lcu/MT)`,
-                          color = `Mean production\ncost (lcu/MT)`),
+                     aes(x = P, y = QD, 
+                         group = `Mean production\ncost (lcu/MT)`,
+                         color = `Mean production\ncost (lcu/MT)`),
                      size = 2)
 gg <- gg + geom_point(data = df_Equilib, aes(x = P_equilib, y = Q_equilib), size = 3)
 #gg <- gg + geom_line(data = df_Equilib, aes(x = P_equilib, y = Q_equilib), color="blue", size = 1.5)
@@ -710,7 +753,7 @@ for(j in 1:last_j){
     if(i == 1 & j == 1){
       NRstar_statQuo <- NR_equilib
       mktParticip_statQuo <- mktParticip_equilib
-      }
+    }
     #-------
     P_equilib_mat[j, i] <- P_equilib
     Q_equilib_mat[j, i] <- Q_equilib
@@ -785,8 +828,8 @@ df_plot <- df_plot[ind_keep, ]
 
 
 gg <- ggplot(df_plot, aes(x = P_equilib, y = Q_equilib,
-                             # group = `PP reduction\nfactory processing\n cost`,
-                             # color = `PP reduction\nfactory processing\n cost`))
+                          # group = `PP reduction\nfactory processing\n cost`,
+                          # color = `PP reduction\nfactory processing\n cost`))
                           group = mu_Cq,
                           color = mu_Cq))
 gg <- gg + geom_line(size = 2)
