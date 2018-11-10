@@ -5,9 +5,9 @@ library(tidyr)
 library(fields)
 #-------------
 # Thai Cassava farm survey
-setwd("D:/OneDrive - CGIAR/Documents")
-df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-#df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+#setwd("D:/OneDrive - CGIAR/Documents")
+#df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
 colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
@@ -264,7 +264,7 @@ mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
 mkt_participation
 Nv_rL0 - Nv_rLmax
 #--
-QS <- N0 * mu_A * mu_yStar_implied * mkt_participation
+QS <- N0 * mu_A * mu_yStar_implied / s_qStar * mkt_participation
 df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
 #--
 if(plot_particip == T){
@@ -283,7 +283,7 @@ if(plot_particip == T){
     adopt_rate
     #--
     df_x <- df_x %>% mutate(area_alt = ifelse(x >= v_rLmax_alt & x < v_rL0_alt,
-                                          "Participating", "Not Participating"))
+                                              "Participating", "Not Participating"))
     
     p2 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area_alt))
     p2 <- p2 + geom_ribbon()
@@ -291,7 +291,7 @@ if(plot_particip == T){
     p2
     
     df_x <- df_x %>% mutate(area_base = ifelse(x >= v_rLmax & x < v_rL0_base,
-                                           "Participating", "Not Participating"))
+                                               "Participating", "Not Participating"))
     
     p3 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area_base))
     p3 <- p3 + geom_ribbon()
