@@ -1,0 +1,59 @@
+#==========================================
+#Dominican Republic
+#DR Arabica
+current_suitability <- 427.861221979372200
+future_suitability <- 269.156296129804100
+DR_Arabica <- round((current_suitability - future_suitability) / current_suitability, 2)
+DR_Arabica
+#DR Robusta
+current_suitability <- 768.684445619583130
+future_suitability <- 591.890455067157750
+DR_Robusta <- round((current_suitability - future_suitability) / current_suitability, 2)
+DR_Robusta
+#==========================================
+#==========================================
+#Honduras
+#Honduras Arabica
+current_suitability <- 1897.708065
+future_suitability <- 705.4708513
+Hond_Arabica <- round((current_suitability - future_suitability) / current_suitability, 2)
+Hond_Arabica
+#Honduras Robusta
+current_suitability <- 2320.379349
+future_suitability <- 1683.398244
+Hond_Robusta <- round((current_suitability - future_suitability) / current_suitability, 2)
+Hond_Robusta
+#==========================================
+setwd("D:/OneDrive - CGIAR/Documents")
+library(stringr)
+library(tidyverse)
+
+folder <- "BID Country Briefs/Bunn coffee/"
+thisvec <- c("robust", "arabica")
+whenvec <- c("current", "future")
+df_list <- list()
+t <- 0
+for(i in 1:2){
+  this <- thisvec[i]
+  for(j in 1:2){
+    when <- whenvec[j]
+    filename <- paste0(folder, this, "_", when, ".csv")
+    df <- read.csv(filename, stringsAsFactors = F)
+    df$Crop <- paste(this, "coffee")
+    df$When <- str_to_title(when)
+    df <- df[, c("COUNTRY", "COUNT", "Crop", "When", "SUM")]
+    colnames(df)[c(1, 2, 5)] <- c("Country", "Count", "Sum")
+    if(i == 1 & j == 1){df_Count <- df[, c("Country", "Count")]}
+    df$Count <- NULL
+    t <- t + 1
+    df_list[[t]] <- df
+    rm(df)
+  }
+}
+df <- do.call(rbind, df_list)
+df <- df %>% spread(When, Sum)
+df$Pct_change <- round(100 * (df$Future - df$Current) / df$Current, 1)
+df <- merge(df, df_Count)
+filename_writeTo <- paste0(folder, "Bunn Coffee Suitability All.csv")
+write.csv(df, filename_writeTo, row.names = F)
+
