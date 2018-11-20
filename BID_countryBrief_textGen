@@ -3,7 +3,8 @@ library(tidyverse)
 library(quantmod)
 setwd("D:/OneDrive - CGIAR/Documents")
 
-country_vec <- c("Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
+country_vec <- c("Uruguay", "Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
+country_code_agExport <- c("URY", "HND", "COL", "PER", "BLZ", "CRI", "MEX", "PAN")
 indicator_vec <- c("Agriculture, forestry, and fishing, value added (% of GDP)",
                    "Agricultural raw materials exports (% of merchandise exports)",
                    "Employment in agriculture (% of total employment) (modeled ILO estimate)")
@@ -77,7 +78,6 @@ for(i in 1:n_countries){
   outlist[[i]] <- rbind(df_1, df_2)
 }
 df <- do.call(rbind, outlist)
-
 #colnames(df)
 df_chng <- df[, c("Country", "Indicator", "RollPPChng")]
 df_cv <- df[, c("Country", "Indicator", "RollPPChng_cv")]
@@ -95,32 +95,93 @@ df_wdi[, -1] <- round(df_wdi[, -1], 1)
 AgPctLabor_RollPPChng_thresh <- -2
 AgPctExp_thresh <- 2
 
-this_country <- "Colombia"
+this_country <- "Panama"
 ind_this_country <- which(df_wdi$Country == this_country)
 AgPctLabor <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) Value"]
 AgPctLabor_RollPPChng <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) RollPPChng"]
 AgPctGDP <- df_wdi[ind_this_country, "Agriculture, forestry, and fishing, value added (% of GDP) Value"]
 AgPctExp <- df_wdi[ind_this_country, "Agricultural raw materials exports (% of merchandise exports) Value"]
 
-
-str_opt1 <- "The agricultural sector plays an "
-str_opt2 <- "important role in "
-str_opt3 <- "important but declining role in "
-str_opt4 <- paste0(", accounting for ", AgPctGDP, "% of GDP and ", AgPctExp, "% of exports. ")
-str_opt5 <- paste0(", accounting for ", AgPctGDP, "% of GDP. ")
-str_opt6 <- paste0("Jobs in agriculture account for ", AgPctLabor, "% of all employment in the country, down ",
-                   abs(AgPctLabor_RollPPChng), " percentage points (pp) from ", rollpp_per," years ago.")
-str_opt7 <- ""
-
-
-str1 <- str_opt1
-str2 <- ifelse(AgPctLabor_RollPPChng > AgPctLabor_RollPPChng_thresh, str_opt2, str_opt3)
-str3 <- ifelse(AgPctExp >= AgPctExp_thresh, str_opt4, str_opt5)
-str4 <- ifelse(AgPctLabor_RollPPChng > AgPctLabor_RollPPChng_thresh, str_opt7, str_opt6)
-cat(str1, str2, this_country, str3, str4, sep = "")
-
-
-
+str_period <- "."
+#--
+#Intro vocab
+str_intro1 <- "Agriculture plays an "
+str_intro2 <- "important role in "
+str_intro3 <- "important but declining role in "
+#str_intro4 <- paste0(", accounting for ", AgPctGDP, "% of GDP and ", AgPctExp, "% of exports. ")
+#str_intro5 <- paste0(", accounting for ", AgPctGDP, "% of GDP. ")
+#--
+#Ag GDP vocab
+str_agGDP1 <- "The sector accounts for "
+str_agGDP2up <- "% of GDP, up "
+str_agGDP2dn <- "% of GDP, down "
+str_agGDP3 <- " percentage points (pp) from a peak of "
+str_agGDP4 <- "% in "
+#--
+#Employment vocab
+str_employ1 <- "Jobs in agriculture account for "
+str_employ2up <- "% of all employment in the country, up "
+str_employ2dn <- "% of all employment in the country, down "
+str_employ3 <- " pp from "
+str_employ4 <- " years ago."
+#--
+#Ag exports vocab
+str_agExports1 <- "Crop products accounted for "
+str_agExports2 <- "% of all exports in "
+str_agExports3up <- ", up "
+str_agExports3dn <- ", down "
+str_agExports4 <- " pp from "
+#----------------------
+#Intro sentence
+str1 <- str_intro1
+str2 <- ifelse(AgPctLabor_RollPPChng > AgPctLabor_RollPPChng_thresh, str_intro2, str_intro3)
+sent_intro <- paste0(str1, str2, this_country, str_period)
+#Ag GDP sentence
+df_agGDP <- subset(WDI_slope,
+                   Indicator == "Agriculture, forestry, and fishing, value added (% of GDP)" &
+                     Country == this_country)
+ggplot(df_agGDP, aes(x = Year, y = Value)) + geom_line()
+agGDP_extrm <- round(max(df_agGDP$Value), 1)
+year_agGDP_extrm <- df_agGDP$Year[which(df_agGDP$Value == max(df_agGDP$Value))]
+agGDPChng <- AgPctGDP - agGDP_extrm
+sent_agGDP <- paste0(str_agGDP1, AgPctGDP, str_agGDP2dn, abs(agGDPChng), str_agGDP3,
+                     agGDP_extrm, str_agGDP4, year_agGDP_extrm, str_period)
+#Employment sentence
+str1 <- str_employ1
+str2 <- ifelse(AgPctLabor_RollPPChng < 0, str_employ2dn, str_employ2up)
+str3 <- str_employ3
+str4 <- str_employ4
+sent_employment <- paste0(str1, AgPctLabor, str2,
+                   abs(AgPctLabor_RollPPChng), str3, rollpp_per, str4)
+#Ag exports as pct of all exports (WDI figures look weird)
+prefix_agExport <- "en_"
+suffix_agExport <- "_AllYears_WITS_Trade_Summary.csv"
+ind_agExport <- which(country_vec == this_country)
+this_country_code_agExport <- country_code_agExport[ind_agExport]
+filename <- paste0(prefix_agExport, this_country_code_agExport, suffix_agExport)
+df_agExports <- read.csv(filename, stringsAsFactors = F)
+df_agExports <- subset(df_agExports, Partner == "World" & Product.categories == "Vegetable" & Indicator == "Export Product share(%)" )
+u <- df_agExports
+colnames(df_agExports)[6:ncol(u)] <- gsub("X", "", colnames(u)[6:ncol(u)])
+gathercols <- colnames(df_agExports)[6:ncol(u)]
+rm(u)
+df_agExports <- df_agExports %>% gather_("Year", "Value", gathercols)
+df_agExports$Year <- as.integer(df_agExports$Year)
+ggplot(df_agExports, aes(x = Year, y = Value)) + geom_line()
+#--
+n_since <- 10
+year_latest <- as.character(df_agExports$Year[1])
+year_since <- as.character(df_agExports$Year[n_since])
+agExport_pctGDP_latest <- round(df_agExports$Value[1], 1)
+agExport_pctGDP_since <- round(df_agExports$Value[n_since], 1)
+ppChng <- round(df_agExports$Value[1] - df_agExports$Value[n_since], 1)
+str1 <- str_agExports1
+str2 <- str_agExports2
+str3 <- ifelse(ppChng < 0, str_agExports3dn, str_agExports3up)
+str4 <- str_agExports4
+sent_agExport <- paste0(str1, agExport_pctGDP_latest, str2, year_latest, str3, ppChng, str4, year_since, str_period)
+#===================
+cat(sent_intro, sent_agGDP, sent_agExport, sent_employment)
 
 
 
