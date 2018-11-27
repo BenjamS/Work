@@ -1,0 +1,212 @@
+library(ggplot2)
+library(rootSolve)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(fields)
+
+#==================================
+# Demand or supply function
+#==================================
+Q_DorS <- function(N, P_input, P_output, 
+                     mu_beta, sig2_beta,
+                     m_yCeil, s2_yCeil,
+                     m_A, s2_A,
+                     rL0 = 1, rLmax = 0,
+                     l_credit = 0){
+  #--------------------------------
+  # mu_r
+  ratio_price <- P_input / P_output * (1 - l_credit)
+  mu_r <- ratio_price * mu_beta
+  #--------------------------------
+  # s_qStar
+  sig2_r <- ratio_price^2 * sig2_beta
+  s2_qStar <- s2_A + s2_yCeil + sig2_r
+  s_qStar <- sqrt(s2_qStar)
+  #--------------------------------
+  # mu_qStar
+  m_qStar <- m_A + m_yCeil - mu_r
+  mu_qStar <- exp(m_qStar + s2_qStar / 2)
+  #--------------------------------
+  # Nvr0, Nvr1
+  # Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
+  if(sig2_beta != 0){
+    vrLmax <- (rLmax - mu_r + s2_qStar) / s_qStar
+    vrL0 <- (rL0 - mu_r + s2_qStar) / s_qStar
+    NvrLmax <- pnorm(vrLmax)
+    NvrL0 <- pnorm(vrL0)
+    #--------------------------------
+    # QD
+    mkt_participation <- (1 - NvrL0 + NvrLmax)
+    Q_D_or_S <- N * mu_qStar * mkt_participation
+  }else{
+    Q_D_or_S <- mu_qStar
+  }
+  #--------------------------------
+  df_out <- data.frame(Q_D_or_S, mkt_participation)
+  return(df_out)
+}
+
+#==================================
+#==================================
+# Define price range
+P_feedstock <- seq(1, 7000, 100)
+#---------------------------------
+# Demand side
+N_D <- 12
+P_factryProduct <- 14000
+mu_factry_efficiency <- 4.21
+cv_factry_efficiency <- 0.1
+sig2_factry_efficiency <- (mu_factry_efficiency * cv_factry_efficiency)^2
+m_yCeil_factry <- log(1000)
+cv_lyCeil_factry <- 0.1
+s2_yCeil_factry <- (m_yCeil_factry * cv_lyCeil_factry)^2
+m_A_factry <- 0
+cv_lA_factry <- 0
+s2_A_factry <- (m_A_factry * cv_lA_factry)^2
+#---------------------------------
+# Supply side
+N_S <- 20
+mu_cost_per_farmProduct <- 1520.366
+cv_cost_per_farmProduct <- 0.2
+sig2_cost_per_farmProduct <- (mu_cost_per_farmProduct * cv_cost_per_farmProduct)^2
+m_yCeil_farm <- log(43.8375)
+cv_lyCeil_farm <- 0
+s2_yCeil_farm <- (m_yCeil_farm * cv_lyCeil_farm)^2
+m_A_farm <- log(4.673574)
+cv_lA_farm <- 0.5466573
+s2_A_farm <- (m_A_farm * cv_lA_farm)^2
+#==================================
+# Demand curve
+N <- N_D
+P_input <- P_feedstock
+P_output <- P_factryProduct
+mu_beta <- mu_factry_efficiency
+sig2_beta <- sig2_factry_efficiency
+m_yCeil <- m_yCeil_factry
+s2_yCeil <- s2_yCeil_factry
+m_A <- m_A_factry
+s2_A <- s2_A_factry
+l_credit <- 0
+
+
+df_QD <- Q_DorS(N, P_input, P_output,
+               mu_beta, sig2_beta,
+               m_yCeil, s2_yCeil,
+               m_A, s2_A,
+               rL0 = 1, rLmax = 0,
+               l_credit)
+colnames(df_QD) <- c("QD", "D_mkt_particip")
+df_QD$P_fdstk <- P_feedstock
+df_plot <- df_QD
+gg <- ggplot(df_plot, aes(x = P_fdstk, y = QD))
+gg <- gg + geom_line()
+gg
+gg <- ggplot(df_plot, aes(x = P_fdstk, y = D_mkt_particip))
+gg <- gg + geom_line()
+gg
+
+#==================================
+# Supply curve
+N <- N_S
+P_input <- 1
+P_output <- P_feedstock
+mu_beta <- mu_cost_per_farmProduct
+sig2_beta <- sig2_cost_per_farmProduct
+m_yCeil <- m_yCeil_farm
+s2_yCeil <- s2_yCeil_farm
+m_A <- m_A_farm
+s2_A <- s2_A_farm
+l_credit <- 0
+
+
+
+df_QS <- Q_DorS(N, P_input, P_output,
+             mu_beta, sig2_beta,
+             m_yCeil, s2_yCeil,
+             m_A, s2_A,
+             rL0 = 1, rLmax = 0,
+             l_credit)
+colnames(df_QS) <- c("QS", "S_mkt_particip")
+df_QS$P_fdstk <- P_feedstock
+df_plot <- df_QS
+gg <- ggplot(df_plot, aes(x = P_fdstk, y = QS))
+gg <- gg + geom_line()
+gg
+
+gg <- ggplot(df_plot, aes(x = P_fdstk, y = S_mkt_particip))
+gg <- gg + geom_line()
+gg
+
+
+
+
+#====================================
+
+rootfun <- function(N_S, P_feedstock, mu_cost_per_farmProduct,
+         sig2_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
+         m_A_farm, s2_A_farm,
+         N_D, P_factryProduct, mu_factry_efficiency,
+         sig2_factry_efficiency, m_yCeil_factry, s2_yCeil_factry,
+         m_A_factry, s2_A_factry){
+  df_QS <- Q_DorS(N = N_S,
+                  P_input = 1,
+                  P_output = P_feedstock, 
+                  mu_beta = mu_cost_per_farmProduct,
+                  sig2_beta = sig2_cost_per_farmProduct,
+                  m_yCeil = m_yCeil_farm,
+                  s2_yCeil = s2_yCeil_farm,
+                  m_A = m_A_farm, 
+                  s2_A = s2_A_farm,
+                  rL0 = 1, rLmax = 0,
+                  l_credit = 0)
+  colnames(df_QS) <- c("QS", "S_mkt_particip")
+
+  df_QD <- Q_DorS(N = N_D,
+                  P_input = P_feedstock,
+                  P_output = P_factryProduct,
+                  mu_beta = mu_factry_efficiency,
+                  sig2_beta = sig2_factry_efficiency,
+                  m_yCeil = m_yCeil_factry,
+                  s2_yCeil = s2_yCeil_factry,
+                  m_A = m_A_factry,
+                  s2_A = s2_A_factry,
+                  rL0 = 1, rLmax = 0,
+                  l_credit = 0)
+  colnames(df_QD) <- c("QD", "D_mkt_particip")
+  
+  slack <- df_QS$QS - df_QD$QD
+  return(slack)
+  
+  
+}
+
+interval <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
+roots <- uniroot.all(rootfun, interval,
+                     lower = min(interval), upper = max(interval),
+                     N_S = N_S, 
+                     P_feedstock = P_feedstock,
+                     mu_cost_per_farmProduct = mu_cost_per_farmProduct,
+                     sig2_cost_per_farmProduct = sig2_cost_per_farmProduct,
+                     m_yCeil_farm = m_yCeil_farm,
+                     s2_yCeil_farm = s2_yCeil_farm,
+                     m_A_farm = m_A_farm,
+                     s2_A_farm = s2_A_farm,
+                     N_D = N_D,
+                     P_factryProduct = P_factryProduct,
+                     mu_factry_efficiency = mu_factry_efficiency,
+                     sig2_factry_efficiency = sig2_factry_efficiency,
+                     m_yCeil_factry = m_yCeil_factry,
+                     s2_yCeil_factry = s2_yCeil_factry,
+                     m_A_factry = m_A_factry,
+                     s2_A_factry = s2_A_factry)
+
+
+
+df_QSQD <- merge(df_QS, df_QD, by = "P_fdstk")
+df_QSQD <- df_QSQD[, c("P_fdstk", "S_mkt_particip", "D_mkt_particip", "QS", "QD")]
+df_QSQD <- df_QSQD %>% gather(Type, Value, QS:QD)
+gg <- ggplot(df_QSQD, aes(x = P_fdstk, y = Value, color = Type, group = Type))
+gg <- gg + geom_line()
+gg
+
