@@ -1,8 +1,5 @@
-setwd("D:/OneDrive - CGIAR/Documents/CSAIP Africa")
-
 options(digits=3) 
 options(scipen = 999)
-
 library(ggplot2)
 library(plyr)
 library(dplyr)
@@ -11,22 +8,43 @@ library(ggthemes)
 library(gridExtra)
 library(grid)
 library(lattice)
-#=============
+#============================
 #NOTE:
 #CSAIP.csv = SSP2, RCP 4.5
 #CSAIPV2.csv = SSP3, RCP 8.5
-#=============
+#============================
 
-df_raw <- read.csv("CSAIPV2.csv", stringsAsFactors = F)
+
+#setwd("D:/OneDrive - CGIAR/Documents/CSAIP Africa")
+setwd("//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/WB/IMPACTResults")
+#=======================================
+#=======================================
+#=======================================
+#df_raw <- read.csv("CSAIPV2.csv", stringsAsFactors = F)
+#=======================================
+rcp_vec <- c("2.6", "4.5", "6.0", "8.5")
+i=1
+kk <- list.files()
+kk <- kk[grep(pattern = rcp_vec[i], x = kk)]
+df_raw <- lapply(kk, read.csv, stringsAsFactors = F) ### load data
+df_raw <- do.call(rbind, df_raw)
+#=======================================
 #unique(df_raw$impactparameter)
 #unique(df_raw$commodity)
 #unique(df_raw$scenario)
+unique(df_raw$productiontype)
 df <- subset(df_raw, year > 2017)
-these_impacts <- c("TAreaXAgg -- Total Area", "TYldXAgg -- Total Yield", 
+# these_impacts <- c("TAreaXAgg -- Total Area", "TYldXAgg -- Total Yield", 
+#                    "PerCapKCalCXAgg -- PcKcal by Commodity", "AnmlYldXAgg -- Animal Yield",
+#                    "QNSH2XAgg -- Net Trade Share of Demand",
+#                    "QNXAgg -- Net Trade",
+#                    "QMXAgg -- Import")
+these_impacts <- c("AreaXAgg -- Area", "YldXAgg -- Yield", 
                    "PerCapKCalCXAgg -- PcKcal by Commodity", "AnmlYldXAgg -- Animal Yield",
                    "QNSH2XAgg -- Net Trade Share of Demand",
                    "QNXAgg -- Net Trade",
                    "QMXAgg -- Import")
+
 df <- subset(df, impactparameter %in% these_impacts)
 df$impactparameter[grep("Yield", df$impactparameter)] <- "Yield"
 df$impactparameter[grep("Area", df$impactparameter)] <- "Area"
@@ -37,7 +55,7 @@ df$impactparameter[grep("QNXAgg", df$impactparameter)] <- "Net Trade"
 df$impactparameter[grep("QMXAgg", df$impactparameter)] <- "Import"
 unique(df$scenario)
 unique(df$productiontype)
-df$productiontype <- NULL
+#df$productiontype <- NULL
 #unique(df$commodity)
 #unique(df$impactparameter)
 #df$commodity <- gsub(".*\\-", "", df$commodity)
@@ -45,11 +63,13 @@ df$productiontype <- NULL
 #-----------------------------
 # Separate fruits from vegetables
 u <- df$commodity
+unique(u)
 df$commodity[grep("Vegetables", u)] <- "Veggies"
 df$commodity[which(u == "F&V")] <- "Fruits & Veggies"
 u <- df$commodity
 df$commodity <- gsub("F&V", "Fruits", u)
 u <- df$commodity
+unique(u)
 ind_fruitAgg <- setdiff(grep("Fruits", u), which(u %in% c("Fruits", "Fruits & Veggies")))
 df_fruitAgg <- df[ind_fruitAgg, ]
 df_fruitAgg_sum <- subset(df_fruitAgg, impactparameter %in% c("Net Trade", "Area", "PerCapKCalC", "Import", "Net Trade Share of Demand"))
@@ -75,6 +95,11 @@ df_CC <- df_CC %>% group_by(region, commodity, year, impactparameter) %>% summar
 #df_CC$scenario <- "CC"
 df_diff <- join_all(list(df_NoCC, df_CC))
 #unique(df_diff$year)
+
+
+df_x <- subset(df_diff, impactparameter == "Yield")
+df_x$pctDiff <- (df_x$`Value CC` - df_x$`Value No CC`) / df_x$`Value No CC` * 100
+df_x <- subset(df_x, year == 2020)
 #================================
 #--Yield
 fun <- function(this_col){(this_col - this_col[1]) / this_col[1] * 100}
