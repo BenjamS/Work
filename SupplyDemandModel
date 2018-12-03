@@ -8,6 +8,10 @@ library(fields)
 #==================================
 # Demand or supply function
 #==================================
+#==================================
+#==================================
+#==================================
+#==================================
 Q_DorS <- function(N, P_input, P_output, 
                      mu_beta, sig2_beta,
                      m_yCeil, s2_yCeil,
@@ -31,29 +35,128 @@ Q_DorS <- function(N, P_input, P_output,
   # Nvr0, Nvr1
   # Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
   if(sig2_beta != 0){
-    vrLmax <- (rLmax - mu_r + s2_qStar) / s_qStar
-    vrL0 <- (rL0 - mu_r + s2_qStar) / s_qStar
+    vrLmax <- (-rLmax + mu_r - s2_qStar) / s_qStar
+    vrL0 <- (-rL0 + mu_r - s2_qStar) / s_qStar
     NvrLmax <- pnorm(vrLmax)
     NvrL0 <- pnorm(vrL0)
     #--------------------------------
-    # QD
-    mkt_participation <- (1 - NvrL0 + NvrLmax)
+    # QD or QS
+    mkt_participation <- (1 + NvrLmax - NvrL0) / 2
     Q_D_or_S <- N * mu_qStar * mkt_participation
   }else{
     Q_D_or_S <- mu_qStar
   }
   #--------------------------------
+  if(rL0 == 0 & rLmax == 0){
+    Q_D_or_S <- 0
+    mkt_participation <- NA
+    }
+  #--------------------------------
   df_out <- data.frame(Q_D_or_S, mkt_participation)
   return(df_out)
 }
-
 #==================================
+#==================================
+#==================================
+#==================================
+# Define net revenue functions for suppliers and demanders
+# NR Demander (factory)
+NR_DEM <- function(r, P, l_credit = 0){
+  NR <- P * exp(-r) * ((1 - l_credit) / r - 1)
+  return(NR)
+}
+# NR Supplier (farm)
+NR_SUP <- function(r, P, l_credit = 0){
+  term <- r * (1 - l_credit)
+  NR <- P * exp(-term) * (1 - term / (1 - l_credit))
+  return(NR)
+}
+#==================================
+#==================================
+#==================================
+#==================================
+# Define Demand and Supply NR0 - NR1 functions to feed into root solver
+# Demand NR0 - NR1 function
+NR0_minus_NR1_DEM <- function(r0, P0, P1, eta, l_credit = 0, graph_only = F){
+  r1 <- r0 * P1 / P0 * eta
+  Baseline <- P0 * exp(-r0) * ((1 - l_credit) / r0 - 1)
+  Alternative <- P1 * exp(-r1) * ((1 - l_credit) / r1 - 1)
+  NR0_minus_NR1 <- Baseline - Alternative
+  if(graph_only == T){
+    df_plot <- data.frame(r0, Baseline, Alternative, Difference = NR0_minus_NR1)
+    df_plot <- df_plot %>% gather(Type, `Net revenue`, Baseline:Difference)
+    gg <- ggplot(df_plot, aes(x = r0, y = `Net revenue`, group = Type, color = Type))
+    gg <- gg + geom_line()
+    gg <- gg + coord_cartesian(ylim = c(-1000, 3000), xlim = c(-1, 2.5))
+    gg <- gg + geom_hline(yintercept = 0, color = "red")
+    print(gg)
+  }else{  
+    return(NR0_minus_NR1)
+  }
+}
+# Try it out
+# eta <- eta_factry
+# P0 <- Pe00
+# P1 <- P_feedstock[5500]
+# l_credit <- 0
+# interval <- c(r0[1], r0[length(r0)])
+# roots <- uniroot.all(NR0_minus_NR1_DEM, interval,
+#                      lower = min(interval), upper = max(interval),
+#                      P0 = P0, P1 = P1, eta = eta, l_credit = l_credit)
+# roots
+# NR0_minus_NR1_DEM(r0, P0, P1, eta, l_credit, graph_only = T)
+#====================================
+#====================================
+#====================================
+#====================================
+# Supply NR0 - NR1 function
+NR0_minus_NR1_SUP <- function(r0, P0, P1, eta, l_credit = 0, graph_only = F){
+  term0 <- r0 * (1 - l_credit)
+  r1 <- r0 * P0 / P1 * eta
+  term1 <- r1 * (1 - l_credit)
+  Baseline <- P0 * exp(-term0) * (1 - term0 / (1 - l_credit))
+  Alternative <- P1 * exp(-term1) * (1 - term1 / (1 - l_credit))
+  NR0_minus_NR1 <- Baseline - Alternative
+  if(graph_only == T){
+    df_plot <- data.frame(r0, Baseline, Alternative, Difference = NR0_minus_NR1)
+    df_plot <- df_plot %>% gather(Type, `Net revenue`, Baseline:Difference)
+    gg <- ggplot(df_plot, aes(x = r0, y = `Net revenue`, group = Type, color = Type))
+    gg <- gg + geom_line()
+    gg <- gg + coord_cartesian(ylim = c(-1000, 3000), xlim = c(-1, 2.5))
+    gg <- gg + geom_hline(yintercept = 0, color = "red")
+    print(gg)
+  }else{  
+    return(NR0_minus_NR1)
+  }
+}
+#Try it out
+# eta <- eta_farm
+# P0 <- Pe00
+# P1 <- P_feedstock[4100]
+# l_credit <- 0
+# interval <- c(r0[1], r0[length(r0)])
+# roots <- uniroot.all(NR0_minus_NR1_SUP, interval,
+#                      lower = min(interval), upper = max(interval),
+#                      P0 = P0, P1 = P1, eta = eta, l_credit = l_credit)
+# roots
+# NR0_minus_NR1_SUP(r0, P0, P1, eta, l_credit, graph_only = T)
+#==================================
+#==================================
+#==================================
+#==================================
+#==================================
+# (End function definition)
+#==================================
+#==================================
+#==================================
+#==================================
+# Baseline market, before release of new tech
 #==================================
 # Define price range
-P_feedstock <- seq(1, 7000, 100)
-#---------------------------------
-# Demand side
-N_D <- 12
+P_feedstock <- seq(100, 6000, 1)
+#==================================
+# Demand side parameters
+N_D <- 5
 P_factryProduct <- 14000
 mu_factry_efficiency <- 4.21
 cv_factry_efficiency <- 0.1
@@ -64,8 +167,8 @@ s2_yCeil_factry <- (m_yCeil_factry * cv_lyCeil_factry)^2
 m_A_factry <- 0
 cv_lA_factry <- 0
 s2_A_factry <- (m_A_factry * cv_lA_factry)^2
-#---------------------------------
-# Supply side
+#==================================
+# Supply side parameters
 N_S <- 20
 mu_cost_per_farmProduct <- 1520.366
 cv_cost_per_farmProduct <- 0.2
@@ -77,7 +180,8 @@ m_A_farm <- log(4.673574)
 cv_lA_farm <- 0.5466573
 s2_A_farm <- (m_A_farm * cv_lA_farm)^2
 #==================================
-# Demand curve
+#==================================
+# Demand curve plot
 N <- N_D
 P_input <- P_feedstock
 P_output <- P_factryProduct
@@ -88,8 +192,7 @@ s2_yCeil <- s2_yCeil_factry
 m_A <- m_A_factry
 s2_A <- s2_A_factry
 l_credit <- 0
-
-
+#----------------------------------
 df_QD <- Q_DorS(N, P_input, P_output,
                mu_beta, sig2_beta,
                m_yCeil, s2_yCeil,
@@ -97,17 +200,17 @@ df_QD <- Q_DorS(N, P_input, P_output,
                rL0 = 1, rLmax = 0,
                l_credit)
 colnames(df_QD) <- c("QD", "D_mkt_particip")
-df_QD$P_fdstk <- P_feedstock
+df_QD$`Feedstock Price` <- P_feedstock
 df_plot <- df_QD
-gg <- ggplot(df_plot, aes(x = P_fdstk, y = QD))
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = QD))
 gg <- gg + geom_line()
 gg
-gg <- ggplot(df_plot, aes(x = P_fdstk, y = D_mkt_particip))
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = D_mkt_particip))
 gg <- gg + geom_line()
 gg
-
 #==================================
-# Supply curve
+#==================================
+# Supply curve plot
 N <- N_S
 P_input <- 1
 P_output <- P_feedstock
@@ -118,9 +221,7 @@ s2_yCeil <- s2_yCeil_farm
 m_A <- m_A_farm
 s2_A <- s2_A_farm
 l_credit <- 0
-
-
-
+#----------------------------------
 df_QS <- Q_DorS(N, P_input, P_output,
              mu_beta, sig2_beta,
              m_yCeil, s2_yCeil,
@@ -128,85 +229,534 @@ df_QS <- Q_DorS(N, P_input, P_output,
              rL0 = 1, rLmax = 0,
              l_credit)
 colnames(df_QS) <- c("QS", "S_mkt_particip")
-df_QS$P_fdstk <- P_feedstock
+df_QS$`Feedstock Price` <- P_feedstock
 df_plot <- df_QS
-gg <- ggplot(df_plot, aes(x = P_fdstk, y = QS))
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = QS))
 gg <- gg + geom_line()
 gg
 
-gg <- ggplot(df_plot, aes(x = P_fdstk, y = S_mkt_particip))
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = S_mkt_particip))
 gg <- gg + geom_line()
 gg
-
-
-
 
 #====================================
-
-rootfun <- function(N_S, P_feedstock, mu_cost_per_farmProduct,
-         sig2_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
-         m_A_farm, s2_A_farm,
-         N_D, P_factryProduct, mu_factry_efficiency,
-         sig2_factry_efficiency, m_yCeil_factry, s2_yCeil_factry,
-         m_A_factry, s2_A_factry){
-  df_QS <- Q_DorS(N = N_S,
-                  P_input = 1,
-                  P_output = P_feedstock, 
-                  mu_beta = mu_cost_per_farmProduct,
-                  sig2_beta = sig2_cost_per_farmProduct,
-                  m_yCeil = m_yCeil_farm,
-                  s2_yCeil = s2_yCeil_farm,
-                  m_A = m_A_farm, 
-                  s2_A = s2_A_farm,
-                  rL0 = 1, rLmax = 0,
-                  l_credit = 0)
-  colnames(df_QS) <- c("QS", "S_mkt_particip")
-
-  df_QD <- Q_DorS(N = N_D,
-                  P_input = P_feedstock,
-                  P_output = P_factryProduct,
-                  mu_beta = mu_factry_efficiency,
-                  sig2_beta = sig2_factry_efficiency,
-                  m_yCeil = m_yCeil_factry,
-                  s2_yCeil = s2_yCeil_factry,
-                  m_A = m_A_factry,
-                  s2_A = s2_A_factry,
-                  rL0 = 1, rLmax = 0,
-                  l_credit = 0)
-  colnames(df_QD) <- c("QD", "D_mkt_particip")
+#====================================
+#====================================
+# Baseline Demand and Supply Together (aka the market, PE model, etc.)
+# Here we get Pe the baseline equilibrium price before release of the alternative
+d <- df_QS$QS - df_QD$QD
+d_abs <- abs(d)
+min_d_abs <- min(d_abs)
+min_d_abs
+ind_Pe <- which(d_abs == min_d_abs)
+#------------------------------------
+# Equilibrium price and quantity before release
+Pe00 <- P_feedstock[ind_Pe]
+Qe00 <- df_QS$QS[ind_Pe]
+Demand_rAdopt <- 1
+Supply_rAdopt <- 1
+Demand_particip <- df_QD$D_mkt_particip[ind_Pe]
+Supply_particip <- df_QS$S_mkt_particip[ind_Pe]
+Tech00 <- "Before release (Baseline)"
+df_Pe00 <- data.frame(Pe = Pe00, Qe = Qe00, Demand_rAdopt, Supply_rAdopt,
+                      Demand_particip, Supply_particip, Tech = Tech00)
+print(df_Pe00)
+#------------------------------------
+df_QSQD <- merge(df_QS, df_QD, by = "Feedstock Price")
+df_QSQD <- df_QSQD[, c("Feedstock Price", "S_mkt_particip", "D_mkt_particip", "QS", "QD")]
+colnames(df_QSQD)[4:5] <- c("Supply", "Demand")
+df_QSQD <- df_QSQD %>% gather(Type, `Quantity (MT)`, Supply:Demand)
+gg <- ggplot()
+gg <- gg + geom_line(data = df_QSQD, aes(x = `Feedstock Price`, y = `Quantity (MT)`, color = Type, group = Type), lwd = 2)
+gg <- gg + geom_point(data = df_Pe00, aes(x = Pe00, y = Qe00), size = 3, color = "green")
+gg <- gg + theme(legend.title = element_blank())
+gg
+#====================================
+# Baseline market mean net revenue
+# Demand side:
+mu_r_DEM00 <- Pe00 / P_factryProduct * mu_factry_efficiency
+mu_NRe_DEM00 <- NR_DEM(mu_r_DEM00, Pe00, l_credit = 0)
+# Supply side:
+mu_r_SUP00 <- 1 / Pe00 * mu_cost_per_farmProduct
+mu_NRe_SUP00 <- NR_SUP(mu_r_SUP00, Pe00, l_credit = 0)
+#====================================
+#====================================
+#====================================
+#====================================
+#====================================
+# Now same market but with release of alternative tech
+r0 <- seq(0, 1, 0.001)
+eta_farm <- 1.15
+eta_factry <- 0.9
+#====================================
+n <- length(eta_vec)
+mat_PctChng_muNReDEM1 <- matrix(NA, n, n)
+mat_PctChng_muNReSUP1 <- matrix(NA, n, n)
+mat_MktParticipDEM1 <- matrix(NA, n, n)
+mat_MktParticipSUP1 <- matrix(NA, n, n)
+#====================================
+#====================================
+#====================================
+# Get roots, adoption cutoff r values for each alternative price
+#====================================
+# Baseline and alternative demand
+dfQD1_list <- list()
+dfQD0_list <- list()
+eta <- eta_factry
+for(i in 1:length(P_feedstock)){
+  #i <- 4000
+  #i <- 3400
+  this_P <- P_feedstock[i]
+  P0 <- Pe00
+  P1 <- this_P
+  interval <- c(r0[1], r0[length(r0)])
+  roots <- uniroot.all(NR0_minus_NR1_DEM, interval,
+                       lower = min(interval), upper = max(interval),
+                       P0 = P0, P1 = P1, eta = eta)
+  root_keep <- roots[roots > 0 & roots < 1]
   
-  slack <- df_QS$QS - df_QD$QD
-  return(slack)
+  #this_P
+  #roots
+  #NR0_minus_NR1_DEM(r0, P0, P1, eta, graph_only = T)
   
+  d_abs <- abs(r0 - root_keep)
+  ind_r0_root <- which.min(d_abs)
+  #print(min(d_abs))
+  if(length(ind_r0_root) != 0){
+    ind_pos <- which(NR0_minus_NR1_DEM(r0[1:ind_r0_root], P0, P1, eta) > 0)
+    length(ind_pos)
+    Test <- length(ind_pos) == 0 | length(ind_pos) == 1
+    r0_range <- ifelse(rep(Test, 2), c(root_keep, 1), c(0, root_keep))
+    r1_range <- ifelse(rep(Test, 2), c(0, root_keep), c(root_keep, 1))
+    Adopt_Rate <- ifelse(Test, root_keep, 1 - root_keep)
+  }else{
+    ind_pos <- which(NR0_minus_NR1_DEM(r0, P0, P1, eta) > 0)
+    Test <- length(ind_pos) == 0
+    r0_range <- ifelse(rep(Test, 2), c(0, 0), c(0, 1))
+    r1_range <- ifelse(rep(Test, 2), c(0, 1), c(0, 0))
+    Adopt_Rate <- ifelse(Test, 1, 0)
+    
+  }
+  r0_Lmax <- r0_range[1]
+  r0_L0 <- r0_range[2]
+  r1_Lmax <- r1_range[1]
+  r1_L0 <- r1_range[2]
+  #--
+  df_x <- data.frame(this_P, r0_Lmax, r0_L0, r1_Lmax, r1_L0)
+  print(df_x)
+  #--
+  # New tech demand curve
+  N <- N_D
+  P_input <- this_P
+  P_output <- P_factryProduct
+  mu_beta <- mu_factry_efficiency * eta
+  sig2_beta <- (cv_factry_efficiency * mu_beta)^2
+  m_yCeil <- m_yCeil_factry
+  s2_yCeil <- s2_yCeil_factry
+  m_A <- m_A_factry
+  s2_A <- s2_A_factry
+  #------------------
+  rL0 <- r1_L0
+  rLmax <- r1_Lmax
+  #------------------
+  l_credit <- 0
+  df_QD1 <- Q_DorS(N, P_input, P_output,
+                   mu_beta, sig2_beta,
+                   m_yCeil, s2_yCeil,
+                   m_A, s2_A,
+                   rL0, rLmax)
+  df_QD1$Rate <- Adopt_Rate
+  dfQD1_list[[i]] <- df_QD1
+  
+  # Old tech demand curve
+  N <- N_D
+  P_input <- this_P
+  P_output <- P_factryProduct
+  mu_beta <- mu_factry_efficiency
+  sig2_beta <- sig2_factry_efficiency
+  m_yCeil <- m_yCeil_factry
+  s2_yCeil <- s2_yCeil_factry
+  m_A <- m_A_factry
+  s2_A <- s2_A_factry
+  #------------------
+  rL0 <- r0_L0
+  rLmax <- r0_Lmax
+  #------------------
+  l_credit <- 0
+  df_QD0 <- Q_DorS(N, P_input, P_output,
+                   mu_beta, sig2_beta,
+                   m_yCeil, s2_yCeil,
+                   m_A, s2_A,
+                   rL0, rLmax)
+  df_QD0$Rate <- 1 - Adopt_Rate
+  dfQD0_list[[i]] <- df_QD0
   
 }
+df_QD1 <- do.call(rbind, dfQD1_list)
+df_QD0 <- do.call(rbind, dfQD0_list)
+#rm(dfQD1_list, dfQD0_list)
+# df_rS <- do.call(rbind, df_list)
+# rm(df_list)
+# ind <- which(df_rS$r0_L0 != 0 & df_rS$r0_L0 != 1)
+# df_rS[ind, ]
+colnames(df_QD0)[1:2] <- c("Demand (MT)", "D_mkt_particip")
+df_QD0$`Feedstock Price` <- P_feedstock
+df_QD0$Tech <- "Baseline"
+colnames(df_QD1)[1:2] <- c("Demand (MT)", "D_mkt_particip")
+df_QD1$`Feedstock Price` <- P_feedstock
+df_QD1$Tech <- "Alternative"
+df_QD <- rbind(df_QD0, df_QD1)
 
-interval <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
-roots <- uniroot.all(rootfun, interval,
-                     lower = min(interval), upper = max(interval),
-                     N_S = N_S, 
-                     P_feedstock = P_feedstock,
-                     mu_cost_per_farmProduct = mu_cost_per_farmProduct,
-                     sig2_cost_per_farmProduct = sig2_cost_per_farmProduct,
-                     m_yCeil_farm = m_yCeil_farm,
-                     s2_yCeil_farm = s2_yCeil_farm,
-                     m_A_farm = m_A_farm,
-                     s2_A_farm = s2_A_farm,
-                     N_D = N_D,
-                     P_factryProduct = P_factryProduct,
-                     mu_factry_efficiency = mu_factry_efficiency,
-                     sig2_factry_efficiency = sig2_factry_efficiency,
-                     m_yCeil_factry = m_yCeil_factry,
-                     s2_yCeil_factry = s2_yCeil_factry,
-                     m_A_factry = m_A_factry,
-                     s2_A_factry = s2_A_factry)
+df_plot <- df_QD
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Demand (MT)`, group = Tech, color = Tech))
+gg <- gg + geom_point()
+gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+gg
 
-
-
-df_QSQD <- merge(df_QS, df_QD, by = "P_fdstk")
-df_QSQD <- df_QSQD[, c("P_fdstk", "S_mkt_particip", "D_mkt_particip", "QS", "QD")]
-df_QSQD <- df_QSQD %>% gather(Type, Value, QS:QD)
-gg <- ggplot(df_QSQD, aes(x = P_fdstk, y = Value, color = Type, group = Type))
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = Rate, group = Tech, color = Tech))
 gg <- gg + geom_line()
 gg
 
+# df_QDTot <- data.frame(P = df_QD0$`Feedstock Price`, QDTot = df_QD0$QD + df_QD1$QD, Tech = "Both")
+# colnames(df_QDTot)[1] <- "Feedstock Price"
+# gg <- ggplot(df_QDTot, aes(x = `Feedstock Price`, y = QDTot, group = Tech, color = Tech))
+# gg <- gg + geom_line(lwd = 2)
+# gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")
+# gg
+#====================================
+#====================================
+#====================================
+#====================================
+# Baseline and alternative supply
+dfQS1_list <- list()
+dfQS0_list <- list()
+eta <- eta_farm
+for(i in 1:length(P_feedstock)){
+  #i <- 4000
+  #i <- 2900
+  this_P <- P_feedstock[i]
+  P0 <- Pe00
+  P1 <- this_P
+  interval <- c(r0[1], r0[length(r0)])
+  roots <- uniroot.all(NR0_minus_NR1_SUP, interval,
+                       lower = min(interval), upper = max(interval),
+                       P0 = P0, P1 = P1, eta = eta)
+  #print(roots)
+  root_keep <- roots[roots > 0 & roots < 1]
+  
+  #NR0_minus_NR1_SUP(r0, P0, P1, eta, graph_only = T)
+  
+  d_abs <- abs(r0 - root_keep)
+  ind_r0_root <- which.min(d_abs)
+  #print(min(d_abs))
+  if(length(ind_r0_root) != 0){
+    ind_pos <- which(NR0_minus_NR1_SUP(r0[1:ind_r0_root], P0, P1, eta) > 0)
+    length(ind_pos)
+    Test <- length(ind_pos) == 0 | length(ind_pos) == 1
+    r0_range <- ifelse(rep(Test, 2), c(root_keep, 1), c(0, root_keep))
+    r1_range <- ifelse(rep(Test, 2), c(0, root_keep), c(root_keep, 1))
+    Adopt_Rate <- ifelse(Test, root_keep, 1 - root_keep)
+  }else{
+    ind_pos <- which(NR0_minus_NR1_SUP(r0, P0, P1, eta) > 0)
+    Test <- length(ind_pos) == 0
+    r0_range <- ifelse(rep(Test, 2), c(0, 0), c(0, 1))
+    r1_range <- ifelse(rep(Test, 2), c(0, 1), c(0, 0))
+    Adopt_Rate <- ifelse(Test, 1, 0)
+    
+  }
+  r0_Lmax <- r0_range[1]
+  r0_L0 <- r0_range[2]
+  r1_Lmax <- r1_range[1]
+  r1_L0 <- r1_range[2]
+  #--
+  df_x <- data.frame(this_P, r0_Lmax, r0_L0, r1_Lmax, r1_L0)
+  print(df_x)
+  #--
+  # New tech supply curve
+  N <- N_S
+  P_input <- 1
+  P_output <- this_P
+  mu_beta <- mu_cost_per_farmProduct * eta
+  sig2_beta <- (cv_cost_per_farmProduct * mu_beta)^2
+  m_yCeil <- m_yCeil_farm
+  s2_yCeil <- s2_yCeil_farm
+  m_A <- m_A_farm
+  s2_A <- s2_A_farm
+  #------------------
+  rL0 <- r1_L0
+  rLmax <- r1_Lmax
+  #------------------
+  l_credit <- 0
+  df_QS1 <- Q_DorS(N, P_input, P_output,
+                  mu_beta, sig2_beta,
+                  m_yCeil, s2_yCeil,
+                  m_A, s2_A,
+                  rL0, rLmax)
+  df_QS1$Rate <- Adopt_Rate
+  dfQS1_list[[i]] <- df_QS1
+  
+  # Old tech supply curve
+  N <- N_S
+  P_input <- 1
+  P_output <- this_P
+  mu_beta <- mu_cost_per_farmProduct
+  sig2_beta <- sig2_cost_per_farmProduct
+  m_yCeil <- m_yCeil_farm
+  s2_yCeil <- s2_yCeil_farm
+  m_A <- m_A_farm
+  s2_A <- s2_A_farm
+  #------------------
+  rL0 <- r0_L0
+  rLmax <- r0_Lmax
+  #------------------
+  l_credit <- 0
+  df_QS0 <- Q_DorS(N, P_input, P_output,
+                   mu_beta, sig2_beta,
+                   m_yCeil, s2_yCeil,
+                   m_A, s2_A,
+                   rL0, rLmax)
+  df_QS0$Rate <- 1 - Adopt_Rate
+  dfQS0_list[[i]] <- df_QS0
+  
+}
+df_QS1 <- do.call(rbind, dfQS1_list)
+df_QS0 <- do.call(rbind, dfQS0_list)
+#rm(dfQS1_list, dfQS0_list)
+# df_rS <- do.call(rbind, df_list)
+# rm(df_list)
+# ind <- which(df_rS$r0_L0 != 0 & df_rS$r0_L0 != 1)
+# df_rS[ind, ]
+colnames(df_QS0)[1:2] <- c("Supply (MT)", "S_mkt_particip")
+df_QS0$`Feedstock Price` <- P_feedstock
+df_QS0$Tech <- "Baseline"
+colnames(df_QS1)[1:2] <- c("Supply (MT)", "S_mkt_particip")
+df_QS1$`Feedstock Price` <- P_feedstock
+df_QS1$Tech <- "Alternative"
+df_QS <- rbind(df_QS0, df_QS1)
+
+df_plot <- df_QS
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Supply (MT)`, group = Tech, color = Tech))
+gg <- gg + geom_point()
+gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+gg
+
+gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = Rate, group = Tech, color = Tech))
+gg <- gg + geom_line()
+gg
+
+# df_QSTot <- data.frame(P = df_QS0$`Feedstock Price`, QSTot = df_QS0$QS + df_QS1$QS, Tech = "Both")
+# colnames(df_QSTot)[1] <- "Feedstock Price"
+# gg <- ggplot(df_QSTot, aes(x = `Feedstock Price`, y = QSTot, group = Tech, color = Tech))
+# gg <- gg + geom_line(lwd = 2)
+# gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")
+# gg
+
+#====================================
+#====================================
+#====================================
+#====================================
+# Demand and supply of baseline and alternative together
+# (The market)
+# Find new equilibrium price(s)
+d0 <- df_QS0$`Supply (MT)` - df_QD0$`Demand (MT)`
+d1 <- df_QS1$`Supply (MT)` - df_QD1$`Demand (MT)`
+d0_abs <- abs(d0)
+d1_abs <- abs(d1)
+min_d0_abs <- min(d0_abs)
+min_d1_abs <- min(d1_abs)
+
+ind_Pe0 <- which.min(d0_abs)
+Tech = "Baseline"
+Demand_particip0 = df_QD0$D_mkt_particip[ind_Pe0]
+Supply_particip0 = df_QS0$S_mkt_particip[ind_Pe0]
+if(is.na(Demand_particip) | is.na(Supply_particip)){
+  df_Pe0 <- data.frame(Pe = NA, Qe = NA, Demand_rAdopt = NA, Supply_rAdopt = NA,
+                       Demand_particip = NA, Supply_particip = NA, Tech = Tech)
+  
+}else{
+  Qe0 <- df_QS0$`Supply (MT)`[ind_Pe0]
+  Pe0 <- P_feedstock[ind_Pe0]
+  Supply_rAdopt <- df_QS0$Rate[ind_Pe0]
+  Demand_rAdopt <- df_QD0$Rate[ind_Pe0]
+  df_Pe0 <- data.frame(Pe = Pe0, Qe = Qe0, Demand_rAdopt, Supply_rAdopt,
+                       Demand_particip = Demand_particip0,
+                       Supply_particip = Supply_particip0,
+                       Tech = Tech)
+}
+
+
+
+ind_Pe1 <- which.min(d1_abs)
+Tech = "Alternative"
+Demand_particip1 <- df_QD1$D_mkt_particip[ind_Pe1]
+Supply_particip1 <- df_QS1$S_mkt_particip[ind_Pe1]
+if(is.na(Demand_particip) | is.na(Supply_particip)){
+  df_Pe0 <- data.frame(Pe = NA, Qe = NA, Demand_rAdopt = NA, Supply_rAdopt = NA,
+                       Demand_particip = NA, Supply_particip = NA, Tech = Tech)
+  
+}else{
+Pe1 <- P_feedstock[ind_Pe1]
+Qe1 <- df_QS1$`Supply (MT)`[ind_Pe1]
+Supply_rAdopt <- df_QS1$Rate[ind_Pe1]
+Demand_rAdopt <- df_QD1$Rate[ind_Pe1]
+df_Pe1 <- data.frame(Pe = Pe1, Qe = Qe1, Demand_rAdopt, Supply_rAdopt,
+                     Demand_particip = Demand_particip1,
+                     Supply_particip = Supply_particip1,
+                     Tech = Tech)
+}
+
+df_Pe_new <- rbind(df_Pe00, df_Pe0, df_Pe1)
+print(df_Pe_new)
+#write.csv(df_Pe_new, "DEPEA table.csv")
+
+df_QS <- df_QS[, -c(2, 3)]
+df_QD <- df_QD[, -c(2, 3)]
+df_QS$Type <- paste(df_QS$Tech, "Supply")
+colnames(df_QS)[1] <- "Quantity (MT)"
+df_QS$Tech <- NULL
+df_QD$Type <- paste(df_QD$Tech, "Demand")
+colnames(df_QD)[1] <- "Quantity (MT)"
+df_QD$Tech <- NULL
+
+df_QSQD_new <- rbind(df_QS, df_QD)
+df_Mkt_alt <- subset(df_QSQD_new, Type %in% c("Alternative Demand", "Alternative Supply"))
+df_Mkt_base <- subset(df_QSQD_new, Type %in% c("Baseline Demand", "Baseline Supply"))
+gg <- ggplot(df_Mkt_alt, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_point()
+gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+if(!(is.na(df_Pe1$Pe))){gg <- gg + geom_vline(xintercept = df_Pe1$Pe, linetype = "dashed", color = "green")}
+gg <- gg + theme(legend.title = element_blank())
+gg
+
+gg <- ggplot(df_Mkt_base, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_point()
+gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+if(!(is.na(df_Pe0$Pe))){gg <- gg + geom_vline(xintercept = df_Pe0$Pe, linetype = "dashed", color = "green")}
+gg <- gg + theme(legend.title = element_blank())
+gg
+
+# gg <- ggplot(df_QSQD_new, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
+# gg <- gg + geom_line(lwd = 2)
+# gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")
+# if(!(is.na(df_Pe1$Pe))){gg <- gg + geom_vline(xintercept = df_Pe1$Pe, linetype = "dashed", color = "green")}
+# if(!(is.na(df_Pe0$Pe))){gg <- gg + geom_vline(xintercept = df_Pe0$Pe, linetype = "dashed", color = "green")}
+# gg <- gg + theme(legend.title = element_blank())
+# gg
+#print(df_Pe_new)
+
+#====================================
+# Baseline market mean net revenue
+# Demand side:
+mu_r_DEM1 <- Pe1 / P_factryProduct * mu_factry_efficiency * eta_factry
+mu_NRe_DEM1 <- NR_DEM(mu_r_DEM1, Pe1, l_credit = 0)
+# Supply side:
+mu_r_SUP1 <- 1 / Pe1 * mu_cost_per_farmProduct * eta_farm
+mu_NRe_SUP1 <- NR_SUP(mu_r_SUP1, Pe1, l_credit = 0)
+#====================================
+PctChng_muNReDEM1 <- (mu_NRe_DEM1 - mu_NRe_DEM00) / mu_NRe_DEM00 * 100
+PctChng_muNReSUP1 <- (mu_NRe_SUP1 - mu_NRe_SUP00) / mu_NRe_SUP00 * 100
+#====================================
+mat_PctChng_muNReDEM1[i, j] <- PctChng_muNReDEM1
+mat_PctChng_muNReSUP1[i, j] <- PctChng_muNReSUP1
+mat_MktParticipDEM1[i, j] <- Demand_particip1
+mat_MktParticipSUP1[i, j] <- Supply_particip1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# rootfun <- function(N_S, P_feedstock, mu_cost_per_farmProduct,
+#                     sig2_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
+#                     m_A_farm, s2_A_farm,
+#                     N_D, P_factryProduct, mu_factry_efficiency,
+#                     sig2_factry_efficiency, m_yCeil_factry, s2_yCeil_factry,
+#                     m_A_factry, s2_A_factry){
+#   df_QS <- Q_DorS(N = N_S,
+#                   P_input = 1,
+#                   P_output = P_feedstock,
+#                   mu_beta = mu_cost_per_farmProduct,
+#                   sig2_beta = sig2_cost_per_farmProduct,
+#                   m_yCeil = m_yCeil_farm,
+#                   s2_yCeil = s2_yCeil_farm,
+#                   m_A = m_A_farm,
+#                   s2_A = s2_A_farm,
+#                   rL0 = 1, rLmax = 0,
+#                   l_credit = 0)
+#   colnames(df_QS) <- c("QS", "S_mkt_particip")
+# 
+#   df_QD <- Q_DorS(N = N_D,
+#                   P_input = P_feedstock,
+#                   P_output = P_factryProduct,
+#                   mu_beta = mu_factry_efficiency,
+#                   sig2_beta = sig2_factry_efficiency,
+#                   m_yCeil = m_yCeil_factry,
+#                   s2_yCeil = s2_yCeil_factry,
+#                   m_A = m_A_factry,
+#                   s2_A = s2_A_factry,
+#                   rL0 = 1, rLmax = 0,
+#                   l_credit = 0)
+#   colnames(df_QD) <- c("QD", "D_mkt_particip")
+# 
+#   slack <- df_QS$QS - df_QD$QD
+#   return(slack)
+# 
+# 
+# }
+# 
+# interval <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
+# roots <- uniroot(rootfun, interval,
+#                      N_S = N_S,
+#                      P_feedstock = P_feedstock,
+#                      mu_cost_per_farmProduct = mu_cost_per_farmProduct,
+#                      sig2_cost_per_farmProduct = sig2_cost_per_farmProduct,
+#                      m_yCeil_farm = m_yCeil_farm,
+#                      s2_yCeil_farm = s2_yCeil_farm,
+#                      m_A_farm = m_A_farm,
+#                      s2_A_farm = s2_A_farm,
+#                      N_D = N_D,
+#                      P_factryProduct = P_factryProduct,
+#                      mu_factry_efficiency = mu_factry_efficiency,
+#                      sig2_factry_efficiency = sig2_factry_efficiency,
+#                      m_yCeil_factry = m_yCeil_factry,
+#                      s2_yCeil_factry = s2_yCeil_factry,
+#                      m_A_factry = m_A_factry,
+#                      s2_A_factry = s2_A_factry,
+#                  lower = min(interval), upper = max(interval))
