@@ -153,7 +153,7 @@ NR0_minus_NR1_SUP <- function(r0, P0, P1, eta, l_credit = 0, graph_only = F){
 # Baseline market, before release of new tech
 #==================================
 # Define price range
-P_feedstock <- seq(100, 6000, 1)
+P_feedstock <- seq(100, 6000, 100)
 #==================================
 # Demand side parameters
 N_D <- 5
@@ -248,15 +248,45 @@ d <- df_QS$QS - df_QD$QD
 d_abs <- abs(d)
 min_d_abs <- min(d_abs)
 min_d_abs
-ind_Pe <- which(d_abs == min_d_abs)
+ind_Pe <- which.min(d_abs)
+Pe_rough <- P_feedstock[ind_Pe]
+Pe_neighborhood <- seq(Pe_rough - 100, Pe_rough + 100, 1)
+df_QD_precise <- Q_DorS(N = N_D, P_input = Pe_neighborhood,
+                P_output = P_factryProduct,
+                mu_beta = mu_factry_efficiency,
+                sig2_beta = sig2_factry_efficiency,
+                m_yCeil = m_yCeil_factry,
+                s2_yCeil = s2_yCeil_factry,
+                m_A = m_A_factry,
+                s2_A = s2_A_factry,
+                rL0 = 1, rLmax = 0,
+                l_credit = 0)
+colnames(df_QD_precise) <- c("QD", "D_mkt_particip")
+df_QD_precise$`Feedstock Price` <- Pe_neighborhood
+df_QS_precise <- Q_DorS(N = N_S, P_input = 1,
+                P_output = Pe_neighborhood,
+                mu_beta = mu_cost_per_farmProduct,
+                sig2_beta = sig2_cost_per_farmProduct,
+                m_yCeil = m_yCeil_farm,
+                s2_yCeil = s2_yCeil_farm,
+                m_A = m_A_farm, s2_A = s2_A_farm,
+                rL0 = 1, rLmax = 0,
+                l_credit = 0)
+colnames(df_QS_precise) <- c("QS", "S_mkt_particip")
+df_QS_precise$`Feedstock Price` <- Pe_neighborhood
+
+d <- df_QS_precise$QS - df_QD_precise$QD
+d_abs <- abs(d)
+min_d_abs <- min(d_abs)
+ind_Pe <- which.min(d_abs)
 #------------------------------------
 # Equilibrium price and quantity before release
-Pe00 <- P_feedstock[ind_Pe]
-Qe00 <- df_QS$QS[ind_Pe]
+Pe00 <- Pe_neighborhood[ind_Pe]
+Qe00 <- df_QS_precise$QS[ind_Pe]
 Demand_rAdopt <- 1
 Supply_rAdopt <- 1
-Demand_particip <- df_QD$D_mkt_particip[ind_Pe]
-Supply_particip <- df_QS$S_mkt_particip[ind_Pe]
+Demand_particip <- df_QD_precise$D_mkt_particip[ind_Pe]
+Supply_particip <- df_QS_precise$S_mkt_particip[ind_Pe]
 Tech00 <- "Before release (Baseline)"
 df_Pe00 <- data.frame(Pe = Pe00, Qe = Qe00, Demand_rAdopt, Supply_rAdopt,
                       Demand_particip, Supply_particip, Tech = Tech00)
@@ -286,8 +316,9 @@ mu_NRe_SUP00 <- NR_SUP(mu_r_SUP00, Pe00, l_credit = 0)
 #====================================
 # Now same market but with release of alternative tech
 r0 <- seq(0, 1, 0.001)
-eta_farm <- 1.15
-eta_factry <- 0.9
+# eta_farm <- 1.15
+# eta_factry <- 0.9
+eta_vec <- seq(0.01, 0.15, 0.01)
 #====================================
 n <- length(eta_vec)
 mat_PctChng_muNReDEM1 <- matrix(NA, n, n)
@@ -299,10 +330,13 @@ mat_MktParticipSUP1 <- matrix(NA, n, n)
 #====================================
 # Get roots, adoption cutoff r values for each alternative price
 #====================================
+for(k in 1:n){
+  this_eta_factry <- 1 - eta_vec[k]
+#====================================
 # Baseline and alternative demand
 dfQD1_list <- list()
 dfQD0_list <- list()
-eta <- eta_factry
+# Demand
 for(i in 1:length(P_feedstock)){
   #i <- 4000
   #i <- 3400
@@ -312,7 +346,7 @@ for(i in 1:length(P_feedstock)){
   interval <- c(r0[1], r0[length(r0)])
   roots <- uniroot.all(NR0_minus_NR1_DEM, interval,
                        lower = min(interval), upper = max(interval),
-                       P0 = P0, P1 = P1, eta = eta)
+                       P0 = P0, P1 = P1, eta = this_eta_factry)
   root_keep <- roots[roots > 0 & roots < 1]
   
   #this_P
@@ -323,14 +357,14 @@ for(i in 1:length(P_feedstock)){
   ind_r0_root <- which.min(d_abs)
   #print(min(d_abs))
   if(length(ind_r0_root) != 0){
-    ind_pos <- which(NR0_minus_NR1_DEM(r0[1:ind_r0_root], P0, P1, eta) > 0)
-    length(ind_pos)
+    ind_pos <- which(NR0_minus_NR1_DEM(r0[1:ind_r0_root], P0, P1, this_eta_factry) > 0)
+    #length(ind_pos)
     Test <- length(ind_pos) == 0 | length(ind_pos) == 1
     r0_range <- ifelse(rep(Test, 2), c(root_keep, 1), c(0, root_keep))
     r1_range <- ifelse(rep(Test, 2), c(0, root_keep), c(root_keep, 1))
     Adopt_Rate <- ifelse(Test, root_keep, 1 - root_keep)
   }else{
-    ind_pos <- which(NR0_minus_NR1_DEM(r0, P0, P1, eta) > 0)
+    ind_pos <- which(NR0_minus_NR1_DEM(r0, P0, P1, this_eta_factry) > 0)
     Test <- length(ind_pos) == 0
     r0_range <- ifelse(rep(Test, 2), c(0, 0), c(0, 1))
     r1_range <- ifelse(rep(Test, 2), c(0, 1), c(0, 0))
@@ -349,7 +383,7 @@ for(i in 1:length(P_feedstock)){
   N <- N_D
   P_input <- this_P
   P_output <- P_factryProduct
-  mu_beta <- mu_factry_efficiency * eta
+  mu_beta <- mu_factry_efficiency * this_eta_factry
   sig2_beta <- (cv_factry_efficiency * mu_beta)^2
   m_yCeil <- m_yCeil_factry
   s2_yCeil <- s2_yCeil_factry
@@ -426,11 +460,12 @@ gg
 #====================================
 #====================================
 #====================================
-#====================================
+for(l in 1:n){
+  this_eta_farm <- 1 + eta_vec[l]
+  #====================================
 # Baseline and alternative supply
 dfQS1_list <- list()
 dfQS0_list <- list()
-eta <- eta_farm
 for(i in 1:length(P_feedstock)){
   #i <- 4000
   #i <- 2900
@@ -440,7 +475,7 @@ for(i in 1:length(P_feedstock)){
   interval <- c(r0[1], r0[length(r0)])
   roots <- uniroot.all(NR0_minus_NR1_SUP, interval,
                        lower = min(interval), upper = max(interval),
-                       P0 = P0, P1 = P1, eta = eta)
+                       P0 = P0, P1 = P1, eta = this_eta_farm)
   #print(roots)
   root_keep <- roots[roots > 0 & roots < 1]
   
@@ -450,14 +485,14 @@ for(i in 1:length(P_feedstock)){
   ind_r0_root <- which.min(d_abs)
   #print(min(d_abs))
   if(length(ind_r0_root) != 0){
-    ind_pos <- which(NR0_minus_NR1_SUP(r0[1:ind_r0_root], P0, P1, eta) > 0)
+    ind_pos <- which(NR0_minus_NR1_SUP(r0[1:ind_r0_root], P0, P1, this_eta_farm) > 0)
     length(ind_pos)
     Test <- length(ind_pos) == 0 | length(ind_pos) == 1
     r0_range <- ifelse(rep(Test, 2), c(root_keep, 1), c(0, root_keep))
     r1_range <- ifelse(rep(Test, 2), c(0, root_keep), c(root_keep, 1))
     Adopt_Rate <- ifelse(Test, root_keep, 1 - root_keep)
   }else{
-    ind_pos <- which(NR0_minus_NR1_SUP(r0, P0, P1, eta) > 0)
+    ind_pos <- which(NR0_minus_NR1_SUP(r0, P0, P1, this_eta_farm) > 0)
     Test <- length(ind_pos) == 0
     r0_range <- ifelse(rep(Test, 2), c(0, 0), c(0, 1))
     r1_range <- ifelse(rep(Test, 2), c(0, 1), c(0, 0))
@@ -476,7 +511,7 @@ for(i in 1:length(P_feedstock)){
   N <- N_S
   P_input <- 1
   P_output <- this_P
-  mu_beta <- mu_cost_per_farmProduct * eta
+  mu_beta <- mu_cost_per_farmProduct * this_eta_farm
   sig2_beta <- (cv_cost_per_farmProduct * mu_beta)^2
   m_yCeil <- m_yCeil_farm
   s2_yCeil <- s2_yCeil_farm
@@ -647,20 +682,21 @@ gg
 #====================================
 # Baseline market mean net revenue
 # Demand side:
-mu_r_DEM1 <- Pe1 / P_factryProduct * mu_factry_efficiency * eta_factry
+mu_r_DEM1 <- Pe1 / P_factryProduct * mu_factry_efficiency * this_eta_factry
 mu_NRe_DEM1 <- NR_DEM(mu_r_DEM1, Pe1, l_credit = 0)
 # Supply side:
-mu_r_SUP1 <- 1 / Pe1 * mu_cost_per_farmProduct * eta_farm
+mu_r_SUP1 <- 1 / Pe1 * mu_cost_per_farmProduct * this_eta_farm
 mu_NRe_SUP1 <- NR_SUP(mu_r_SUP1, Pe1, l_credit = 0)
 #====================================
 PctChng_muNReDEM1 <- (mu_NRe_DEM1 - mu_NRe_DEM00) / mu_NRe_DEM00 * 100
 PctChng_muNReSUP1 <- (mu_NRe_SUP1 - mu_NRe_SUP00) / mu_NRe_SUP00 * 100
 #====================================
-mat_PctChng_muNReDEM1[i, j] <- PctChng_muNReDEM1
-mat_PctChng_muNReSUP1[i, j] <- PctChng_muNReSUP1
-mat_MktParticipDEM1[i, j] <- Demand_particip1
-mat_MktParticipSUP1[i, j] <- Supply_particip1
-
+mat_PctChng_muNReDEM1[k, l] <- PctChng_muNReDEM1
+mat_PctChng_muNReSUP1[k, l] <- PctChng_muNReSUP1
+mat_MktParticipDEM1[k, l] <- Demand_particip1
+mat_MktParticipSUP1[k, l] <- Supply_particip1
+}
+}
 
 
 
