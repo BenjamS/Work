@@ -367,7 +367,9 @@ mu_YDe_SUP00 <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit = 0)
 #====================================
 #====================================
 # Now same market but with release of alternative tech
-r0 <- seq(0, 1, 0.001)
+rvec <- seq(0, 1, 0.001)
+interval_r <- c(rvec[1], rvec[length(rvec)])
+P0 <- Pe00
 # eta_farm <- 1.15
 # eta_factry <- 0.9
 eta_vec <- seq(0.01, 0.2, 0.01)
@@ -385,8 +387,8 @@ mat_Qe1 <- matrix(NA, n, n)
 # Get roots, adoption cutoff r values for each alternative price
 #====================================
 for(k in 1:n){
-  this_eta_factry <- 0.9
-  this_eta_factry <- 1 - eta_vec[k]
+  this_eta_factry <- 0.95
+  #this_eta_factry <- 1 - eta_vec[k]
   #====================================
   # Baseline and alternative demand
   dfQD1_list <- list()
@@ -394,10 +396,10 @@ for(k in 1:n){
   # Demand
   for(i in 1:length(P_feedstock)){
     this_P <- P_feedstock[i]
-    P0 <- Pe00
     P1 <- this_P
-    interval <- c(r0[1], r0[length(r0)])
-    out_list <- get_r0r1Range_DEM(interval, P0, P1, this_eta_factry)
+    # Get r range
+    #----------------------------
+    out_list <- get_r0r1Range_DEM(interval_r, P0, P1, this_eta_factry)
     r0_range <- out_list[[1]]
     r1_range <- out_list[[2]]
     rAdopt <- out_list[[3]]
@@ -405,12 +407,12 @@ for(k in 1:n){
     r0_L0 <- r0_range[2]
     r1_Lmax <- r1_range[1]
     r1_L0 <- r1_range[2]
-    
     #--
     # df_x <- data.frame(this_P, r0_Lmax, r0_L0, r1_Lmax, r1_L0)
     # print(df_x)
-    #--
+    #----------------------------
     # New tech demand curve
+    #----------------------------
     mu_factry_efficiency1 <- mu_factry_efficiency * this_eta_factry
     sig2_factry_efficiency1 <- (cv_factry_efficiency * mu_factry_efficiency1)^2
     df_QD1 <- Q_DorS(N = N_D,
@@ -426,7 +428,9 @@ for(k in 1:n){
                     l_credit = 0)
     df_QD1$rAdopt <- rAdopt
     dfQD1_list[[i]] <- df_QD1
+    #----------------------------
     # Old tech demand curve
+    #----------------------------
     df_QD0 <- Q_DorS(N = N_D,
                      P_input = this_P,
                      P_output = P_factryProduct,
@@ -440,7 +444,7 @@ for(k in 1:n){
                      l_credit = 0)
     df_QD0$rAdopt <- 1 - rAdopt
     dfQD0_list[[i]] <- df_QD0
-    
+    #----------------------------
   }
   df_QD1 <- do.call(rbind, dfQD1_list)
   df_QD0 <- do.call(rbind, dfQD0_list)
@@ -451,29 +455,9 @@ for(k in 1:n){
   df_QD1$`Feedstock Price` <- P_feedstock
   df_QD1$Tech <- "Alternative"
   df_QD <- rbind(df_QD0, df_QD1)
-  
-  df_plot <- df_QD
-  df_plot$`Demand (MT)`[which(df_plot$`Demand (MT)` == 0)] <- NA
-  gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Demand (MT)`, group = Tech, color = Tech))
-  gg <- gg + geom_line(lwd = 2)
-  gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
-  gg
-  
-  df_Dparticip <- df_QD[, -c(1, 3)]
-  # df_Dparticip$`Demand Market Participation`[which(is.na(df_Dparticip$`Demand Market Participation`))] <- 0
-  # df_Dparticip <- df_Dparticip %>% spread(Tech, `Demand Market Participation`)
-  # df_Dparticip$Both <- df_Dparticip$Alternative + df_Dparticip$Baseline
-  # df_Dparticip <- df_Dparticip %>% gather(Tech, `Demand Market Participation`, Alternative:Both)
-  df_plot <- df_Dparticip
-  gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Demand Market Participation`, group = Tech, color = Tech))
-  gg <- gg + geom_line(lwd = 2)
-  gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
-  gg
-  #====================================
-  #====================================
   #====================================
   for(l in 1:n){
-    this_eta_farm <- 1.1
+    this_eta_farm <- 1.15
     #this_eta_farm <- 1 + eta_vec[l]
     #====================================
     # Baseline and alternative supply
@@ -481,11 +465,11 @@ for(k in 1:n){
     dfQS0_list <- list()
     for(i in 1:length(P_feedstock)){
       this_P <- P_feedstock[i]
+      # Get r range
+      #----------------------------
       P0 <- Pe00
       P1 <- this_P
-      interval <- c(r0[1], r0[length(r0)])
-      
-      out_list <- get_r0r1Range_SUP(interval, P0, P1, this_eta_farm)
+      out_list <- get_r0r1Range_SUP(interval_r, P0, P1, this_eta_farm)
       r0_range <- out_list[[1]]
       r1_range <- out_list[[2]]
       rAdopt <- out_list[[3]]
@@ -493,12 +477,12 @@ for(k in 1:n){
       r0_L0 <- r0_range[2]
       r1_Lmax <- r1_range[1]
       r1_L0 <- r1_range[2]
-      
       #--
       # df_x <- data.frame(this_P, r0_Lmax, r0_L0, r1_Lmax, r1_L0)
       # print(df_x)
-      #--
+      #----------------------------
       # New tech supply curve
+      #----------------------------
       mu_cost_per_farmProduct1 <- mu_cost_per_farmProduct * this_eta_farm
       sig2_cost_per_farmProduct1 <- (cv_cost_per_farmProduct * mu_cost_per_farmProduct1)^2
       
@@ -515,7 +499,9 @@ for(k in 1:n){
                       l_credit = 0)
       df_QS1$rAdopt <- rAdopt
       dfQS1_list[[i]] <- df_QS1
+      #----------------------------
       # Old tech supply curve
+      #----------------------------
       df_QS0 <- Q_DorS(N = N_S,
                        P_input = 1,
                        P_output = this_P,
@@ -529,7 +515,7 @@ for(k in 1:n){
                        l_credit = 0)
       df_QS0$rAdopt <- 1 - rAdopt
       dfQS0_list[[i]] <- df_QS0
-      
+      #----------------------------
       
     }
     df_QS1 <- do.call(rbind, dfQS1_list)
@@ -541,40 +527,24 @@ for(k in 1:n){
     df_QS1$`Feedstock Price` <- P_feedstock
     df_QS1$Tech <- "Alternative"
     df_QS <- rbind(df_QS0, df_QS1)
-    
-    df_plot <- df_QS
-    df_plot$`Feedstock Price`[which(df_plot$`Supply (MT)` == 0)] <- NA
-    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Supply (MT)`, group = Tech, color = Tech))
-    gg <- gg + geom_line(lwd = 2)
-    gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
-    print(gg)
-    
-    df_Sparticip <- df_QS[, -c(1, 3)]
-    df_Sparticip$`Supply Market Participation` <- df_Sparticip$`Supply Market Participation`
-    df_Sparticip$`Supply Market Participation`[which(is.na(df_Sparticip$`Supply Market Participation`))] <- 0
-    df_Sparticip <- df_Sparticip %>% spread(Tech, `Supply Market Participation`)
-    df_Sparticip$Both <- df_Sparticip$Alternative + df_Sparticip$Baseline
-    df_Sparticip <- df_Sparticip %>% gather(Tech, `Supply Market Participation`, Alternative:Both)
-    df_plot <- df_Sparticip
-    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Supply Market Participation`, group = Tech, color = Tech))
-    gg <- gg + geom_line(lwd = 2)
-    gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
-    gg
-    
-    #====================================
     #====================================
     #====================================
     #====================================
     # Demand and supply of baseline and alternative together
     # (The market)
     # Find new equilibrium price(s)
+    # Equilibrium price, quantity, etc. in baseline market
+    #------------------------------
     d0 <- df_QS0$`Supply (MT)` - df_QD0$`Demand (MT)`
+    #plot(df_QD0$`Demand (MT)` - df_QS0$`Supply (MT)`)
     d0_abs <- abs(d0)
     min_d0_abs <- min(d0_abs)
-    ind_Pe0 <- which.min(d0_abs)
-    Tech = "Baseline"
+    ind_Pe0 <- which(d0_abs < 15)
+    ind_Pe0 <- max(ind_Pe0)
+    Tech <- "Baseline"
     Demand_particip0 = df_QD0$`Demand Market Participation`[ind_Pe0]
     Supply_particip0 = df_QS0$`Supply Market Participation`[ind_Pe0]
+    #------------------------------
     if(is.na(Demand_particip0) | is.na(Supply_particip0)){
       df_Pe0 <- data.frame(Pe = NA, Qe = NA, Demand_rAdopt = NA, Supply_rAdopt = NA,
                            Demand_particip = NA, Supply_particip = NA, Tech = Tech)
@@ -582,15 +552,15 @@ for(k in 1:n){
     }else{
       
       Pe0_rough <- P_feedstock[ind_Pe0]
-      Pe0_neighborhood  <- seq(Pe0_rough - 20, Pe_rough + 20, 1)
+      Pe0_neighborhood  <- seq(Pe0_rough - 20, Pe0_rough + 20, 1)
       dfQD0precise_list <- list()
       dfQS0precise_list <- list()
       for(j in 1:length(Pe0_neighborhood)){
         this_P <- Pe0_neighborhood[j]
         P0 <- Pe00
         P1 <- this_P
-        interval <- c(r0[1], r0[length(r0)])
-        out_list <- get_r0r1Range_DEM(interval, P0, P1, this_eta_factry)
+        interval_r <- c(rvec[1], rvec[length(rvec)])
+        out_list <- get_r0r1Range_DEM(interval_r, P0, P1, this_eta_factry)
         r0_range <- out_list[[1]]
         r1_range <- out_list[[2]]
         rAdopt <- out_list[[3]]
@@ -608,8 +578,10 @@ for(k in 1:n){
                                  s2_A = s2_A_factry,
                                  rL0 = r0_L0, rLmax = r0_Lmax,
                                  l_credit = 0)
+        df_QD0_precise$rAdopt <- 1 - rAdopt
         dfQD0precise_list[[j]] <- df_QD0_precise
-        out_list <- get_r0r1Range_SUP(interval, P0, P1, this_eta_farm)
+        #--
+        out_list <- get_r0r1Range_SUP(interval_r, P0, P1, this_eta_farm)
         r0_range <- out_list[[1]]
         r1_range <- out_list[[2]]
         rAdopt <- out_list[[3]]
@@ -626,71 +598,114 @@ for(k in 1:n){
                                 m_A = m_A_farm, s2_A = s2_A_farm,
                                 rL0 = r0_L0, rLmax = r0_Lmax,
                                 l_credit = 0)
+        df_QS0_precise$rAdopt <- 1 - rAdopt
         dfQS0precise_list[[j]] <- df_QS0_precise
         
       }
       df_QD0_precise <- do.call(rbind, dfQD0precise_list)
       df_QS0_precise <- do.call(rbind, dfQS0precise_list)
-      colnames(df_QD0_precise) <- c("QD", "D_mkt_particip")
-      colnames(df_QS0_precise) <- c("QS", "D_mkt_particip")
+      colnames(df_QD0_precise)[1:2] <- c("QD", "D_mkt_particip")
+      colnames(df_QS0_precise)[1:2] <- c("QS", "D_mkt_particip")
       df_QD0_precise$`Feedstock Price` <- Pe0_neighborhood
-      df_QS0_precise$`Feedstock Price` <- Pe_neighborhood
+      df_QS0_precise$`Feedstock Price` <- Pe0_neighborhood
       d <- df_QS0_precise$QS - df_QD0_precise$QD
       d_abs <- abs(d)
       min_d_abs <- min(d_abs)
-      ind_Pe <- which.min(d_abs)
-      Pe0 <- Pe_neighborhood[ind_Pe]
-      Qe0 <- df_QS0_precise$QS[ind_Pe]
-      Demand_rAdopt <- df_QD0_precise$rAdopt
-      Supply_rAdopt <- 1
-      Demand_particip <- df_QD_precise$D_mkt_particip[ind_Pe]
-      Supply_particip <- df_QS_precise$S_mkt_particip[ind_Pe]
-      Tech00 <- "Before release (Baseline)"
-      df_Pe00 <- data.frame(Pe = Pe00, Qe = Qe00, Demand_rAdopt, Supply_rAdopt,
-                            Demand_particip, Supply_particip, Tech = Tech00)
-      
-
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      Qe0 <- df_QS0$`Supply (MT)`[ind_Pe0]
-      Pe0 <- P_feedstock[ind_Pe0]
-      Supply_rAdopt <- df_QS0$rAdopt[ind_Pe0]
-      Demand_rAdopt <- df_QD0$rAdopt[ind_Pe0]
+      ind_Pe0 <- which.min(d_abs)
+      Pe0 <- Pe0_neighborhood[ind_Pe0]
+      Qe0 <- df_QS0_precise$QS[ind_Pe0]
+      Supply_rAdopt <- df_QS0_precise$rAdopt[ind_Pe0]
+      Demand_rAdopt <- df_QD0_precise$rAdopt[ind_Pe0]
+      Demand_particip0 <- df_QD_precise$D_mkt_particip[ind_Pe0]
+      Supply_particip0 <- df_QS_precise$S_mkt_particip[ind_Pe0]
       df_Pe0 <- data.frame(Pe = Pe0, Qe = Qe0, Demand_rAdopt, Supply_rAdopt,
                            Demand_particip = Demand_particip0,
                            Supply_particip = Supply_particip0,
                            Tech = Tech)
     }
-    
-    
+    #==============================
+    # Equilibrium price, quantity, etc. in alternative market
     d1 <- df_QS1$`Supply (MT)` - df_QD1$`Demand (MT)`
     d1_abs <- abs(d1)
     min_d1_abs <- min(d1_abs)
     ind_Pe1 <- which.min(d1_abs)
-    Tech = "Alternative"
+    df_QS1$`Feedstock Price`[ind_Pe1]
+    Tech <- "Alternative"
     Demand_particip1 <- df_QD1$`Demand Market Participation`[ind_Pe1]
     Supply_particip1 <- df_QS1$`Supply Market Participation`[ind_Pe1]
+    #------------------------------
     if(is.na(Demand_particip1) | is.na(Supply_particip1)){
-      df_Pe0 <- data.frame(Pe = NA, Qe = NA, Demand_rAdopt = NA, Supply_rAdopt = NA,
+      df_Pe1 <- data.frame(Pe = NA, Qe = NA, Demand_rAdopt = NA, Supply_rAdopt = NA,
                            Demand_particip = NA, Supply_particip = NA, Tech = Tech)
       
     }else{
-      Pe1 <- P_feedstock[ind_Pe1]
-      Qe1 <- df_QS1$`Supply (MT)`[ind_Pe1]
-      Supply_rAdopt <- df_QS1$rAdopt[ind_Pe1]
-      Demand_rAdopt <- df_QD1$rAdopt[ind_Pe1]
+      Pe1_rough <- P_feedstock[ind_Pe1]
+      Pe1_neighborhood  <- seq(Pe1_rough - 50, Pe1_rough + 50, 1)
+      dfQD1precise_list <- list()
+      dfQS1precise_list <- list()
+      for(j in 1:length(Pe1_neighborhood)){
+        this_P <- Pe1_neighborhood[j]
+        P0 <- Pe00
+        P1 <- this_P
+        interval_r <- c(rvec[1], rvec[length(rvec)])
+        out_list <- get_r0r1Range_DEM(interval_r, P0, P1, this_eta_factry)
+        r0_range <- out_list[[1]]
+        r1_range <- out_list[[2]]
+        rAdopt <- out_list[[3]]
+        r0_Lmax <- r0_range[1]
+        r0_L0 <- r0_range[2]
+        r1_Lmax <- r1_range[1]
+        r1_L0 <- r1_range[2]
+        df_QD1_precise <- Q_DorS(N = N_D, P_input = this_P,
+                                 P_output = P_factryProduct,
+                                 mu_beta = mu_factry_efficiency1,
+                                 sig2_beta = sig2_factry_efficiency1,
+                                 m_yCeil = m_yCeil_factry,
+                                 s2_yCeil = s2_yCeil_factry,
+                                 m_A = m_A_factry,
+                                 s2_A = s2_A_factry,
+                                 rL0 = r1_L0, rLmax = r1_Lmax,
+                                 l_credit = 0)
+        df_QD1_precise$rAdopt <- rAdopt
+        dfQD1precise_list[[j]] <- df_QD1_precise
+        #--
+        out_list <- get_r0r1Range_SUP(interval_r, P0, P1, this_eta_farm)
+        r0_range <- out_list[[1]]
+        r1_range <- out_list[[2]]
+        rAdopt <- out_list[[3]]
+        r0_Lmax <- r0_range[1]
+        r0_L0 <- r0_range[2]
+        r1_Lmax <- r1_range[1]
+        r1_L0 <- r1_range[2]
+        df_QS1_precise <- Q_DorS(N = N_S, P_input = 1,
+                                 P_output = this_P,
+                                 mu_beta = mu_cost_per_farmProduct1,
+                                 sig2_beta = sig2_cost_per_farmProduct1,
+                                 m_yCeil = m_yCeil_farm,
+                                 s2_yCeil = s2_yCeil_farm,
+                                 m_A = m_A_farm, s2_A = s2_A_farm,
+                                 rL0 = r1_L0, rLmax = r1_Lmax,
+                                 l_credit = 0)
+        df_QS1_precise$rAdopt <- rAdopt
+        dfQS1precise_list[[j]] <- df_QS1_precise
+        
+      }
+      df_QD1_precise <- do.call(rbind, dfQD1precise_list)
+      df_QS1_precise <- do.call(rbind, dfQS1precise_list)
+      colnames(df_QD1_precise)[1:2] <- c("QD", "D_mkt_particip")
+      colnames(df_QS1_precise)[1:2] <- c("QS", "D_mkt_particip")
+      df_QD1_precise$`Feedstock Price` <- Pe1_neighborhood
+      df_QS1_precise$`Feedstock Price` <- Pe1_neighborhood
+      d <- df_QS1_precise$QS - df_QD1_precise$QD
+      d_abs <- abs(d)
+      min_d_abs <- min(d_abs)
+      ind_Pe1 <- which.min(d_abs)
+      Pe1 <- Pe1_neighborhood[ind_Pe1]
+      Qe1 <- df_QS1_precise$QS[ind_Pe1]
+      Demand_rAdopt <- df_QD1_precise$rAdopt[ind_Pe1]
+      Supply_rAdopt <- df_QS1_precise$rAdopt[ind_Pe1]
+      Demand_particip1 <- df_QD_precise$D_mkt_particip[ind_Pe1]
+      Supply_particip1 <- df_QS_precise$S_mkt_particip[ind_Pe1]
       df_Pe1 <- data.frame(Pe = Pe1, Qe = Qe1, Demand_rAdopt, Supply_rAdopt,
                            Demand_particip = Demand_particip1,
                            Supply_particip = Supply_particip1,
@@ -699,8 +714,9 @@ for(k in 1:n){
     
     df_Pe_new <- rbind(df_Pe00, df_Pe0, df_Pe1)
     print(df_Pe_new)
-    #write.csv(df_Pe_new, "DEPEA table.csv")
-    
+    #write.csv(df_Pe_new, "DEPEM table.csv")
+  
+    # Baseline and Alternative Market Graphs
     df_QS_new <- df_QS[, -c(2, 3)]
     df_QD_new <- df_QD[, -c(2, 3)]
     df_QS_new$Type <- paste(df_QS_new$Tech, "Supply")
@@ -709,32 +725,114 @@ for(k in 1:n){
     df_QD_new$Type <- paste(df_QD_new$Tech, "Demand")
     colnames(df_QD_new)[1] <- "Quantity (MT)"
     df_QD_new$Tech <- NULL
-    
     df_QSQD_new <- rbind(df_QS_new, df_QD_new)
     df_Mkt_alt <- subset(df_QSQD_new, Type %in% c("Alternative Demand", "Alternative Supply"))
     df_Mkt_base <- subset(df_QSQD_new, Type %in% c("Baseline Demand", "Baseline Supply"))
-    gg <- ggplot(df_Mkt_alt, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
+    df_plot <- df_Mkt_alt
+    df_plot$`Feedstock Price`[which(df_plot$`Quantity (MT)` == 0)] <- NA
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
     gg <- gg + geom_line(lwd = 2)
     gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
     if(!(is.na(df_Pe1$Pe))){gg <- gg + geom_vline(xintercept = df_Pe1$Pe, linetype = "dashed", color = "green")}
     gg <- gg + theme(legend.title = element_blank())
     gg
     
-    gg <- ggplot(df_Mkt_base, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
+    df_plot <- df_Mkt_base
+    df_plot$`Feedstock Price`[which(df_plot$`Quantity (MT)` == 0)] <- NA
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
     gg <- gg + geom_line(lwd = 2)
     gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
     if(!(is.na(df_Pe0$Pe))){gg <- gg + geom_vline(xintercept = df_Pe0$Pe, linetype = "dashed", color = "green")}
     gg <- gg + theme(legend.title = element_blank())
     gg
+
+    df_QS_wide <- df_QS[, -c(2, 3)]
+    df_QS_wide <- df_QS_wide %>% spread(Tech, `Supply (MT)`)
+    df_QS_wide$`Composite Supply (MT)` <- df_QS_wide$Alternative + df_QS_wide$Baseline
+    u <- df_QS$Tech
+    df_QS_wide$`Supply Market Participation`[u == "Alternative"]
+    df_QS_wide$Share[is.na(df_QS_wide$Share)] <- 0
+    df_QS_wide$`Alternative Share` <- df_QS_wide$`Supply Market Participation`[u == "Alternative"] / (df_QS$`Supply Market Participation`[u == "Alternative"] + df_QS$`Supply Market Participation`[u == "Baseline"])
+    df_plot <- df_QS_wide
+     
+    df_plot$Share[is.na(df_plot$Share)] <- 0
     
-    # gg <- ggplot(df_QSQD_new, aes(x = `Feedstock Price`, y = `Quantity (MT)`, group = Type, color = Type))
-    # gg <- gg + geom_line(lwd = 2)
-    # gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Composite Supply (MT)`, color = `Alternative Share`))
+    gg <- gg + geom_point()
+    gg
+    # gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
     # if(!(is.na(df_Pe1$Pe))){gg <- gg + geom_vline(xintercept = df_Pe1$Pe, linetype = "dashed", color = "green")}
     # if(!(is.na(df_Pe0$Pe))){gg <- gg + geom_vline(xintercept = df_Pe0$Pe, linetype = "dashed", color = "green")}
     # gg <- gg + theme(legend.title = element_blank())
     # gg
     #print(df_Pe_new)
+    
+    
+    # Supply side graphs comparing baseline and alternative
+    #----------------------------
+    df_plot <- df_QS
+    df_plot$`Feedstock Price`[which(df_plot$`Supply (MT)` == 0)] <- NA
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Supply (MT)`, group = Tech, color = Tech))
+    gg <- gg + geom_line(lwd = 2)
+    gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+    print(gg)
+    
+    df_Sparticip <- df_QS[, -c(1, 3)]
+    df_Sparticip$`Supply Market Participation` <- df_Sparticip$`Supply Market Participation`
+    df_Sparticip$`Supply Market Participation`[which(is.na(df_Sparticip$`Supply Market Participation`))] <- 0
+    df_Sparticip <- df_Sparticip %>% spread(Tech, `Supply Market Participation`)
+    df_Sparticip$Both <- df_Sparticip$Alternative + df_Sparticip$Baseline
+    df_Sparticip <- df_Sparticip %>% gather(Tech, `Supply Market Participation`, Alternative:Both)
+    df_plot <- df_Sparticip
+    
+    # gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Supply Market Participation`, fill = Tech))
+    # gg <- gg + geom_area(position = 'stack')
+    # gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+    # gg
+    
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Supply Market Participation`, group = Tech, color = Tech))
+    gg <- gg + geom_line(lwd = 2)
+    gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+    gg
+    
+    # Demand side graphs comparing baseline and alternative
+    #----------------------------
+    df_plot <- df_QD
+    df_plot$`Demand (MT)`[which(df_plot$`Demand (MT)` == 0)] <- NA
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Demand (MT)`, group = Tech, color = Tech))
+    gg <- gg + geom_line(lwd = 2)
+    gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+    gg
+    
+    df_Dparticip <- df_QD[, -c(1, 3)]
+    # df_Dparticip$`Demand Market Participation`[which(is.na(df_Dparticip$`Demand Market Participation`))] <- 0
+    # df_Dparticip <- df_Dparticip %>% spread(Tech, `Demand Market Participation`)
+    # df_Dparticip$Both <- df_Dparticip$Alternative + df_Dparticip$Baseline
+    # df_Dparticip <- df_Dparticip %>% gather(Tech, `Demand Market Participation`, Alternative:Both)
+    df_plot <- df_Dparticip
+    gg <- ggplot(df_plot, aes(x = `Feedstock Price`, y = `Demand Market Participation`, group = Tech, color = Tech))
+    gg <- gg + geom_line(lwd = 2)
+    gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+    gg
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     #====================================
     # Baseline market mean net revenue (yield)
