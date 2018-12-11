@@ -269,12 +269,31 @@ get_precise_PeQe <- function(Pe_neighborhood, P_input_SUP = 1, N_S, mu_cost_per_
 P_feedstock <- seq(100, 5000, 10)
 #==================================
 # Demand side parameters
-N_D <- 7
-P_factryProduct <- 14000
-mu_factry_efficiency <- 4.21
-cv_factry_efficiency <- 0.12
+P_starch_lcu_MT_statQuo <- 14000
+P_ethanol_lcu_kL_statQuo <- 18000
+MTRootsPerMTStarch_statQuo <- 4.21
+Q_root_MT_day_statQuo <- 1100
+P_ethanol_lcu_kL_statQuo <- 20000
+Q_ethanol_kL_day_statQuo <- 343.6
+MTRootsPerkLEthanol_statQuo <- Q_root_MT_day_statQuo / Q_ethanol_kL_day_statQuo
+N_D_factry_starch <- 7
+N_D_factry_ethanol <- 5
+cv_factryEfficiency_starch <- 0.12
+cv_factryEfficiency_ethanol <- 0.1
+P_starch_lcu_MT_statQuo / MTRootsPerMTStarch_statQuo
+P_ethanol_lcu_kL_statQuo / MTRootsPerkLEthanol_statQuo
+N_D_factry_ethANDstarch <- 15
+cv_factry_ethANDstarch <- 0.15
+MTRootsPerMTEthANDstarch_statQuo <- 4
+P_ethANDstarch_lcu_MT_statQuo <- 16000
+m_yCeil_factry_MTEthANDstarch <- log(400)
+#--
+N_D <- N_D_factry_ethANDstarch
+P_factryProduct <- P_ethANDstarch_lcu_MT_statQuo
+mu_factry_efficiency <- MTRootsPerMTEthANDstarch_statQuo
+cv_factry_efficiency <- cv_factryEfficiency_ethANDstarch
 sig2_factry_efficiency <- (mu_factry_efficiency * cv_factry_efficiency)^2
-m_yCeil_factry <- log(1000)
+m_yCeil_factry <- m_yCeil_factry_MTEthANDstarch
 cv_lyCeil_factry <- 0.1
 s2_yCeil_factry <- (m_yCeil_factry * cv_lyCeil_factry)^2
 m_A_factry <- 0
@@ -282,11 +301,11 @@ cv_lA_factry <- 0
 s2_A_factry <- (m_A_factry * cv_lA_factry)^2
 #==================================
 # Supply side parameters
-N_S <- 40
+N_S <- 45
 mu_cost_per_farmProduct <- 2000#1520.366
-cv_cost_per_farmProduct <- 0.2
+cv_cost_per_farmProduct <- 0.5
 sig2_cost_per_farmProduct <- (mu_cost_per_farmProduct * cv_cost_per_farmProduct)^2
-m_yCeil_farm <- log(43.8375)
+m_yCeil_farm <- log(45)#log(43.8375)
 cv_lyCeil_farm <- 0
 s2_yCeil_farm <- (m_yCeil_farm * cv_lyCeil_farm)^2
 m_A_farm <- log(4.673574)
@@ -295,6 +314,7 @@ s2_A_farm <- (m_A_farm * cv_lA_farm)^2
 #==================================
 #==================================
 # Baseline Demand curve plot
+graph_on <- F
 #==================================
 df_QD00 <- Q_DorS(N = N_D,
                   P_input = P_feedstock,
@@ -309,7 +329,6 @@ df_QD00 <- Q_DorS(N = N_D,
                   l_credit = 0)
 colnames(df_QD00) <- c("Demand (MT)", "Demand Market Participation")
 df_QD00$`Feedstock Price (lcu / MT)` <- P_feedstock
-graph_on <- F
 if(graph_on == T){
   df_plot <- df_QD00
   gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand (MT)`))
@@ -324,10 +343,10 @@ if(graph_on == T){
 # Explore demand curve sensitivity
 #----------------------------------
 # to changes in mean conversion efficiency
+turn_on <- T
 #----------------------------------
-turn_on <- F
 if(turn_on == T){
-  eta_vec <- seq(0, 0.2, 0.1)
+  eta_vec <- seq(-0.4, 0.4, 0.2)
   dfQD_list <- list()
   for(i in 1:length(eta_vec)){
     this_eta_DEM <- eta_vec[i]
@@ -362,8 +381,8 @@ if(turn_on == T){
 }
 #----------------------------------
 # to changes in variance (cv) of conversion efficiency
-#----------------------------------
 turn_on <- F
+#----------------------------------
 if(turn_on == T){
   eta_vec <- seq(0.2, 0.9, 0.2)
   dfQD_list <- list()
@@ -399,8 +418,8 @@ if(turn_on == T){
 }
 #----------------------------------
 # to changes in mean factory capacity
-#----------------------------------
 turn_on <- F
+#----------------------------------
 if(turn_on == T){
   eta_vec <- seq(0.2, 0.9, 0.2)
   dfQD_list <- list()
@@ -475,10 +494,10 @@ if(turn_on == T){
 
 #----------------------------------
 # to changes in expected output price
+turn_on <- F
 #----------------------------------
-turn_on <- T
 if(turn_on == T){
-  eta_vec <- seq(-0.1, 0.1, 0.1)
+  eta_vec <- seq(-0.2, 0.2, 0.1)
   dfQD_list <- list()
   for(i in 1:length(eta_vec)){
     this_eta_DEM <- eta_vec[i]
@@ -866,8 +885,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change mean factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nmean factory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Equilibrium Price Map (lcu)", cex.main = 1)
 
 inMat <- mat_Qe
@@ -875,8 +894,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change mean factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nmean factory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Equilibrium Quantity Map (MT / day)", cex.main = 1)
 
 inMat <- mat_muYDe_SUP
@@ -884,8 +903,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change mean factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nmean factory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Mean Farm Net Revenue Map (lcu / ha.)", cex.main = 1)
 
 inMat <- mat_muYDe_DEM
@@ -893,8 +912,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change mean factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nmean factory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
 
 inMat <- mat_MktParticip_DEM
@@ -902,8 +921,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change mean factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nmean factory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Demand Market Participation Map", cex.main = 1)
 
 inMat <- mat_MktParticip_SUP
@@ -911,8 +930,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change mean factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nmean factory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Supply Market Participation Map", cex.main = 1)
 
 
@@ -1538,8 +1557,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Alternative Market Equilibrium Price Map (lcu / MT)", cex.main = 1)
 
 inMat <- mat_Qe1
@@ -1547,8 +1566,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Alternative Market Equilibrium Quantity Map (MT / day)", cex.main = 1)
 
 inMat <- mat_Pe0
@@ -1556,8 +1575,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Baseline Market Equilibrium Price Map (lcu / MT)", cex.main = 1)
 
 inMat <- mat_Qe0
@@ -1565,8 +1584,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Baseline Market Equilibrium Quantity Map (MT / day)", cex.main = 1)
 
 
@@ -1577,8 +1596,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Baseline Demand Market Participation Map", cex.main = 1)
 
 
@@ -1587,8 +1606,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Alternative Demand Market Participation Map", cex.main = 1)
 
 
@@ -1597,8 +1616,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Baseline Supply Market Participation Map", cex.main = 1)
 
 
@@ -1607,8 +1626,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Alternative Supply Market Participation Map", cex.main = 1)
 
 
@@ -1620,8 +1639,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Baseline Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
 
 inMat <- mat_muYDe_SUP0
@@ -1629,8 +1648,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Baseline Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1)
 
 
@@ -1639,8 +1658,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Alternative Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
 
 inMat <- mat_muYDe_SUP1
@@ -1648,8 +1667,8 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plot.surface(surface, type = "C",
-             xlab = "Change factory processing cost",
-             ylab = "Change mean farm cost per unit output", col = cm.colors(25))
+             xlab = "Change\nfactory processing cost",
+             ylab = "Change mean farm cost\nper unit output", col = cm.colors(25))
 title(main = "Alternative Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1)
 
 
