@@ -1041,7 +1041,7 @@ title(main = "Supply Market Participation Map", cex.main = 1)
 rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P0 <- Pe00
-eta_vec <- round(seq(-0.4, 0.4, 0.05), 2)
+eta_vec <- round(seq(-0.4, 0.4, 0.1), 2)
 #====================================
 n <- length(eta_vec)
 mat_muYDe_DEM0 <- matrix(NA, n, n)
@@ -1064,7 +1064,7 @@ t <- 0
 # Get roots, adoption cutoff r values for each alternative price
 #====================================
 for(k in 1:n){
-  #k = 10
+  #k = 2
   #this_eta_DEM <- 0.2
   this_eta_DEM <- eta_vec[k]
   #====================================
@@ -1140,7 +1140,7 @@ for(k in 1:n){
   Pe0_vec <- c()
   Pe1_vec <- c()
   for(l in 1:n){
-    #l = 7
+    #l = 5
     #this_eta_SUP <- -0.1
     this_eta_SUP <- eta_vec[l]
     this_eta_SUP
@@ -1232,7 +1232,7 @@ for(k in 1:n){
     ind_Pe0 <- which(d0_abs == min_d0_abs)
     # df_QS0$`Feedstock Price (lcu / MT)`[ind_Pe0]
     # df_QS0$`Supply (MT)`[ind_Pe0]
-    if(min_d0_abs > 50){ind_Pe0 <- NA}
+    if(min_d0_abs > 100){ind_Pe0 <- NA}
     MktParticip0_DEM_test <- df_QD0$`Demand Market Participation`[ind_Pe0]
     MktParticip0_SUP_test <- df_QS0$`Supply Market Participation`[ind_Pe0]
     #------------------------------
@@ -1325,7 +1325,7 @@ for(k in 1:n){
     min_d1_abs <- min(d1_abs)
     ind_Pe1 <- which.min(d1_abs)
     #df_QS1$`Feedstock Price (lcu / MT)`[ind_Pe1]
-    if(min_d1_abs > 50){ind_Pe1 <- NA}
+    if(min_d1_abs > 100){ind_Pe1 <- NA}
     MktParticip1_DEM_test <- df_QD1$`Demand Market Participation`[ind_Pe1]
     MktParticip1_SUP_test <- df_QS1$`Supply Market Participation`[ind_Pe1]
     #------------------------------
@@ -1598,7 +1598,8 @@ for(k in 1:n){
   }
   print(Pe0_vec)
   print(Pe1_vec)
-  
+  df_Pe0
+  df_Pe1
   # Graph market for this demand curve
   graphDEMSUP <- F
   #----------------------------
@@ -1799,61 +1800,59 @@ title(main = "Alternative Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1
 
 
 
+rootfun <- function(P_feedstock_interval, N_S, mu_cost_per_farmProduct,
+                    sig2_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
+                    m_A_farm, s2_A_farm,
+                    N_D, P_factryProduct, mu_factry_efficiency,
+                    sig2_factry_efficiency, m_yCeil_factry, s2_yCeil_factry,
+                    m_A_factry, s2_A_factry){
+  df_QS <- Q_DorS(N = N_S,
+                  P_input = 1,
+                  P_output = P_feedstock_interval,
+                  mu_beta = mu_cost_per_farmProduct,
+                  sig2_beta = sig2_cost_per_farmProduct,
+                  m_yCeil = m_yCeil_farm,
+                  s2_yCeil = s2_yCeil_farm,
+                  m_A = m_A_farm,
+                  s2_A = s2_A_farm,
+                  rL0 = 1, rLmax = 0,
+                  l_credit = 0)
+  colnames(df_QS) <- c("QS", "S_mkt_particip")
 
-# rootfun <- function(N_S, P_feedstock, mu_cost_per_farmProduct,
-#                     sig2_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
-#                     m_A_farm, s2_A_farm,
-#                     N_D, P_factryProduct, mu_factry_efficiency,
-#                     sig2_factry_efficiency, m_yCeil_factry, s2_yCeil_factry,
-#                     m_A_factry, s2_A_factry){
-#   df_QS <- Q_DorS(N = N_S,
-#                   P_input = 1,
-#                   P_output = P_feedstock,
-#                   mu_beta = mu_cost_per_farmProduct,
-#                   sig2_beta = sig2_cost_per_farmProduct,
-#                   m_yCeil = m_yCeil_farm,
-#                   s2_yCeil = s2_yCeil_farm,
-#                   m_A = m_A_farm,
-#                   s2_A = s2_A_farm,
-#                   rL0 = 1, rLmax = 0,
-#                   l_credit = 0)
-#   colnames(df_QS) <- c("QS", "S_mkt_particip")
-# 
-#   df_QD <- Q_DorS(N = N_D,
-#                   P_input = P_feedstock,
-#                   P_output = P_factryProduct,
-#                   mu_beta = mu_factry_efficiency,
-#                   sig2_beta = sig2_factry_efficiency,
-#                   m_yCeil = m_yCeil_factry,
-#                   s2_yCeil = s2_yCeil_factry,
-#                   m_A = m_A_factry,
-#                   s2_A = s2_A_factry,
-#                   rL0 = 1, rLmax = 0,
-#                   l_credit = 0)
-#   colnames(df_QD) <- c("QD", "D_mkt_particip")
-# 
-#   slack <- df_QS$QS - df_QD$QD
-#   return(slack)
-# 
-# 
-# }
-# 
-# interval <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
-# roots <- uniroot(rootfun, interval,
-#                      N_S = N_S,
-#                      P_feedstock = P_feedstock,
-#                      mu_cost_per_farmProduct = mu_cost_per_farmProduct,
-#                      sig2_cost_per_farmProduct = sig2_cost_per_farmProduct,
-#                      m_yCeil_farm = m_yCeil_farm,
-#                      s2_yCeil_farm = s2_yCeil_farm,
-#                      m_A_farm = m_A_farm,
-#                      s2_A_farm = s2_A_farm,
-#                      N_D = N_D,
-#                      P_factryProduct = P_factryProduct,
-#                      mu_factry_efficiency = mu_factry_efficiency,
-#                      sig2_factry_efficiency = sig2_factry_efficiency,
-#                      m_yCeil_factry = m_yCeil_factry,
-#                      s2_yCeil_factry = s2_yCeil_factry,
-#                      m_A_factry = m_A_factry,
-#                      s2_A_factry = s2_A_factry,
-#                  lower = min(interval), upper = max(interval))
+  df_QD <- Q_DorS(N = N_D,
+                  P_input = P_feedstock_interval,
+                  P_output = P_factryProduct,
+                  mu_beta = mu_factry_efficiency,
+                  sig2_beta = sig2_factry_efficiency,
+                  m_yCeil = m_yCeil_factry,
+                  s2_yCeil = s2_yCeil_factry,
+                  m_A = m_A_factry,
+                  s2_A = s2_A_factry,
+                  rL0 = 1, rLmax = 0,
+                  l_credit = 0)
+  colnames(df_QD) <- c("QD", "D_mkt_particip")
+
+  slack <- df_QS$QS - df_QD$QD
+  return(slack)
+
+
+}
+
+interval <- c(P_feedstock[100], P_feedstock[length(P_feedstock)])
+roots <- uniroot.all(rootfun, interval,
+                     lower = min(interval), upper = max(interval),
+                     N_S = N_S,
+                     mu_cost_per_farmProduct = mu_cost_per_farmProduct,
+                     sig2_cost_per_farmProduct = sig2_cost_per_farmProduct,
+                     m_yCeil_farm = m_yCeil_farm,
+                     s2_yCeil_farm = s2_yCeil_farm,
+                     m_A_farm = m_A_farm,
+                     s2_A_farm = s2_A_farm,
+                     N_D = N_D,
+                     P_factryProduct = P_factryProduct,
+                     mu_factry_efficiency = mu_factry_efficiency,
+                     sig2_factry_efficiency = sig2_factry_efficiency,
+                     m_yCeil_factry = m_yCeil_factry,
+                     s2_yCeil_factry = s2_yCeil_factry,
+                     m_A_factry = m_A_factry,
+                     s2_A_factry = s2_A_factry)
