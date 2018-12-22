@@ -170,7 +170,7 @@ rootfun <- function(P_seq, N_S, mu_cost_per_farmProduct,
                     this_eta_DEM = NULL,
                     Market0, P_eq_00){
   #---
-  if(!(is.null(this_eta_DEM)) & this_eta_DEM != 0){
+  if(!(is.null(this_eta_DEM))){
     chng_DEM <- 1 + this_eta_DEM
     mu_factry_efficiency <- 1 / mu_factry_efficiency_inv * chng_DEM
     mu_factry_efficiency_inv <- 1 / mu_factry_efficiency
@@ -193,7 +193,7 @@ rootfun <- function(P_seq, N_S, mu_cost_per_farmProduct,
   }
   
   
-  if(!(is.null(this_eta_SUP))  & this_eta_SUP != 0){
+  if(!(is.null(this_eta_SUP))){
     chng_SUP <- 1 + this_eta_SUP
     mu_cost_per_farmProduct <- mu_cost_per_farmProduct * chng_SUP
     sig2_cost_per_farmProduct <- (cv_cost_per_farmProduct * mu_cost_per_farmProduct)^2
@@ -303,7 +303,7 @@ get_equilibrium_values <- function(interval_P,
                     Market0 = Market0, P_eq_00 = P_eq_00)
   print(Pe)
   #---
-  if(!(is.null(this_eta_DEM))  & this_eta_DEM != 0){
+  if(!(is.null(this_eta_DEM))){
     chng_DEM <- 1 + this_eta_DEM
     mu_factry_efficiency <- 1 / mu_factry_efficiency_inv * chng_DEM
     mu_factry_efficiency_inv <- 1 / mu_factry_efficiency
@@ -328,7 +328,7 @@ get_equilibrium_values <- function(interval_P,
   
   
   #---
-  if(!(is.null(this_eta_SUP))  & this_eta_SUP != 0){
+  if(!(is.null(this_eta_SUP))){
     chng_SUP <- 1 + this_eta_SUP
     mu_cost_per_farmProduct <- mu_cost_per_farmProduct * chng_SUP
     sig2_cost_per_farmProduct <- (cv_cost_per_farmProduct * mu_cost_per_farmProduct)^2
@@ -468,7 +468,7 @@ NRyd_SUP <- function(r, P, l_credit = 0){
 # Define Demand and Supply NR0 - NR1 functions to feed into root solver
 # Demand NR0 - NR1 function
 NR0_minus_NR1_DEM <- function(rvec, P0, P1, chng_DEM, l_credit = 0, graph_only = F){
-  r1 <- rvec * P1 / P0 * chng_DEM
+  r1 <- rvec * P1 / P0 * 1 / chng_DEM
   Baseline <- P0 * exp(-rvec) * (1 / rvec - 1)
   Alternative <- P1 * exp(-r1) * (1 / r1 - 1)
   NR0_minus_NR1 <- Baseline - Alternative
@@ -1332,7 +1332,7 @@ title(main = "Supply Market Participation Map", cex.main = 1)
 rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P_eq_00 <- Pe00
-eta_vec <- round(seq(-0.4, 0.4, 0.05), 2)
+eta_vec <- round(seq(-0.4, 0.4, 0.1), 2)
 interval_P_feedstock <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
 df_rL0Lmax_DEM <- data.frame(rL0 = NULL, rLmax = NULL)
 df_rL0Lmax_SUP <- data.frame(rL0 = NULL, rLmax = NULL)
@@ -1466,6 +1466,21 @@ for(k in 1:n){
     gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
     gg <- gg + geom_point()
     gg
+    #--
+    df_QD1_a <- df_QD1; df_QD0_a <- df_QD0
+    df_QD1_a$Type <- "Alternative Dem."
+    df_QD0_a$Type <- "Baseline Dem."
+    df_plot <- rbind(df_QD1_a, df_QD0_a)
+    gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
+    gg <- gg + geom_point()
+    gg
+    df_QS1_a <- df_QS1; df_QS0_a <- df_QS0
+    df_QS1_a$Type <- "Alternative Sup."
+    df_QS0_a$Type <- "Baseline Sup."
+    df_plot <- rbind(df_QS1_a, df_QS0_a)
+    gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
+    gg <- gg + geom_point()
+    gg
     
     #---
     
@@ -1498,7 +1513,8 @@ for(k in 1:n){
     len_Pe0 <- length(Pe0)
     if(len_Pe0 > 1 | len_Pe0 == 0){
       if(len_Pe0 > 1){
-        ind_keep <- which.max(Pe0)
+        #ind_keep <- which.max(Pe0)
+        ind_keep <- 2
         Pe0 <- Pe0[ind_keep]
         Qe0 <- equilib_list0[[2]][ind_keep]
         MktParticip_DEM0 <- equilib_list0[[3]][ind_keep]
@@ -1598,7 +1614,8 @@ for(k in 1:n){
     len_Pe1 <- length(Pe1)
     if(len_Pe1 > 1 | len_Pe1 == 0){
       if(len_Pe1 > 1){
-        ind_keep <- which.max(Pe1)
+        #ind_keep <- which.max(Pe1)
+        ind_keep <- 2
         Pe1 <- Pe1[ind_keep]
         Qe1 <- equilib_list1[[2]][ind_keep]
         MktParticip_DEM1 <- equilib_list1[[3]][ind_keep]
@@ -1661,7 +1678,7 @@ for(k in 1:n){
     df_Eq0r_list[[t]] <- df_Eq0_r
     df_Eq1_list[[t]] <- df_Eq1
     df_Eq1r_list[[t]] <- df_Eq1_r
-
+    
     
     mat_Pe0[k, l] <- Pe0
     mat_Qe0[k, l] <- Qe0
@@ -1669,7 +1686,7 @@ for(k in 1:n){
     mat_muYDe_DEM0[k, l] <- mu_YDe_DEM0
     mat_MktParticip_DEM0[k, l] <- MktParticip_DEM0
     mat_MktParticip_SUP0[k, l] <- MktParticip_SUP0
-
+    
     mat_Pe1[k, l] <- Pe1
     mat_Qe1[k, l] <- Qe1
     mat_muYDe_SUP1[k, l] <- mu_YDe_SUP1
@@ -1678,24 +1695,26 @@ for(k in 1:n){
     mat_MktParticip_SUP1[k, l] <- MktParticip_SUP1
     
     
-    Adopt_DEM1 <- ifelse(is.na(MktParticip_DEM1), 0, MktParticip_DEM1) / (ifelse(is.na(MktParticip_DEM1), 0, MktParticip_DEM1) + ifelse(is.na(MktParticip_DEM0), 0, MktParticip_DEM0))
-    Adopt_SUP1 <- ifelse(is.na(MktParticip_SUP1), 0, MktParticip_SUP1) / (ifelse(is.na(MktParticip_SUP1), 0, MktParticip_SUP1) + ifelse(is.na(MktParticip_SUP0), 0, MktParticip_SUP0))
-    Adopt_DEM1 <- ifelse(is.nan(Adopt_DEM1), 0, Adopt_DEM1)
-    Adopt_SUP1 <- ifelse(is.nan(Adopt_SUP1), 0, Adopt_SUP1)
+    # Adopt_DEM1 <- ifelse(is.na(MktParticip_DEM1), 0, MktParticip_DEM1) / (ifelse(is.na(MktParticip_DEM1), 0, MktParticip_DEM1) + ifelse(is.na(MktParticip_DEM0), 0, MktParticip_DEM0))
+    # Adopt_SUP1 <- ifelse(is.na(MktParticip_SUP1), 0, MktParticip_SUP1) / (ifelse(is.na(MktParticip_SUP1), 0, MktParticip_SUP1) + ifelse(is.na(MktParticip_SUP0), 0, MktParticip_SUP0))
+    Adopt_DEM1 <- MktParticip_DEM1 / (MktParticip_DEM1 + MktParticip_DEM0)
+    Adopt_SUP1 <- MktParticip_SUP1 / (MktParticip_SUP1 + MktParticip_SUP0)
+    Adopt_DEM1 <- ifelse(is.nan(Adopt_DEM1), NA, Adopt_DEM1)
+    Adopt_SUP1 <- ifelse(is.nan(Adopt_SUP1), NA, Adopt_SUP1)
     # Adopt_DEM0 <- 1 - Adopt_DEM1
     # Adopt_SUP0 <- 1 - Adopt_SUP1
     
     mat_Adopt_DEM1[k, l] <- Adopt_DEM1
     mat_Adopt_SUP1[k, l] <- Adopt_SUP1
     
-        
+    
     print(c(k = k, l = l))
     
     
     
     
     
-
+    
   }
 }
 
@@ -1724,7 +1743,7 @@ surface <- list(x = xtick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", col = mapPalette(45), method = "edge")
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette(45), method = "edge")
 title(main = "Alternative Market Equilibrium Quantity Map (MT / day)", cex.main = 1)
 
 inMat <- mat_Pe0
@@ -1747,8 +1766,8 @@ title(main = "Baseline Market Equilibrium Quantity Map (MT / day)", cex.main = 1
 
 
 inMat <- mat_Adopt_SUP1
-inMat[which(inMat == 0)] <- NA
-inMat[which(inMat == 1)] <- NA
+# inMat[which(inMat == 0)] <- NA
+# inMat[which(inMat == 1)] <- NA
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
@@ -1758,8 +1777,8 @@ plotSurface2(surface, type = "I",
 title(main = "Supply Side Adoption Rate Map", cex.main = 1)
 
 inMat <- mat_Adopt_DEM1
-inMat[which(inMat == 0)] <- NA
-inMat[which(inMat == 1)] <- NA
+# inMat[which(inMat == 0)] <- NA
+# inMat[which(inMat == 1)] <- NA
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
