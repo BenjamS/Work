@@ -92,67 +92,64 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
 #==================================
 #==================================
 #==================================
-get_rL0Lmax_01_DEM <- function(P_seq, interval_r = c(0, 1), P0, chng_DEM){
-  len_P_seq <- length(P_seq)
-  r0_Lmax_vec_DEM <- c()
-  r0_L0_vec_DEM <- c()
-  r1_Lmax_vec_DEM <- c()
-  r1_L0_vec_DEM <- c()
-  rAdopt_vec_DEM <- c()
-  #--
-  for(i in 1:len_P_seq){
-    this_P <- P_seq[i]
-    P1 <- this_P
-    # Get r range
-    out_list <- get_r0r1Range_DEM(interval_r, P0, P1, chng_DEM)
-    r0_range_DEM <- out_list[[1]]
-    r1_range_DEM <- out_list[[2]]
-    #rAdopt_DEM <- out_list[[3]]
-    r0_Lmax_vec_DEM[i] <- r0_range_DEM[1]
-    r0_L0_vec_DEM[i] <- r0_range_DEM[2]
-    r1_Lmax_vec_DEM[i] <- r1_range_DEM[1]
-    r1_L0_vec_DEM[i] <- r1_range_DEM[2]
-#    rAdopt_vec_DEM[i] <- rAdopt_DEM
-  }
-  out_df_rL0Lmax01DEM <- data.frame(r0_Lmax_vec_DEM, r0_L0_vec_DEM,
-                                    r1_Lmax_vec_DEM, r1_L0_vec_DEM)
-                                    #rAdopt_vec_DEM)
-  # rL0_DEM <- ifelse(Market0, r0_L0_vec_DEM, r1_L0_vec_DEM)
-  # rLmax_DEM <- ifelse(Market0, r0_Lmax_vec_DEM, r1_Lmax_vec_DEM)
-  return(out_df_rL0Lmax01DEM)
-}
-
-#==================================
-#==================================
-
-get_rL0Lmax_01_SUP <- function(P_seq, interval_r = c(0, 1), P0, chng_SUP){
-  len_P_seq <- length(P_seq)
-  r0_Lmax_vec_SUP <- c()
-  r0_L0_vec_SUP <- c()
-  r1_Lmax_vec_SUP <- c()
-  r1_L0_vec_SUP <- c()
-  #rAdopt_vec_SUP <- c()
-  #--
-  for(i in 1:len_P_seq){
-    this_P <- P_seq[i]
-    P1 <- this_P
-    out_list <- get_r0r1Range_SUP(interval_r, P0, P1, chng_SUP)
-    r0_range_SUP <- out_list[[1]]
-    r1_range_SUP <- out_list[[2]]
-    #rAdopt_SUP <- out_list[[3]]
-    r0_Lmax_vec_SUP[i] <- r0_range_SUP[1]
-    r0_L0_vec_SUP[i] <- r0_range_SUP[2]
-    r1_Lmax_vec_SUP[i] <- r1_range_SUP[1]
-    r1_L0_vec_SUP[i] <- r1_range_SUP[2]
-    #rAdopt_vec_SUP[i] <- rAdopt_SUP
-  }
-  out_df_rL0Lmax01SUP <- data.frame(r0_Lmax_vec_SUP, r0_L0_vec_SUP,
-                                    r1_Lmax_vec_SUP, r1_L0_vec_SUP)
-                                    #rAdopt_vec_SUP)
-  # rL0_SUP <- ifelse(Market0, r0_L0_vec_SUP, r1_L0_vec_SUP)
-  # rLmax_SUP <- ifelse(Market0, r0_Lmax_vec_SUP, r1_Lmax_vec_SUP)
-  return(out_df_rL0Lmax01SUP)
-}
+# get_rL0Lmax_01_DEM <- function(P_seq, interval_r = c(0, 1), P0, chng_DEM){
+#   len_P_seq <- length(P_seq)
+#   # r0_Lmax_vec_DEM <- c()
+#   # r0_L0_vec_DEM <- c()
+#   # r1_Lmax_vec_DEM <- c()
+#   # r1_L0_vec_DEM <- c()
+#   list_df <- list()
+#   #--
+#   for(i in 1:len_P_seq){
+#     P1 <- P_seq[i]
+#     # Get r range for this alternative price
+#     df_out <- get_r0r1Range_DEM(P1, P0, interval_r, chng_DEM)
+#     list_df[[i]] <- df_out
+#     # r0_range_DEM <- out_list[[1]]
+#     # r1_range_DEM <- out_list[[2]]
+#     # r0_Lmax_vec_DEM[i] <- r0_range_DEM[1]
+#     # r0_L0_vec_DEM[i] <- r0_range_DEM[2]
+#     # r1_Lmax_vec_DEM[i] <- r1_range_DEM[1]
+#     # r1_L0_vec_DEM[i] <- r1_range_DEM[2]
+#   }
+#   # out_df_rL0Lmax01DEM <- data.frame(r0_Lmax_vec_DEM, r0_L0_vec_DEM,
+#   #                                   r1_Lmax_vec_DEM, r1_L0_vec_DEM)
+#   #                                   #rAdopt_vec_DEM)
+#   # rL0_DEM <- ifelse(Market0, r0_L0_vec_DEM, r1_L0_vec_DEM)
+#   # rLmax_DEM <- ifelse(Market0, r0_Lmax_vec_DEM, r1_Lmax_vec_DEM)
+#   df_r01_L0Lmax_DEM <- do.call(rbind, list_df)
+#   return(df_r01_L0Lmax_DEM)
+# }
+# 
+# #==================================
+# #==================================
+# 
+# get_rL0Lmax_01_SUP <- function(P_seq, interval_r = c(0, 1), P0, chng_SUP){
+#   len_P_seq <- length(P_seq)
+#   # r0_Lmax_vec_SUP <- c()
+#   # r0_L0_vec_SUP <- c()
+#   # r1_Lmax_vec_SUP <- c()
+#   # r1_L0_vec_SUP <- c()
+#   list_df <- list()
+#   #--
+#   for(i in 1:len_P_seq){
+#     P1 <- P_seq[i]
+#     list_df[[i]] <- get_r0r1Range_SUP(P1, P0, interval_r, chng_SUP)
+#     # r0_range_SUP <- out_list[[1]]
+#     # r1_range_SUP <- out_list[[2]]
+#     # r0_Lmax_vec_SUP[i] <- r0_range_SUP[1]
+#     # r0_L0_vec_SUP[i] <- r0_range_SUP[2]
+#     # r1_Lmax_vec_SUP[i] <- r1_range_SUP[1]
+#     # r1_L0_vec_SUP[i] <- r1_range_SUP[2]
+#   }
+#   # out_df_rL0Lmax01SUP <- data.frame(r0_Lmax_vec_SUP, r0_L0_vec_SUP,
+#   #                                   r1_Lmax_vec_SUP, r1_L0_vec_SUP)
+#                                     #rAdopt_vec_SUP)
+#   # rL0_SUP <- ifelse(Market0, r0_L0_vec_SUP, r1_L0_vec_SUP)
+#   # rLmax_SUP <- ifelse(Market0, r0_Lmax_vec_SUP, r1_Lmax_vec_SUP)
+#   df_r01_L0Lmax_SUP <- do.call(rbind, list_df)
+#   return(df_r01_L0Lmax_SUP)
+# }
 
 #==================================
 #==================================
@@ -416,11 +413,11 @@ Q_DorS <- function(N, P_input, P_output,
   }
   #--------------------------------
   if(nrow(df_rL0Lmax) > 1){
-    ind1 <- which(df_rL0Lmax$rL0 == 0)
-    ind2 <- which(df_rL0Lmax$rLmax == 0)
-    ind0 <- intersect(ind1, ind2)
-    Q_D_or_S[ind0] <- 0
-    mkt_participation[ind0] <- NA
+    # ind1 <- which(df_rL0Lmax$rL0 == 0)
+    # ind2 <- which(df_rL0Lmax$rLmax == 0)
+    # ind0 <- intersect(ind1, ind2)
+    # Q_D_or_S[ind0] <- 0
+    # mkt_participation[ind0] <- NA
   }else{
     if(rL0 == 0 & rLmax == 0){
       Q_D_or_S <- 0
@@ -531,59 +528,54 @@ NR0_minus_NR1_SUP <- function(rvec, P0, P1, chng_SUP, l_credit = 0, graph_only =
 #==================================
 #==================================
 #==================================
-get_r0r1Range_SUP <- function(interval, P0, P1, chng_SUP){
-  roots <- uniroot.all(NR0_minus_NR1_SUP, interval,
-                       lower = min(interval), upper = max(interval),
-                       P0 = P0, P1 = P1, chng_SUP = chng_SUP)
-  #print(roots)
-  root_keep <- roots[roots > 0 & roots < 1]
-  if(length(root_keep) == 0){root_keep <- NULL}else{
-    if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
-    if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
-  }
-  #--
-  if(!(is.null(root_keep))){
-    a_little_bit <- 0.001
-    if(root_keep > 0.5){
-      cond <- NR0_minus_NR1_SUP(root_keep - a_little_bit, P0, P1, chng_SUP) > 0
-    }else{
-      cond <- NR0_minus_NR1_SUP(root_keep + a_little_bit, P0, P1, chng_SUP) < 0
+#P1_vec = P_seq
+get_r01_L0max_SUP <- function(P1_vec, P0, interval_r, chng_SUP){
+outlist <- list()
+  for(i in 1:length(P1_vec)){
+    P1 <- P1_vec[i]
+    roots <- uniroot.all(NR0_minus_NR1_SUP, interval_r,
+                         lower = min(interval_r), upper = max(interval_r),
+                         P0 = P0, P1 = P1, chng_SUP = chng_SUP)
+    #print(roots)
+    root_keep <- roots[roots > 0 & roots < 1]
+    if(length(root_keep) == 0){root_keep <- NULL}else{
+      if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
+      if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
     }
-    cond <- rep(cond, 2)
-    r0_range <- ifelse(cond, c(0, root_keep), c(root_keep, 1))
-    r1_range <- ifelse(cond, c(root_keep, 1), c(0, root_keep))
-  }else{
-    cond <- NR0_minus_NR1_DEM(0.5, P0, P1, chng_DEM) > 0
-    cond <- rep(cond, 2)
-    r0_range <- ifelse(cond, c(0, 1), c(0, 0))
-    r1_range <- ifelse(cond, c(0, 0), c(0, 1))
+    #--
+    if(!(is.null(root_keep))){
+      a_little_bit <- 0.001
+      if(root_keep > 0.5){
+        cond <- NR0_minus_NR1_SUP(root_keep - a_little_bit, P0, P1, chng_SUP) > 0
+      }else{
+        cond <- NR0_minus_NR1_SUP(root_keep + a_little_bit, P0, P1, chng_SUP) < 0
+      }
+      cond <- rep(cond, 2)
+      r0_range <- ifelse(cond, c(0, root_keep), c(root_keep, 1))
+      r1_range <- ifelse(cond, c(root_keep, 1), c(0, root_keep))
+    }else{
+      cond <- NR0_minus_NR1_SUP(0.5, P0, P1, chng_SUP) > 0
+      cond <- rep(cond, 2)
+      r0_range <- ifelse(cond, c(0, 1), c(0, 0))
+      r1_range <- ifelse(cond, c(0, 0), c(0, 1))
+    }
+    this_df_r01_L0max_SUP <- data.frame(r0_L0_SUP = r0_range[2], r0_Lmax_SUP = r0_range[1],
+                                   r1_L0_SUP = r1_range[2], r1_Lmax_SUP = r1_range[1])
+
+    outlist[[i]] <- this_df_r01_L0max_SUP
+
   }
-#--
-  # rvec <- seq(interval[1], interval[2], 0.001)
-  # d_abs <- abs(rvec - root_keep)
-  # ind_rvec_root <- which.min(d_abs)
-  # if(length(ind_rvec_root) != 0){
-  #   # ind_pos <- which(NR0_minus_NR1_SUP(rvec[1:ind_rvec_root], P0, P1, chng_SUP) > 0)
-  #   # length(ind_pos)
-  #   # Test <- length(ind_pos) == 0 | length(ind_pos) == 1
-  #   # r0_range <- ifelse(rep(Test, 2), c(root_keep, 1), c(0, root_keep))
-  #   # r1_range <- ifelse(rep(Test, 2), c(0, root_keep), c(root_keep, 1))
-  #   # rAdopt <- ifelse(Test, root_keep, 1 - root_keep)
-  # }else{
-  #   # ind_pos <- which(NR0_minus_NR1_SUP(rvec, P0, P1, chng_SUP) > 0)
-  #   # Test <- length(ind_pos) == 0 | length(ind_pos) == 1
-  #   # r0_range <- ifelse(rep(Test, 2), c(0, 0), c(0, 1))
-  #   # r1_range <- ifelse(rep(Test, 2), c(0, 1), c(0, 0))
-  #   # rAdopt <- ifelse(Test, 1, 0)
-  # }
-  outlist <- list(r0_range, r1_range)
-  return(outlist)
+  df_r01_L0max_SUP <- do.call(rbind, outlist)
+  return(df_r01_L0max_SUP)
 }
 #==================================
 #==================================
 #==================================
-get_r0r1Range_DEM <- function(interval, P0, P1, chng_DEM){
-  roots <- uniroot.all(NR0_minus_NR1_DEM, interval,
+get_r01_L0max_DEM <- function(P1_vec, P0, interval_r, chng_DEM){
+  outlist <- list()
+  for(i in 1:length(P1_vec)){
+  P1 <- P1_vec[i]
+  roots <- uniroot.all(NR0_minus_NR1_DEM, interval_r,
                        lower = min(interval), upper = max(interval),
                        P0 = P0, P1 = P1, chng_DEM = chng_DEM)
   root_keep <- roots[roots > 0 & roots < 1]
@@ -608,73 +600,20 @@ get_r0r1Range_DEM <- function(interval, P0, P1, chng_DEM){
     r0_range <- ifelse(cond, c(0, 1), c(0, 0))
     r1_range <- ifelse(cond, c(0, 0), c(0, 1))
   }
-  #--
-  # rvec <- seq(interval[1], interval[2], 0.001)
-  # d_abs <- abs(rvec - root_keep)
-  # ind_rvec_root <- which.min(d_abs)
-  # #print(min(d_abs))
-  # if(length(ind_rvec_root) != 0){
-  #   ind_pos <- which(NR0_minus_NR1_DEM(rvec[1:ind_rvec_root], P0, P1, chng_DEM) > 0)
-  #   #length(ind_pos)
-  #   Test <- length(ind_pos) == 0 | length(ind_pos) == 1
-  #   r0_range <- ifelse(rep(Test, 2), c(root_keep, 1), c(0, root_keep))
-  #   r1_range <- ifelse(rep(Test, 2), c(0, root_keep), c(root_keep, 1))
-  #   rAdopt <- ifelse(Test, root_keep, 1 - root_keep)
-  # }else{
-  #   ind_pos <- which(NR0_minus_NR1_DEM(rvec, P0, P1, chng_DEM) > 0)
-  #   Test <- length(ind_pos) == 0 | length(ind_pos) == 1
-  #   r0_range <- ifelse(rep(Test, 2), c(0, 0), c(0, 1))
-  #   r1_range <- ifelse(rep(Test, 2), c(0, 1), c(0, 0))
-  #   rAdopt <- ifelse(Test, 1, 0)
-  #   
-  # }
-  outlist <- list(r0_range, r1_range)
-  return(outlist)
+  this_df_r01_L0max_DEM <- data.frame(r0_L0_DEM = r0_range[2], r0_Lmax_DEM = r0_range[1],
+                                       r1_L0_DEM = r1_range[2], r1_Lmax_DEM = r1_range[1])
+  
+  outlist[[i]] <- this_df_r01_L0max_DEM
+
+  }
+  df_r01_L0max_DEM <- do.call(rbind, outlist)
+  return(df_r01_L0max_DEM)
+  
 }
 #==================================
 #==================================
 #==================================
 #==================================
-# get_precise_PeQe <- function(Pe_neighborhood, P_input_SUP = 1, N_S, mu_cost_per_farmProduct,
-#                              sig2_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
-#                              m_A_farm, s2_A_farm,
-#                              N_D, P_factryProduct, mu_factry_efficiency_inv,
-#                              sig2_factry_efficiency_inv, m_yCeil_factry, s2_yCeil_factry,
-#                              m_A_factry, s2_A_factry, rL0_DEM = 1, rLmax_DEM = 0,
-#                              rL0_SUP = 1, rLmax_SUP = 0){
-#   df_QD_precise <- Q_DorS(N = N_D, P_input = Pe_neighborhood,
-#                           P_output = P_factryProduct,
-#                           mu_beta = mu_factry_efficiency_inv,
-#                           sig2_beta = sig2_factry_efficiency_inv,
-#                           m_yCeil = m_yCeil_factry,
-#                           s2_yCeil = s2_yCeil_factry,
-#                           m_A = m_A_factry,
-#                           s2_A = s2_A_factry,
-#                           rL0 = rL0_DEM, rLmax = rLmax_DEM,
-#                           l_credit = 0)
-#   colnames(df_QD_precise) <- c("Demand (MT)", "Demand Market Participation")
-#   df_QD_precise$`Feedstock Price (lcu / MT)` <- Pe_neighborhood
-#   df_QS_precise <- Q_DorS(N = N_S, P_input = P_input_SUP,
-#                           P_output = Pe_neighborhood,
-#                           mu_beta = mu_cost_per_farmProduct,
-#                           sig2_beta = sig2_cost_per_farmProduct,
-#                           m_yCeil = m_yCeil_farm,
-#                           s2_yCeil = s2_yCeil_farm,
-#                           m_A = m_A_farm, s2_A = s2_A_farm,
-#                           rL0 = rL0_SUP, rLmax = rLmax_SUP,
-#                           l_credit = 0)
-#   colnames(df_QS_precise) <- c("Supply (MT)", "Supply Market Participation")
-#   df_QS_precise$`Feedstock Price (lcu / MT)` <- Pe_neighborhood
-#   d <- df_QS_precise$`Supply (MT)` - df_QD_precise$`Demand (MT)`
-#   d_abs <- abs(d)
-#   min_d_abs <- min(d_abs)
-#   ind_Pe <- which.min(d_abs)
-#   Pe <- Pe_neighborhood[ind_Pe]
-#   Qe <- df_QS_precise$`Supply (MT)`[ind_Pe]
-#   Demand_particip <- df_QD_precise$`Demand Market Participation`[ind_Pe]
-#   Supply_particip <- df_QS_precise$`Supply Market Participation`[ind_Pe]
-#   return(c(Pe, Qe, Demand_particip, Supply_particip))
-# }
 #==================================
 #==================================
 #==================================
@@ -1357,6 +1296,7 @@ title(main = "Supply Market Participation Map", cex.main = 1)
 #====================================
 #====================================
 # Now same market but with release of alternative tech
+P_feedstock <- seq(100, 4500, 10)
 rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P_eq_00 <- Pe00
@@ -1397,13 +1337,18 @@ for(k in 1:n){
   mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
   mu_factry_efficiency_inv <- 1 / mu_factry_efficiency_new
   P0 <- P_eq_00
-  out_df <- get_rL0Lmax_01_DEM(P_feedstock, interval_r = c(0, 1), P0, chng_DEM)
-  rL0_DEM0 <- out_df$r0_L0_vec_DEM
-  rLmax_DEM0 <- out_df$r0_Lmax_vec_DEM
-  df_rL0Lmax_DEM_graph0 <- data.frame(rL0 = rL0_DEM0, rLmax = rLmax_DEM0)
-  rL0_DEM1 <- out_df$r1_L0_vec_DEM
-  rLmax_DEM1 <- out_df$r1_Lmax_vec_DEM
-  df_rL0Lmax_DEM_graph1 <- data.frame(rL0 = rL0_DEM1, rLmax = rLmax_DEM1)
+  #out_df <- get_rL0Lmax_01_DEM(P_feedstock, P0, interval_r, chng_DEM)
+  df_r01_L0max_DEM <- get_r01_L0max_DEM(P_feedstock, P0, interval_r, chng_DEM)
+  df_r01_L0max_DEM0 <- df_r01_L0max_DEM[, c(1, 2)]
+  colnames(df_r01_L0max_DEM0) <- c("rL0", "rLmax")
+  df_r01_L0max_DEM1 <- df_r01_L0max_DEM[, c(3, 4)]
+  colnames(df_r01_L0max_DEM1) <- c("rL0", "rLmax")
+  # rL0_DEM0 <- out_df$r0_L0_vec_DEM
+  # rLmax_DEM0 <- out_df$r0_Lmax_vec_DEM
+  # df_rL0Lmax_DEM_graph0 <- data.frame(rL0 = rL0_DEM0, rLmax = rLmax_DEM0)
+  # rL0_DEM1 <- out_df$r1_L0_vec_DEM
+  # rLmax_DEM1 <- out_df$r1_Lmax_vec_DEM
+  # df_rL0Lmax_DEM_graph1 <- data.frame(rL0 = rL0_DEM1, rLmax = rLmax_DEM1)
   #---
   df_QD0 <- Q_DorS(N = N_D,
                    P_input = P_feedstock,
@@ -1414,7 +1359,7 @@ for(k in 1:n){
                    s2_yCeil = s2_yCeil_factry,
                    m_A = m_A_factry,
                    s2_A = s2_A_factry,
-                   df_rL0Lmax_DEM_graph0,
+                   df_r01_L0max_DEM0,
                    l_credit = 0)
   colnames(df_QD0) <- c("Q", "mkt_particip")
   df_QD0$Type <- "Demand"
@@ -1429,7 +1374,7 @@ for(k in 1:n){
                    s2_yCeil = s2_yCeil_factry,
                    m_A = m_A_factry,
                    s2_A = s2_A_factry,
-                   df_rL0Lmax_DEM_graph1,
+                   df_r01_L0max_DEM1,
                    l_credit = 0)
   colnames(df_QD1) <- c("Q", "mkt_particip")
   df_QD1$Type <- "Demand"
@@ -1445,14 +1390,12 @@ for(k in 1:n){
     chng_SUP <- 1 + this_eta_SUP
     mu_cost_per_farmProduct <- mu_cost_per_farmProduct_statQuo * chng_SUP
     P0 <- P_eq_00
-    out_df <- get_rL0Lmax_01_SUP(P_feedstock, interval_r = c(0, 1), P0, chng_SUP)
-    rL0_SUP0 <- out_df$r0_L0_vec_SUP
-    rLmax_SUP0 <- out_df$r0_Lmax_vec_SUP
-    df_rL0Lmax_SUP_graph0 <- data.frame(rL0 = rL0_SUP0, rLmax = rLmax_SUP0)
-    rL0_SUP1 <- out_df$r1_L0_vec_SUP
-    rLmax_SUP1 <- out_df$r1_Lmax_vec_SUP
-    df_rL0Lmax_SUP_graph1 <- data.frame(rL0 = rL0_SUP1, rLmax = rLmax_SUP1)
-    
+    # out_df <- get_rL0Lmax_01_SUP(P_feedstock, interval_r = c(0, 1), P0, P1, chng_SUP)
+    df_r01_L0max_SUP <- get_r01_L0max_SUP(P_feedstock, P0, interval_r, chng_SUP)
+    df_r01_L0max_SUP0 <- df_r01_L0max_SUP[, c(1, 2)]
+    colnames(df_r01_L0max_SUP0) <- c("rL0", "rLmax")
+    df_r01_L0max_SUP1 <- df_r01_L0max_SUP[, c(3, 4)]
+    colnames(df_r01_L0max_SUP1) <- c("rL0", "rLmax")
     df_QS0 <- Q_DorS(N = N_S,
                      P_input = 1,
                      P_output = P_feedstock,
@@ -1462,7 +1405,7 @@ for(k in 1:n){
                      s2_yCeil = s2_yCeil_farm,
                      m_A = m_A_farm,
                      s2_A = s2_A_farm,
-                     df_rL0Lmax_SUP_graph0,
+                     df_r01_L0max_SUP0,
                      l_credit = 0)
     colnames(df_QS0) <- c("Q", "mkt_particip")
     df_QS0$Type <- "Supply"
@@ -1476,7 +1419,7 @@ for(k in 1:n){
                      s2_yCeil = s2_yCeil_farm,
                      m_A = m_A_farm,
                      s2_A = s2_A_farm,
-                     df_rL0Lmax_SUP_graph1,
+                     df_r01_L0max_SUP1,
                      l_credit = 0)
     colnames(df_QS1) <- c("Q", "mkt_particip")
     df_QS1$Type <- "Supply"
@@ -1508,8 +1451,55 @@ for(k in 1:n){
     gg
     
     #---
+    Market0 <- T
+    P_eq_00 <- Pe00
+    interval_P <- interval_P_feedstock
+    Pe <- uniroot.all(rootfun, interval_P,
+                      lower = min(interval_P), upper = max(interval_P),
+                      N_S = N_S,
+                      mu_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
+                      cv_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
+                      m_yCeil_farm = m_yCeil_farm,
+                      s2_yCeil_farm = s2_yCeil_farm,
+                      m_A_farm = m_A_farm,
+                      s2_A_farm = s2_A_farm,
+                      df_rL0Lmax_SUP = df_rL0Lmax_SUP,
+                      chng_SUP = chng_SUP,
+                      N_D = N_D,
+                      P_factryProduct = P_factryProduct,
+                      mu_factry_efficiency_inv = mu_factry_efficiency_inv_statQuo,
+                      cv_factry_efficiency_inv = cv_factry_efficiency_inv_statQuo,
+                      m_yCeil_factry = m_yCeil_factry,
+                      s2_yCeil_factry = s2_yCeil_factry,
+                      m_A_factry = m_A_factry,
+                      s2_A_factry = s2_A_factry,
+                      df_rL0Lmax_DEM = df_rL0Lmax_DEM,
+                      chng_DEM = chng_DEM, 
+                      Market0 = Market0, P_eq_00 = P_eq_00)
+    print(Pe)
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        
     Market0 <- T
     #interval_P_feedstock <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
     equilib_list0 <- get_equilibrium_values(interval_P_feedstock,
