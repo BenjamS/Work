@@ -112,7 +112,7 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
 #     # r1_Lmax_vec_DEM[i] <- r1_range_DEM[1]
 #     # r1_L0_vec_DEM[i] <- r1_range_DEM[2]
 #   }
-#   # out_df_rL0Lmax01DEM <- data.frame(r0_Lmax_vec_DEM, r0_L0_vec_DEM,
+#   # out_df_rL0max01DEM <- data.frame(r0_Lmax_vec_DEM, r0_L0_vec_DEM,
 #   #                                   r1_Lmax_vec_DEM, r1_L0_vec_DEM)
 #   #                                   #rAdopt_vec_DEM)
 #   # rL0_DEM <- ifelse(Market0, r0_L0_vec_DEM, r1_L0_vec_DEM)
@@ -142,7 +142,7 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
 #     # r1_Lmax_vec_SUP[i] <- r1_range_SUP[1]
 #     # r1_L0_vec_SUP[i] <- r1_range_SUP[2]
 #   }
-#   # out_df_rL0Lmax01SUP <- data.frame(r0_Lmax_vec_SUP, r0_L0_vec_SUP,
+#   # out_df_rL0max01SUP <- data.frame(r0_Lmax_vec_SUP, r0_L0_vec_SUP,
 #   #                                   r1_Lmax_vec_SUP, r1_L0_vec_SUP)
 #                                     #rAdopt_vec_SUP)
 #   # rL0_SUP <- ifelse(Market0, r0_L0_vec_SUP, r1_L0_vec_SUP)
@@ -156,38 +156,35 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
 rootfun <- function(P_seq, N_S, mu_cost_per_farmProduct,
                     cv_cost_per_farmProduct, m_yCeil_farm, s2_yCeil_farm,
                     m_A_farm, s2_A_farm,
-                    df_rL0Lmax_SUP = data.frame(rL0 = NULL, rLmax = NULL),
+                    df_rL0max_SUP = NULL,
                     chng_SUP = NULL,
                     N_D, P_factryProduct, mu_factry_efficiency_inv,
                     cv_factry_efficiency_inv, m_yCeil_factry, s2_yCeil_factry,
                     m_A_factry, s2_A_factry,
-                    df_rL0Lmax_DEM = data.frame(rL0 = NULL, rLmax = NULL),
+                    df_rL0max_DEM = NULL,
                     chng_DEM = NULL,
                     Market0, P_eq_00){
   #---
-  if(is.null(df_rL0Lmax_DEM$rL0)){
-    #print("hello1")
+  if(is.null(df_rL0max_DEM)){
     P0 <- P_eq_00
-    out_df <- get_rL0Lmax_01_DEM(P_seq, interval_r = c(0, 1), P0, chng_DEM)
-    #print(out_df[1:10, ])
-    cond_DEM <- rep(Market0, nrow(out_df))
-    rL0_DEM <- ifelse(cond_DEM, out_df$r0_L0_vec_DEM, out_df$r1_L0_vec_DEM)
-    rLmax_DEM <- ifelse(cond_DEM, out_df$r0_Lmax_vec_DEM, out_df$r1_Lmax_vec_DEM)
-    df_rL0Lmax_DEM <- data.frame(rL0 = rL0_DEM, rLmax = rLmax_DEM)
-    #print(df_rL0Lmax_DEM[1:10, ])
+    #out_df <- get_rL0Lmax_01_DEM(P_seq, interval_r = c(0, 1), P0, chng_DEM)
+    P1_vec <- P_seq
+    df_r01_L0max_DEM <- get_r01_L0max_DEM(P1_vec, P0, interval_r, chng_DEM)
+    cond_DEM <- rep(Market0, nrow(df_r01_L0max_DEM))
+    rL0_DEM <- ifelse(cond_DEM, df_r01_L0max_DEM$r0_L0_DEM, df_r01_L0max_DEM$r1_L0_DEM)
+    rLmax_DEM <- ifelse(cond_DEM, df_r01_L0max_DEM$r0_Lmax_DEM, df_r01_L0max_DEM$r1_Lmax_DEM)
+    df_rL0max_DEM <- data.frame(rL0 = rL0_DEM, rLmax = rLmax_DEM)
   }
   
-  if(is.null(df_rL0Lmax_SUP$rL0)){
-    #print("hello2")
+  if(is.null(df_rL0max_SUP)){
     P0 <- P_eq_00
-    out_df <- get_rL0Lmax_01_SUP(P_seq, interval_r = c(0, 1), P0, chng_SUP)
-    #print(out_df[1:10, ])
-    cond_SUP <- rep(Market0, nrow(out_df))
-    rL0_SUP <- ifelse(cond_SUP, out_df$r0_L0_vec_SUP, out_df$r1_L0_vec_SUP)
-    #print(rL0_SUP)
-    rLmax_SUP <- ifelse(cond_SUP, out_df$r0_Lmax_vec_SUP, out_df$r1_Lmax_vec_SUP)
-    df_rL0Lmax_SUP <- data.frame(rL0 = rL0_SUP, rLmax = rLmax_SUP)
-    #print(df_rL0Lmax_SUP[1:10, ])
+    #out_df <- get_rL0Lmax_01_SUP(P_seq, interval_r = c(0, 1), P0, chng_SUP)
+    P1_vec <- P_seq
+    df_r01_L0max_SUP <- get_r01_L0max_SUP(P1_vec, P0, interval_r, chng_SUP)
+    cond_SUP <- rep(Market0, nrow(df_r01_L0max_SUP))
+    rL0_SUP <- ifelse(cond_SUP, df_r01_L0max_SUP$r0_L0_SUP, df_r01_L0max_SUP$r1_L0_SUP)
+    rLmax_SUP <- ifelse(cond_SUP, df_r01_L0max_SUP$r0_Lmax_SUP, df_r01_L0max_SUP$r1_Lmax_SUP)
+    df_rL0max_SUP <- data.frame(rL0 = rL0_SUP, rLmax = rLmax_SUP)
   }
   
   #---
@@ -200,7 +197,7 @@ rootfun <- function(P_seq, N_S, mu_cost_per_farmProduct,
                   s2_yCeil = s2_yCeil_farm,
                   m_A = m_A_farm,
                   s2_A = s2_A_farm,
-                  df_rL0Lmax_SUP,
+                  df_rL0max_SUP,
                   l_credit = 0)
   colnames(df_QS) <- c("Q", "mkt_particip")
   df_QS$Type <- "Supply"
@@ -215,7 +212,7 @@ rootfun <- function(P_seq, N_S, mu_cost_per_farmProduct,
                   s2_yCeil = s2_yCeil_factry,
                   m_A = m_A_factry,
                   s2_A = s2_A_factry,
-                  df_rL0Lmax_DEM,
+                  df_rL0max_DEM,
                   l_credit = 0)
   colnames(df_QD) <- c("Q", "mkt_particip")
   df_QD$Type <- "Demand"
@@ -241,7 +238,7 @@ get_equilibrium_values <- function(interval_P,
                                    s2_yCeil_farm,
                                    m_A_farm,
                                    s2_A_farm,
-                                   df_rL0Lmax_SUP = data.frame(rL0 = NULL, rLmax = NULL),
+                                   df_rL0max_SUP = NULL,
                                    chng_SUP = NULL,
                                    N_D,
                                    P_factryProduct,
@@ -251,17 +248,53 @@ get_equilibrium_values <- function(interval_P,
                                    s2_yCeil_factry,
                                    m_A_factry,
                                    s2_A_factry,
-                                   df_rL0Lmax_DEM = data.frame(rL0 = NULL, rLmax = NULL),
+                                   df_rL0max_DEM = NULL,
                                    chng_DEM = NULL,
-                                   Market0, P_eq_00){
+                                   Market0, P_eq_00,
+                                   graph_on = F){
   #---
+  # Note: If chng_DEM, chng_SUP not null and df_rL0max_DEM/SUP null, then Market0 must be either T or F (not null)
+  # (chng_DEM, chng_SUP not null and df_rL0max_DEM/SUP null --> voluntary adoption)
+  # (chng_DEM, chng_SUP not null and df_rL0max_DEM/SUP also not null --> involuntary adoption)
+  # In the case of df_rL0max_DEM/SUP being null, then P_eq_00 must be provided
   if(!(is.null(chng_DEM))){
-    mu_factry_efficiency <- 1 / mu_factry_efficiency_inv * chng_DEM
-    mu_factry_efficiency_inv <- 1 / mu_factry_efficiency
+    baseline_mkt_before_adopt_DEM <- F
+    if(!(is.null(df_rL0max_DEM))){
+      #Involuntary adoption
+      mu_factry_efficiency <- 1 / mu_factry_efficiency_inv * chng_DEM
+      mu_factry_efficiency_inv <- 1 / mu_factry_efficiency
+      adopt_voluntary_DEM <- F
+    }else{
+      #Voluntary adoption
+      adopt_voluntary_DEM <- T
+      if(Market0 == F){
+        #Alternative market
+        mu_factry_efficiency <- 1 / mu_factry_efficiency_inv * chng_DEM
+        mu_factry_efficiency_inv <- 1 / mu_factry_efficiency
+        
+      }
+    }
+  }else{
+      baseline_mkt_before_adopt_DEM <- T
     }
   
   if(!(is.null(chng_SUP))){
-    mu_cost_per_farmProduct <- mu_cost_per_farmProduct * chng_SUP
+    baseline_mkt_before_adopt_SUP <- F
+    if(!(is.null(df_rL0max_SUP))){
+      #Involuntary adoption
+      mu_cost_per_farmProduct <- mu_cost_per_farmProduct * chng_SUP
+      adopt_voluntary_SUP <- F
+  }else{
+    #Voluntary adoption
+    adopt_voluntary_SUP <- T
+    if(Market0 == F){
+      #Alternative market
+      mu_cost_per_farmProduct <- mu_cost_per_farmProduct * chng_SUP
+      
+    }
+  }
+  }else{
+    baseline_mkt_before_adopt_SUP <- T
   }
   #---
   Pe <- uniroot.all(rootfun, interval_P,
@@ -273,7 +306,7 @@ get_equilibrium_values <- function(interval_P,
                     s2_yCeil_farm = s2_yCeil_farm,
                     m_A_farm = m_A_farm,
                     s2_A_farm = s2_A_farm,
-                    df_rL0Lmax_SUP = df_rL0Lmax_SUP,
+                    df_rL0max_SUP = df_rL0max_SUP,
                     chng_SUP = chng_SUP,
                     N_D = N_D,
                     P_factryProduct = P_factryProduct,
@@ -283,82 +316,157 @@ get_equilibrium_values <- function(interval_P,
                     s2_yCeil_factry = s2_yCeil_factry,
                     m_A_factry = m_A_factry,
                     s2_A_factry = s2_A_factry,
-                    df_rL0Lmax_DEM = df_rL0Lmax_DEM,
+                    df_rL0max_DEM = df_rL0max_DEM,
                     chng_DEM = chng_DEM, 
                     Market0 = Market0, P_eq_00 = P_eq_00)
+  #Equilibrium price(s), if any
   print(Pe)
   #---
   if(length(Pe) != 0){
+  #Get equilibrium quantity and supply/demand mkt. participation
+    if(is.null(df_rL0max_DEM)){
+      P0 <- P_eq_00
+      P1_vec <- Pe
+      df_r01_L0max_DEM <- get_r01_L0max_DEM(P1_vec, P0, interval_r, chng_DEM)
+      cond_DEM <- rep(Market0, nrow(df_r01_L0max_DEM))
+      rL0_DEM <- ifelse(cond_DEM, df_r01_L0max_DEM$r0_L0_DEM, df_r01_L0max_DEM$r1_L0_DEM)
+      rLmax_DEM <- ifelse(cond_DEM, df_r01_L0max_DEM$r0_Lmax_DEM, df_r01_L0max_DEM$r1_Lmax_DEM)
+      df_rL0max_DEM_e <- data.frame(rL0 = rL0_DEM, rLmax = rLmax_DEM)
+    }else{
+      df_rL0max_DEM_e <- df_rL0max_DEM
+      df_rL0max_DEM_graph <- df_rL0max_DEM
+    }
     
-  if(is.null(df_rL0Lmax_DEM$rL0)){
-    #print("hello")
-    P0 <- P_eq_00
-    out_df <- get_rL0Lmax_01_DEM(Pe, interval_r = c(0, 1), P0, chng_DEM)
-    #print(out_df)
-    rL0_e_DEM <- ifelse(Market0, out_df$r0_L0_vec_DEM, out_df$r1_L0_vec_DEM)
-    rLmax_e_DEM <- ifelse(Market0, out_df$r0_Lmax_vec_DEM, out_df$r1_Lmax_vec_DEM)
-    df_rL0Lmax_e_DEM <- data.frame(rL0 = rL0_e_DEM, rLmax = rLmax_e_DEM)
-    #print(df_rL0Lmax_e_DEM)
-  }else{
-    rL0_e_DEM <- df_rL0Lmax_DEM$rL0
-    rLmax_e_DEM <- df_rL0Lmax_DEM$rLmax
-    df_rL0Lmax_e_DEM <- data.frame(rL0 = rL0_e_DEM, rLmax = rLmax_e_DEM)
-  }
-  
-
-  if(is.null(df_rL0Lmax_SUP$rL0)){
-    P0 <- P_eq_00
-    out_df <- get_rL0Lmax_01_SUP(Pe, interval_r = c(0, 1), P0, chng_SUP)
-    rL0_e_SUP <- ifelse(Market0, out_df$r0_L0_vec_SUP, out_df$r1_L0_vec_SUP)
-    rLmax_e_SUP <- ifelse(Market0, out_df$r0_Lmax_vec_SUP, out_df$r1_Lmax_vec_SUP)
-    df_rL0Lmax_e_SUP <- data.frame(rL0 = rL0_e_SUP, rLmax = rLmax_e_SUP)
-  }else{
-    rL0_e_SUP <- df_rL0Lmax_SUP$rL0
-    rLmax_e_SUP <- df_rL0Lmax_SUP$rLmax
-    df_rL0Lmax_e_SUP <- data.frame(rL0 = rL0_e_SUP, rLmax = rLmax_e_SUP)
-  }
-  
+    if(is.null(df_rL0max_SUP)){
+      P0 <- P_eq_00
+      #out_df <- get_rL0Lmax_01_SUP(P_seq, interval_r = c(0, 1), P0, chng_SUP)
+      P1_vec <- Pe
+      df_r01_L0max_SUP <- get_r01_L0max_SUP(P1_vec, P0, interval_r, chng_SUP)
+      cond_SUP <- rep(Market0, nrow(df_r01_L0max_SUP))
+      rL0_SUP <- ifelse(cond_SUP, df_r01_L0max_SUP$r0_L0_SUP, df_r01_L0max_SUP$r1_L0_SUP)
+      rLmax_SUP <- ifelse(cond_SUP, df_r01_L0max_SUP$r0_Lmax_SUP, df_r01_L0max_SUP$r1_Lmax_SUP)
+      df_rL0max_SUP_e <- data.frame(rL0 = rL0_SUP, rLmax = rLmax_SUP)
+    }else{
+      P1_vec <- seq(interval_P[1], interval_P[2], 10)
+      df_rL0max_SUP_e <- df_rL0max_SUP
+      df_rL0max_SUP_graph <- df_rL0max_SUP
+    }
+    #---
+    df_QS <- Q_DorS(N = N_S,
+                    P_input = 1,
+                    P_output = Pe,
+                    mu_beta = mu_cost_per_farmProduct,
+                    cv_beta = cv_cost_per_farmProduct,
+                    m_yCeil = m_yCeil_farm,
+                    s2_yCeil = s2_yCeil_farm,
+                    m_A = m_A_farm,
+                    s2_A = s2_A_farm,
+                    df_rL0max_SUP_e,
+                    l_credit = 0)
+    colnames(df_QS) <- c("Q", "mkt_particip")
+    df_QS$Type <- "Supply"
+    df_QS$P <- Pe
+    #---
+    df_QD <- Q_DorS(N = N_D,
+                    P_input = Pe,
+                    P_output = P_factryProduct,
+                    mu_beta = mu_factry_efficiency_inv,
+                    cv_beta = cv_factry_efficiency_inv,
+                    m_yCeil = m_yCeil_factry,
+                    s2_yCeil = s2_yCeil_factry,
+                    m_A = m_A_factry,
+                    s2_A = s2_A_factry,
+                    df_rL0max_DEM_e,
+                    l_credit = 0)
+    colnames(df_QD) <- c("Q", "mkt_particip")
+    df_QD$Type <- "Demand"
+    df_QD$P <- Pe
+    #---
+    df_QD$Q[which(df_QD$Q == 0)] <- NA
+    df_QS$Q[which(df_QS$Q == 0)] <- NA
+    #---
+    Qe <- df_QS$Q
+    mkt_particip_DEM <- df_QD$mkt_particip
+    mkt_particip_SUP <- df_QS$mkt_particip
+    df_Eq <- data.frame(Pe = Pe, Qe = Qe, 
+                        mkt_particip_SUP = mkt_particip_SUP,
+                        mkt_particip_DEM = mkt_particip_DEM)
+    df_Eq_r <- cbind(df_rL0max_SUP_e, df_rL0max_DEM_e)
+    colnames(df_Eq_r)[1:2] <- paste0(colnames(df_Eq_r)[1:2], "_SUP")
+    colnames(df_Eq_r)[3:4] <- paste0(colnames(df_Eq_r)[3:4], "_DEM")
+    }else{
+      df_Eq <- NULL
+      df_Eq_r <- NULL
+    }
   #---
-    df_QD_e <- Q_DorS(N = N_D,
-                      P_input = Pe,
-                      P_output = P_factryProduct,
-                      mu_beta = mu_factry_efficiency_inv,
-                      cv_beta = cv_factry_efficiency_inv,
-                      m_yCeil = m_yCeil_factry,
-                      s2_yCeil = s2_yCeil_factry,
-                      m_A = m_A_factry,
-                      s2_A = s2_A_factry,
-                      df_rL0Lmax = df_rL0Lmax_e_DEM,
-                      l_credit = 0)
+  outlist <- list(df_Eq, df_Eq_r)
+  #-----------------------------------
+  if(graph_on){
+    P1_vec <- seq(interval_P[1], interval_P[2], 10)
+    df_r01_L0max_DEM <- get_r01_L0max_DEM(P1_vec, P0, interval_r, chng_DEM)
+    cond_DEM <- rep(Market0, nrow(df_r01_L0max_DEM))
+    rL0_DEM <- ifelse(cond_DEM, df_r01_L0max_DEM$r0_L0_DEM, df_r01_L0max_DEM$r1_L0_DEM)
+    rLmax_DEM <- ifelse(cond_DEM, df_r01_L0max_DEM$r0_Lmax_DEM, df_r01_L0max_DEM$r1_Lmax_DEM)
+    df_rL0max_DEM_graph <- data.frame(rL0 = rL0_DEM, rLmax = rLmax_DEM)
     #---
-    df_QS_e <- Q_DorS(N = N_S,
-                      P_input = 1,
-                      P_output = Pe,
-                      mu_beta = mu_cost_per_farmProduct,
-                      cv_beta = cv_cost_per_farmProduct,
-                      m_yCeil = m_yCeil_farm,
-                      s2_yCeil = s2_yCeil_farm,
-                      m_A = m_A_farm,
-                      s2_A = s2_A_farm,
-                      df_rL0Lmax = df_rL0Lmax_e_SUP,
-                      l_credit = 0)
+    df_r01_L0max_SUP <- get_r01_L0max_SUP(P1_vec, P0, interval_r, chng_SUP)
+    cond_SUP <- rep(Market0, nrow(df_r01_L0max_SUP))
+    rL0_SUP <- ifelse(cond_SUP, df_r01_L0max_SUP$r0_L0_SUP, df_r01_L0max_SUP$r1_L0_SUP)
+    rLmax_SUP <- ifelse(cond_SUP, df_r01_L0max_SUP$r0_Lmax_SUP, df_r01_L0max_SUP$r1_Lmax_SUP)
+    df_rL0max_SUP_graph <- data.frame(rL0 = rL0_SUP, rLmax = rLmax_SUP)
     #---
-    Qe <- df_QS_e$Q_D_or_S
-    mkt_particip_DEM <- df_QD_e$mkt_participation
-    mkt_particip_SUP <- df_QS_e$mkt_participation
-    
-  }else{
-    rL0_e_DEM <- NA
-    rLmax_e_DEM <- NA
-    rL0_e_SUP <- NA
-    rLmax_e_SUP <- NA
-    Pe <- NA
-    Qe <- NA
-    mkt_particip_DEM <- NA
-    mkt_particip_SUP <- NA
+    df_QS <- Q_DorS(N = N_S,
+                    P_input = 1,
+                    P_output = P1_vec,
+                    mu_beta = mu_cost_per_farmProduct,
+                    cv_beta = cv_cost_per_farmProduct,
+                    m_yCeil = m_yCeil_farm,
+                    s2_yCeil = s2_yCeil_farm,
+                    m_A = m_A_farm,
+                    s2_A = s2_A_farm,
+                    df_rL0max_SUP_graph,
+                    l_credit = 0)
+    colnames(df_QS) <- c("Quantity (MT)", "mkt_particip")
+    df_QS$Type <- "Supply"
+    df_QS$`Price (lcu / MT)` <- P1_vec
+    #---
+    df_QD <- Q_DorS(N = N_D,
+                    P_input = P1_vec,
+                    P_output = P_factryProduct,
+                    mu_beta = mu_factry_efficiency_inv,
+                    cv_beta = cv_factry_efficiency_inv,
+                    m_yCeil = m_yCeil_factry,
+                    s2_yCeil = s2_yCeil_factry,
+                    m_A = m_A_factry,
+                    s2_A = s2_A_factry,
+                    df_rL0max_DEM_graph,
+                    l_credit = 0)
+    colnames(df_QD) <- c("Quantity (MT)", "mkt_particip")
+    df_QD$Type <- "Demand"
+    df_QD$`Price (lcu / MT)` <- P1_vec
+    #---
+    df_plot <- rbind(df_QD, df_QS)
+    df_plot$`Quantity (MT)`[which(df_plot$`Quantity (MT)` == 0)] <- NA
+    cond_baseline_mkt_before_adopt <- baseline_mkt_before_adopt_DEM | baseline_mkt_before_adopt_SUP
+    if(cond_baseline_mkt_before_adopt == T){
+      str_title <- "Baseline market (before release of new technology)"
+    }else{
+      cond_adopt_voluntary <- adopt_voluntary_DEM | adopt_voluntary_SUP
+      if(cond_adopt_voluntary){
+        str_title <- ifelse(Market0, "Baseline market, voluntary adoption", "Alternative market, voluntary adoption")
+      }else{
+        str_title <- "New market (involuntary adoption)"
+      }
+    }
+
+    gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+    gg <- gg + geom_point()
+    if(!(is.null(df_Eq))){gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")}
+    gg <- gg + ggtitle(str_title)
+    print(gg)
+    #---
   }
-  outlist <- list(Pe, Qe, mkt_particip_DEM, mkt_particip_SUP,
-                  rL0_e_DEM, rLmax_e_DEM, rL0_e_SUP, rLmax_e_SUP)
+  #-----------------------------------
   return(outlist)
 }
 
@@ -374,7 +482,7 @@ Q_DorS <- function(N, P_input, P_output,
                    mu_beta, cv_beta,
                    m_yCeil, s2_yCeil,
                    m_A, s2_A,
-                   df_rL0Lmax = data.frame(rL0 = 1, rLmax = 0),
+                   df_rL0max = data.frame(rL0 = 1, rLmax = 0),
                    l_credit = 0){
   #--------------------------------
   # s2_beta
@@ -397,8 +505,8 @@ Q_DorS <- function(N, P_input, P_output,
   # Nvr0, Nvr1
   # Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
   if(sig2_beta != 0){
-    rL0 <- df_rL0Lmax$rL0
-    rLmax <- df_rL0Lmax$rLmax
+    rL0 <- df_rL0max$rL0
+    rLmax <- df_rL0max$rLmax
     vrLmax <- (-rLmax + mu_r - s2_qStar) / s_qStar
     vrL0 <- (-rL0 + mu_r - s2_qStar) / s_qStar
     NvrLmax <- pnorm(vrLmax)
@@ -412,9 +520,9 @@ Q_DorS <- function(N, P_input, P_output,
     Q_D_or_S <- mu_qStar
   }
   #--------------------------------
-  if(nrow(df_rL0Lmax) > 1){
-    # ind1 <- which(df_rL0Lmax$rL0 == 0)
-    # ind2 <- which(df_rL0Lmax$rLmax == 0)
+  if(nrow(df_rL0max) > 1){
+    # ind1 <- which(df_rL0max$rL0 == 0)
+    # ind2 <- which(df_rL0max$rLmax == 0)
     # ind0 <- intersect(ind1, ind2)
     # Q_D_or_S[ind0] <- 0
     # mkt_participation[ind0] <- NA
@@ -426,6 +534,7 @@ Q_DorS <- function(N, P_input, P_output,
   }
   #--------------------------------
   df_out <- data.frame(Q_D_or_S, mkt_participation)
+  #--------------------------------
   return(df_out)
 }
 #try it out:
@@ -438,7 +547,7 @@ Q_DorS <- function(N, P_input, P_output,
 #                   s2_yCeil = s2_yCeil_farm,
 #                   m_A = m_A_farm,
 #                   s2_A = s2_A_farm,
-#                   df_rL0Lmax = data.frame(rL0 = NA, rLmax = NA),
+#                   df_rL0max = data.frame(rL0 = NA, rLmax = NA),
 #                   l_credit = 0)
 
 #==================================
@@ -576,7 +685,7 @@ get_r01_L0max_DEM <- function(P1_vec, P0, interval_r, chng_DEM){
   for(i in 1:length(P1_vec)){
   P1 <- P1_vec[i]
   roots <- uniroot.all(NR0_minus_NR1_DEM, interval_r,
-                       lower = min(interval), upper = max(interval),
+                       lower = min(interval_r), upper = max(interval_r),
                        P0 = P0, P1 = P1, chng_DEM = chng_DEM)
   root_keep <- roots[roots > 0 & roots < 1]
   if(length(root_keep) == 0){root_keep <- NULL}else{
@@ -680,7 +789,7 @@ s2_A_farm <- (m_A_farm * cv_lA_farm)^2
 # Baseline Demand curve plot
 graph_on <- F
 #==================================
-df_rL0Lmax <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
 df_QD00 <- Q_DorS(N = N_D,
                   P_input = P_feedstock,
                   P_output = P_factryProduct,
@@ -690,7 +799,7 @@ df_QD00 <- Q_DorS(N = N_D,
                   s2_yCeil = s2_yCeil_factry,
                   m_A = m_A_factry,
                   s2_A = s2_A_factry,
-                  df_rL0Lmax,
+                  df_rL0max,
                   l_credit = 0)
 colnames(df_QD00) <- c("Demand (MT)", "Demand Market Participation")
 df_QD00$`Feedstock Price (lcu / MT)` <- P_feedstock
@@ -725,7 +834,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_factry,
                     m_A = m_A_factry,
                     s2_A = s2_A_factry,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QD$`Feedstock Price (lcu / MT)` <- P_feedstock
     df_QD$`Mean Conversion\nEfficiency` <- as.character(round(this_mu_factry_efficiency_inv, 2))
@@ -762,7 +871,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_factry,
                     m_A = m_A_factry,
                     s2_A = s2_A_factry,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QD$`CV Conversion\nEfficiency` <- as.character(this_cv_factry_efficiency_inv)
     dfQD_list[[i]] <- df_QD
@@ -799,7 +908,7 @@ if(turn_on == T){
                     s2_yCeil = this_s2_yCeil_factry,
                     m_A = m_A_factry,
                     s2_A = s2_A_factry,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QD$`Mean (logged)\nFactory Capacity` <- as.character(round(this_m_yCeil_factry, 2))
     dfQD_list[[i]] <- df_QD
@@ -837,7 +946,7 @@ if(turn_on == T){
                     s2_yCeil = this_s2_yCeil_factry,
                     m_A = m_A_factry,
                     s2_A = s2_A_factry,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QD$`CV (logged)\nFactory Capacity` <- as.character(this_cv_lyCeil_factry)
     dfQD_list[[i]] <- df_QD
@@ -874,7 +983,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_factry,
                     m_A = m_A_factry,
                     s2_A = s2_A_factry,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QD$`Output Price (lcu / MT)` <- as.character(this_P_factryProduct)
     dfQD_list[[i]] <- df_QD
@@ -900,7 +1009,7 @@ if(turn_on == T){
 #==================================
 # Baseline Supply curve plot
 #==================================
-df_rL0Lmax <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
 df_QS00 <- Q_DorS(N = N_S,
                   P_input = 1,
                   P_output = P_feedstock,
@@ -910,7 +1019,7 @@ df_QS00 <- Q_DorS(N = N_S,
                   s2_yCeil = s2_yCeil_farm,
                   m_A = m_A_farm,
                   s2_A = s2_A_farm,
-                  df_rL0Lmax,
+                  df_rL0max,
                   l_credit = 0)
 colnames(df_QS00) <- c("Supply (MT)", "Supply Market Participation")
 df_QS00$`Feedstock Price (lcu / MT)` <- P_feedstock
@@ -923,7 +1032,12 @@ if(graph_on == T){
   gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply Market Participation`))
   gg <- gg + geom_line(lwd = 2)
   gg
-  
+  # gathercols <- colnames(df_plot)[1:2]
+  # df_plot <- df_plot %>% gather_("Type", "Value", gathercols)
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = Value))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free")
+  # gg
 }
 #==================================
 # Explore supply curve sensitivity
@@ -946,7 +1060,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_farm,
                     m_A = m_A_farm,
                     s2_A = s2_A_farm,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QS$`Mean Cost\nPer Unit\nFarm Output\n(lcu)` <- as.character(round(this_mu_cost_per_farmProduct, 0))
     dfQS_list[[i]] <- df_QS
@@ -983,7 +1097,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_farm,
                     m_A = m_A_farm,
                     s2_A = s2_A_farm,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QS$`CV Cost\nPer Unit\nFarm Output\n(lcu)` <- as.character(this_cv_cost_per_farmProduct)
     dfQS_list[[i]] <- df_QS
@@ -1021,7 +1135,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_farm,
                     m_A = this_m_A_farm,
                     s2_A = this_s2_A_farm,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QS$`Mean (logged)\nFarm Size (Ha.)` <- as.character(round(this_m_A_farm, 1))
     dfQS_list[[i]] <- df_QS
@@ -1059,7 +1173,7 @@ if(turn_on == T){
                     s2_yCeil = s2_yCeil_farm,
                     m_A = m_A_farm,
                     s2_A = this_s2_A_farm,
-                    df_rL0Lmax,
+                    df_rL0max,
                     l_credit = 0)
     df_QS$`CV (logged)\nFarm Size (Ha.)` <- as.character(round(this_cv_lA_farm, 1))
     dfQS_list[[i]] <- df_QS
@@ -1084,16 +1198,16 @@ if(turn_on == T){
 # Baseline Demand and Supply Together (aka the market, PE model, etc.)
 # Here we get Pe the baseline equilibrium price before release of the alternative
 interval_P <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
-df_rL0Lmax_SUP <- data.frame(rL0 = 1, rLmax = 0)
-df_rL0Lmax_DEM <- data.frame(rL0 = 1, rLmax = 0)
-equilib00_list <- get_equilibrium_values(interval_P, N_S = N_S,
+df_rL0max_SUP <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max_DEM <- data.frame(rL0 = 1, rLmax = 0)
+equilib_list <- get_equilibrium_values(interval_P, N_S = N_S,
                                          mu_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
                                          cv_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
                                          m_yCeil_farm = m_yCeil_farm,
                                          s2_yCeil_farm = s2_yCeil_farm,
                                          m_A_farm = m_A_farm,
                                          s2_A_farm = s2_A_farm,
-                                         df_rL0Lmax_SUP,
+                                         df_rL0max_SUP,
                                          chng_SUP = NULL,
                                          N_D = N_D,
                                          P_factryProduct = P_factryProduct,
@@ -1103,33 +1217,29 @@ equilib00_list <- get_equilibrium_values(interval_P, N_S = N_S,
                                          s2_yCeil_factry = s2_yCeil_factry,
                                          m_A_factry = m_A_factry,
                                          s2_A_factry = s2_A_factry,
-                                         df_rL0Lmax_DEM,
+                                         df_rL0max_DEM,
                                          chng_DEM = NULL,
-                                         Market0 = NULL, P_eq_00 = NULL)
-Pe00 <- equilib00_list[[1]]
-Qe00 <- equilib00_list[[2]]
-MktParticip00_DEM <- equilib00_list[[3]]
-MktParticip00_SUP <- equilib00_list[[4]]
-rL0_e_DEM00 <- equilib00_list[[5]]
-rLmax_e_DEM00 <- equilib00_list[[6]]
-rL0_e_SUP00 <- equilib00_list[[7]]
-rLmax_e_SUP00 <- equilib00_list[[8]]
-df_Eq00 <- data.frame(Pe = Pe00, Qe = Qe00,
-                      MktParticip_DEM = MktParticip00_DEM, MktParticip_SUP = MktParticip00_SUP,
-                      Tech = "Before release (Baseline)")
+                                         Market0 = NULL, P_eq_00 = NULL,
+                                         graph_on = T)
+Tech00 <- "Before release (Baseline)"
+df_Eq00 <- equilib_list[[1]]
+df_Eq00$Tech <- Tech00
+df_Eq00_r <- equilib_list[[2]]
+df_Eq00_r$Tech <- Tech00
 print(df_Eq00)
+print(df_Eq00_r)
 #------------------------------------
 df_QSQD00 <- merge(df_QS00, df_QD00, by = "Feedstock Price (lcu / MT)")
 df_QSQD00 <- df_QSQD00[, c("Feedstock Price (lcu / MT)", "Supply Market Participation", "Demand Market Participation",
                            "Supply (MT)", "Demand (MT)")]
 #colnames(df_QSQD)[4:5] <- c("Supply", "Demand")
 
-df_QSQD00 <- df_QSQD00 %>% gather(Type, `Quantity (MT)`, `Supply (MT)`:`Demand (MT)`)
-gg <- ggplot()
-gg <- gg + geom_line(data = df_QSQD00, aes(x = `Feedstock Price (lcu / MT)`, y = `Quantity (MT)`, color = Type, group = Type), lwd = 2)
-gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
-gg <- gg + theme(legend.title = element_blank())
-gg
+# df_QSQD00 <- df_QSQD00 %>% gather(Type, `Quantity (MT)`, `Supply (MT)`:`Demand (MT)`)
+# gg <- ggplot()
+# gg <- gg + geom_line(data = df_QSQD00, aes(x = `Feedstock Price (lcu / MT)`, y = `Quantity (MT)`, color = Type, group = Type), lwd = 2)
+# gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+# gg <- gg + theme(legend.title = element_blank())
+# gg
 #====================================
 # Baseline market mean net revenue (yield)
 # Demand side:
@@ -1144,8 +1254,8 @@ mu_YDe_SUP00 <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit = 0)
 #====================================
 # Create maps of independent changes in farm and factory efficiency
 #------------------------------------
-df_rL0Lmax_DEM <- data.frame(rL0 = 1, rLmax = 0)
-df_rL0Lmax_SUP <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max_DEM <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max_SUP <- data.frame(rL0 = 1, rLmax = 0)
 eta_vec <- seq(-0.4, 0.4, 0.05)
 n <- length(eta_vec)
 mat_Pe <- matrix(NA, n, n)
@@ -1155,19 +1265,21 @@ mat_muYDe_SUP <- matrix(NA, n, n)
 mat_MktParticip_DEM <- matrix(NA, n, n)
 mat_MktParticip_SUP <- matrix(NA, n, n)
 df_Eq_list <- list()
+df_Eq_r_list <- list()
 interval_P_feedstock <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
+New_Tech <- "New Tech (Involuntary Adoption)"
 t <- 0
 for(k in 1:n){
   this_eta_DEM <- eta_vec[k]
   chng_DEM <- 1 + this_eta_DEM
-  mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
-  mu_factry_efficiency_inv <- 1 / mu_factry_efficiency_new
-  sig2_factry_efficiency_inv <- (cv_factry_efficiency_inv_statQuo * mu_factry_efficiency_inv)^2
+  # mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
+  # mu_factry_efficiency_inv <- 1 / mu_factry_efficiency_new
+  # sig2_factry_efficiency_inv <- (cv_factry_efficiency_inv_statQuo * mu_factry_efficiency_inv)^2
   for(l in 1:n){
     this_eta_SUP <- eta_vec[l]
     chng_SUP <- 1 + this_eta_SUP
-    mu_cost_per_farmProduct <- mu_cost_per_farmProduct_statQuo * chng_SUP
-    sig2_cost_per_farmProduct <- (cv_cost_per_farmProduct_statQuo * mu_cost_per_farmProduct)^2
+    # mu_cost_per_farmProduct <- mu_cost_per_farmProduct_statQuo * chng_SUP
+    # sig2_cost_per_farmProduct <- (cv_cost_per_farmProduct_statQuo * mu_cost_per_farmProduct)^2
     #---
     equilib_list <- get_equilibrium_values(interval_P_feedstock, N_S = N_S,
                                            mu_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
@@ -1176,7 +1288,7 @@ for(k in 1:n){
                                            s2_yCeil_farm = s2_yCeil_farm,
                                            m_A_farm = m_A_farm,
                                            s2_A_farm = s2_A_farm,
-                                           df_rL0Lmax_SUP,
+                                           df_rL0max_SUP,
                                            chng_SUP,
                                            N_D = N_D,
                                            P_factryProduct = P_factryProduct,
@@ -1186,36 +1298,33 @@ for(k in 1:n){
                                            s2_yCeil_factry = s2_yCeil_factry,
                                            m_A_factry = m_A_factry,
                                            s2_A_factry = s2_A_factry,
-                                           df_rL0Lmax_DEM,
+                                           df_rL0max_DEM,
                                            chng_DEM,
-                                           Market0 = NULL, P_eq_00 = NULL)
-    Pe <- equilib_list[[1]]
-    Qe <- equilib_list[[2]]
-    MktParticip_DEM <- equilib_list[[3]]
-    MktParticip_SUP <- equilib_list[[4]]
-    rL0_e_DEM <- equilib_list[[5]]
-    rLmax_e_DEM <- equilib_list[[6]]
-    rL0_e_SUP <- equilib_list[[7]]
-    rLmax_e_SUP <- equilib_list[[8]]
-    df_Eq <- data.frame(Pe = Pe, Qe = Qe,
-                        MktParticip_DEM = MktParticip_DEM, MktParticip_SUP = MktParticip_SUP,
-                        Tech = "Before release (Baseline)")
-    #print(df_Eq)
+                                           Market0 = NULL, P_eq_00 = NULL,
+                                           graph_on = F)
+    #Sys.sleep(1.5)
+    df_Eq <- equilib_list[[1]]
+    df_Eq$Tech <- New_Tech
+    df_Eq_r <- equilib_list[[2]]
+    df_Eq_r$Tech <- New_Tech
+    print(df_Eq)
+    print(df_Eq_r)
     #---
     t <- t + 1
     df_Eq_list[[t]] <- df_Eq
-    mu_r_DEM <- Pe / P_factryProduct * mu_factry_efficiency_inv
-    mu_YDe_DEM <- exp(m_yCeil_factry) * NRyd_DEM(mu_r_DEM, Pe, l_credit = 0)
+    df_Eq_r_list[[t]] <- df_Eq_r
+    mu_r_DEM <- df_Eq$Pe / P_factryProduct * mu_factry_efficiency_inv
+    mu_YDe_DEM <- exp(m_yCeil_factry) * NRyd_DEM(mu_r_DEM, df_Eq$Pe, l_credit = 0)
     # Supply side:
     mu_r_SUP <- 1 / Pe00 * mu_cost_per_farmProduct
-    mu_YDe_SUP <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP, Pe, l_credit = 0)
+    mu_YDe_SUP <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP, df_Eq$Pe, l_credit = 0)
     
-    mat_Pe[k, l] <- Pe
-    mat_Qe[k, l] <- Qe
+    mat_Pe[k, l] <- df_Eq$Pe
+    mat_Qe[k, l] <- df_Eq$Qe
     mat_muYDe_SUP[k, l] <- mu_YDe_SUP
     mat_muYDe_DEM[k, l] <- mu_YDe_DEM
-    mat_MktParticip_DEM[k, l] <- MktParticip_DEM
-    mat_MktParticip_SUP[k, l] <- MktParticip_SUP
+    mat_MktParticip_DEM[k, l] <- df_Eq$mkt_particip_DEM
+    mat_MktParticip_SUP[k, l] <- df_Eq$mkt_particip_SUP
     
     print(c(k = k, l = l))
   }
@@ -1296,14 +1405,13 @@ title(main = "Supply Market Participation Map", cex.main = 1)
 #====================================
 #====================================
 # Now same market but with release of alternative tech
-P_feedstock <- seq(100, 4500, 10)
 rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P_eq_00 <- Pe00
 eta_vec <- round(seq(-0.4, 0.4, 0.1), 2)
 interval_P_feedstock <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
-df_rL0Lmax_DEM <- data.frame(rL0 = NULL, rLmax = NULL)
-df_rL0Lmax_SUP <- data.frame(rL0 = NULL, rLmax = NULL)
+df_rL0max_DEM <- data.frame(rL0 = NULL, rLmax = NULL)
+df_rL0max_SUP <- data.frame(rL0 = NULL, rLmax = NULL)
 #====================================
 n <- length(eta_vec)
 mat_muYDe_DEM0 <- matrix(NA, n, n)
@@ -1324,7 +1432,6 @@ df_Eq0_list <- list()
 df_Eq0r_list <- list()
 df_Eq1_list <- list()
 df_Eq1r_list <- list()
-t <- 0
 #====================================
 #====================================
 #====================================
@@ -1332,177 +1439,133 @@ t <- 0
 #====================================
 for(k in 1:n){
   this_eta_DEM <- eta_vec[k]
-  #---for graphing purposes
   chng_DEM <- 1 + this_eta_DEM
+  # chng_DEM <- 1.2
   mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
-  mu_factry_efficiency_inv <- 1 / mu_factry_efficiency_new
-  P0 <- P_eq_00
-  #out_df <- get_rL0Lmax_01_DEM(P_feedstock, P0, interval_r, chng_DEM)
-  df_r01_L0max_DEM <- get_r01_L0max_DEM(P_feedstock, P0, interval_r, chng_DEM)
-  df_r01_L0max_DEM0 <- df_r01_L0max_DEM[, c(1, 2)]
-  colnames(df_r01_L0max_DEM0) <- c("rL0", "rLmax")
-  df_r01_L0max_DEM1 <- df_r01_L0max_DEM[, c(3, 4)]
-  colnames(df_r01_L0max_DEM1) <- c("rL0", "rLmax")
-  # rL0_DEM0 <- out_df$r0_L0_vec_DEM
-  # rLmax_DEM0 <- out_df$r0_Lmax_vec_DEM
-  # df_rL0Lmax_DEM_graph0 <- data.frame(rL0 = rL0_DEM0, rLmax = rLmax_DEM0)
-  # rL0_DEM1 <- out_df$r1_L0_vec_DEM
-  # rLmax_DEM1 <- out_df$r1_Lmax_vec_DEM
-  # df_rL0Lmax_DEM_graph1 <- data.frame(rL0 = rL0_DEM1, rLmax = rLmax_DEM1)
-  #---
-  df_QD0 <- Q_DorS(N = N_D,
-                   P_input = P_feedstock,
-                   P_output = P_factryProduct,
-                   mu_beta = mu_factry_efficiency_inv_statQuo,
-                   cv_beta = cv_factry_efficiency_inv_statQuo,
-                   m_yCeil = m_yCeil_factry,
-                   s2_yCeil = s2_yCeil_factry,
-                   m_A = m_A_factry,
-                   s2_A = s2_A_factry,
-                   df_r01_L0max_DEM0,
-                   l_credit = 0)
-  colnames(df_QD0) <- c("Q", "mkt_particip")
-  df_QD0$Type <- "Demand"
-  df_QD0$P <- P_feedstock
-  #---
-  df_QD1 <- Q_DorS(N = N_D,
-                   P_input = P_feedstock,
-                   P_output = P_factryProduct,
-                   mu_beta = mu_factry_efficiency_inv,
-                   cv_beta = cv_factry_efficiency_inv_statQuo,
-                   m_yCeil = m_yCeil_factry,
-                   s2_yCeil = s2_yCeil_factry,
-                   m_A = m_A_factry,
-                   s2_A = s2_A_factry,
-                   df_r01_L0max_DEM1,
-                   l_credit = 0)
-  colnames(df_QD1) <- c("Q", "mkt_particip")
-  df_QD1$Type <- "Demand"
-  df_QD1$P <- P_feedstock
-  #---
+  mu_factry_efficiency_inv_new <- 1 / mu_factry_efficiency_new
+  # #---for graphing purposes
+  # # mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
+  # # mu_factry_efficiency_inv_new <- 1 / mu_factry_efficiency_new
+  # P0 <- P_eq_00
+  # #out_df <- get_rL0Lmax_01_DEM(P_feedstock, P0, interval_r, chng_DEM)
+  # df_r01_L0max_DEM <- get_r01_L0max_DEM(P_feedstock, P0, interval_r, chng_DEM)
+  # df_r01_L0max_DEM0 <- df_r01_L0max_DEM[, c(1, 2)]
+  # colnames(df_r01_L0max_DEM0) <- c("rL0", "rLmax")
+  # df_r01_L0max_DEM1 <- df_r01_L0max_DEM[, c(3, 4)]
+  # colnames(df_r01_L0max_DEM1) <- c("rL0", "rLmax")
+  # # rL0_DEM0 <- out_df$r0_L0_vec_DEM
+  # # rLmax_DEM0 <- out_df$r0_Lmax_vec_DEM
+  # # df_rL0max_DEM_graph0 <- data.frame(rL0 = rL0_DEM0, rLmax = rLmax_DEM0)
+  # # rL0_DEM1 <- out_df$r1_L0_vec_DEM
+  # # rLmax_DEM1 <- out_df$r1_Lmax_vec_DEM
+  # # df_rL0max_DEM_graph1 <- data.frame(rL0 = rL0_DEM1, rLmax = rLmax_DEM1)
+  # #---
+  # df_QD0 <- Q_DorS(N = N_D,
+  #                  P_input = P_feedstock,
+  #                  P_output = P_factryProduct,
+  #                  mu_beta = mu_factry_efficiency_inv_statQuo,
+  #                  cv_beta = cv_factry_efficiency_inv_statQuo,
+  #                  m_yCeil = m_yCeil_factry,
+  #                  s2_yCeil = s2_yCeil_factry,
+  #                  m_A = m_A_factry,
+  #                  s2_A = s2_A_factry,
+  #                  df_r01_L0max_DEM0,
+  #                  l_credit = 0)
+  # colnames(df_QD0) <- c("Q", "mkt_particip")
+  # df_QD0$Type <- "Demand"
+  # df_QD0$P <- P_feedstock
+  # #---
+  # df_QD1 <- Q_DorS(N = N_D,
+  #                  P_input = P_feedstock,
+  #                  P_output = P_factryProduct,
+  #                  mu_beta = mu_factry_efficiency_inv_new,
+  #                  cv_beta = cv_factry_efficiency_inv_statQuo,
+  #                  m_yCeil = m_yCeil_factry,
+  #                  s2_yCeil = s2_yCeil_factry,
+  #                  m_A = m_A_factry,
+  #                  s2_A = s2_A_factry,
+  #                  df_r01_L0max_DEM1,
+  #                  l_credit = 0)
+  # colnames(df_QD1) <- c("Q", "mkt_particip")
+  # df_QD1$Type <- "Demand"
+  # df_QD1$P <- P_feedstock
+  # #---
   
   
   for(l in 1:n){
     this_eta_SUP <- eta_vec[l]
-    
-    #---for graphing purposes
-    
     chng_SUP <- 1 + this_eta_SUP
-    mu_cost_per_farmProduct <- mu_cost_per_farmProduct_statQuo * chng_SUP
-    P0 <- P_eq_00
-    # out_df <- get_rL0Lmax_01_SUP(P_feedstock, interval_r = c(0, 1), P0, P1, chng_SUP)
-    df_r01_L0max_SUP <- get_r01_L0max_SUP(P_feedstock, P0, interval_r, chng_SUP)
-    df_r01_L0max_SUP0 <- df_r01_L0max_SUP[, c(1, 2)]
-    colnames(df_r01_L0max_SUP0) <- c("rL0", "rLmax")
-    df_r01_L0max_SUP1 <- df_r01_L0max_SUP[, c(3, 4)]
-    colnames(df_r01_L0max_SUP1) <- c("rL0", "rLmax")
-    df_QS0 <- Q_DorS(N = N_S,
-                     P_input = 1,
-                     P_output = P_feedstock,
-                     mu_beta = mu_cost_per_farmProduct_statQuo,
-                     cv_beta = cv_cost_per_farmProduct_statQuo,
-                     m_yCeil = m_yCeil_farm,
-                     s2_yCeil = s2_yCeil_farm,
-                     m_A = m_A_farm,
-                     s2_A = s2_A_farm,
-                     df_r01_L0max_SUP0,
-                     l_credit = 0)
-    colnames(df_QS0) <- c("Q", "mkt_particip")
-    df_QS0$Type <- "Supply"
-    df_QS0$P <- P_feedstock
-    df_QS1 <- Q_DorS(N = N_S,
-                     P_input = 1,
-                     P_output = P_feedstock,
-                     mu_beta = mu_cost_per_farmProduct,
-                     cv_beta = cv_cost_per_farmProduct_statQuo,
-                     m_yCeil = m_yCeil_farm,
-                     s2_yCeil = s2_yCeil_farm,
-                     m_A = m_A_farm,
-                     s2_A = s2_A_farm,
-                     df_r01_L0max_SUP1,
-                     l_credit = 0)
-    colnames(df_QS1) <- c("Q", "mkt_particip")
-    df_QS1$Type <- "Supply"
-    df_QS1$P <- P_feedstock
+    #chng_SUP <- 1.15
+    mu_cost_per_farmProduct_new <- mu_cost_per_farmProduct_statQuo * chng_SUP
     
+    # #---for graphing purposes
+    # 
+    # P0 <- P_eq_00
+    # # out_df <- get_rL0Lmax_01_SUP(P_feedstock, interval_r = c(0, 1), P0, P1, chng_SUP)
+    # df_r01_L0max_SUP <- get_r01_L0max_SUP(P_feedstock, P0, interval_r, chng_SUP)
+    # df_r01_L0max_SUP0 <- df_r01_L0max_SUP[, c(1, 2)]
+    # colnames(df_r01_L0max_SUP0) <- c("rL0", "rLmax")
+    # df_r01_L0max_SUP1 <- df_r01_L0max_SUP[, c(3, 4)]
+    # colnames(df_r01_L0max_SUP1) <- c("rL0", "rLmax")
+    # df_QS0 <- Q_DorS(N = N_S,
+    #                  P_input = 1,
+    #                  P_output = P_feedstock,
+    #                  mu_beta = mu_cost_per_farmProduct_statQuo,
+    #                  cv_beta = cv_cost_per_farmProduct_statQuo,
+    #                  m_yCeil = m_yCeil_farm,
+    #                  s2_yCeil = s2_yCeil_farm,
+    #                  m_A = m_A_farm,
+    #                  s2_A = s2_A_farm,
+    #                  df_r01_L0max_SUP0,
+    #                  l_credit = 0)
+    # colnames(df_QS0) <- c("Q", "mkt_particip")
+    # df_QS0$Type <- "Supply"
+    # df_QS0$P <- P_feedstock
+    # df_QS1 <- Q_DorS(N = N_S,
+    #                  P_input = 1,
+    #                  P_output = P_feedstock,
+    #                  mu_beta = mu_cost_per_farmProduct_new,
+    #                  cv_beta = cv_cost_per_farmProduct_statQuo,
+    #                  m_yCeil = m_yCeil_farm,
+    #                  s2_yCeil = s2_yCeil_farm,
+    #                  m_A = m_A_farm,
+    #                  s2_A = s2_A_farm,
+    #                  df_r01_L0max_SUP1,
+    #                  l_credit = 0)
+    # colnames(df_QS1) <- c("Q", "mkt_particip")
+    # df_QS1$Type <- "Supply"
+    # df_QS1$P <- P_feedstock
+    # 
+    # #---
+    # df_plot <- rbind(df_QD0, df_QS0)
+    # gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
+    # gg <- gg + geom_point()
+    # gg
+    # df_plot <- rbind(df_QD1, df_QS1)
+    # gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
+    # gg <- gg + geom_point()
+    # gg
+    # #--
+    # df_QD1_a <- df_QD1; df_QD0_a <- df_QD0
+    # df_QD1_a$Type <- "Alternative Dem."
+    # df_QD0_a$Type <- "Baseline Dem."
+    # df_plot <- rbind(df_QD1_a, df_QD0_a)
+    # gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
+    # gg <- gg + geom_point()
+    # gg
+    # df_QS1_a <- df_QS1; df_QS0_a <- df_QS0
+    # df_QS1_a$Type <- "Alternative Sup."
+    # df_QS0_a$Type <- "Baseline Sup."
+    # df_plot <- rbind(df_QS1_a, df_QS0_a)
+    # gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
+    # gg <- gg + geom_point()
+    # gg
     #---
-    df_plot <- rbind(df_QD0, df_QS0)
-    gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
-    gg <- gg + geom_point()
-    gg
-    df_plot <- rbind(df_QD1, df_QS1)
-    gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
-    gg <- gg + geom_point()
-    gg
-    #--
-    df_QD1_a <- df_QD1; df_QD0_a <- df_QD0
-    df_QD1_a$Type <- "Alternative Dem."
-    df_QD0_a$Type <- "Baseline Dem."
-    df_plot <- rbind(df_QD1_a, df_QD0_a)
-    gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
-    gg <- gg + geom_point()
-    gg
-    df_QS1_a <- df_QS1; df_QS0_a <- df_QS0
-    df_QS1_a$Type <- "Alternative Sup."
-    df_QS0_a$Type <- "Baseline Sup."
-    df_plot <- rbind(df_QS1_a, df_QS0_a)
-    gg <- ggplot(df_plot, aes(x = P, y = Q, group = Type, color = Type))
-    gg <- gg + geom_point()
-    gg
-    
-    #---
-    Market0 <- T
-    P_eq_00 <- Pe00
-    interval_P <- interval_P_feedstock
-    Pe <- uniroot.all(rootfun, interval_P,
-                      lower = min(interval_P), upper = max(interval_P),
-                      N_S = N_S,
-                      mu_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
-                      cv_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
-                      m_yCeil_farm = m_yCeil_farm,
-                      s2_yCeil_farm = s2_yCeil_farm,
-                      m_A_farm = m_A_farm,
-                      s2_A_farm = s2_A_farm,
-                      df_rL0Lmax_SUP = df_rL0Lmax_SUP,
-                      chng_SUP = chng_SUP,
-                      N_D = N_D,
-                      P_factryProduct = P_factryProduct,
-                      mu_factry_efficiency_inv = mu_factry_efficiency_inv_statQuo,
-                      cv_factry_efficiency_inv = cv_factry_efficiency_inv_statQuo,
-                      m_yCeil_factry = m_yCeil_factry,
-                      s2_yCeil_factry = s2_yCeil_factry,
-                      m_A_factry = m_A_factry,
-                      s2_A_factry = s2_A_factry,
-                      df_rL0Lmax_DEM = df_rL0Lmax_DEM,
-                      chng_DEM = chng_DEM, 
-                      Market0 = Market0, P_eq_00 = P_eq_00)
-    print(Pe)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-        
     Market0 <- T
     #interval_P_feedstock <- c(P_feedstock[1], P_feedstock[length(P_feedstock)])
-    equilib_list0 <- get_equilibrium_values(interval_P_feedstock,
+    df_rL0max_DEM <- NULL
+    df_rL0max_SUP <- NULL
+    equilib_list <- get_equilibrium_values(interval_P_feedstock,
                                             N_S = N_S,
                                             mu_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
                                             cv_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
@@ -1510,7 +1573,7 @@ for(k in 1:n){
                                             s2_yCeil_farm = s2_yCeil_farm,
                                             m_A_farm = m_A_farm,
                                             s2_A_farm = s2_A_farm,
-                                            df_rL0Lmax_SUP,
+                                            df_rL0max_SUP,
                                             chng_SUP,
                                             N_D = N_D,
                                             P_factryProduct = P_factryProduct,
@@ -1520,89 +1583,50 @@ for(k in 1:n){
                                             s2_yCeil_factry = s2_yCeil_factry,
                                             m_A_factry = m_A_factry,
                                             s2_A_factry = s2_A_factry,
-                                            df_rL0Lmax_DEM,
+                                            df_rL0max_DEM,
                                             chng_DEM,
-                                            Market0, P_eq_00)
-    Pe0 <- equilib_list0[[1]]
-    #print(paste("Pe0 =", Pe0))
-    len_Pe0 <- length(Pe0)
-    if(len_Pe0 > 1 | len_Pe0 == 0){
-      if(len_Pe0 > 1){
-        #ind_keep <- which.max(Pe0)
-        ind_keep <- 2
-        Pe0 <- Pe0[ind_keep]
-        Qe0 <- equilib_list0[[2]][ind_keep]
-        MktParticip_DEM0 <- equilib_list0[[3]][ind_keep]
-        MktParticip_SUP0 <- equilib_list0[[4]][ind_keep]
-        rL0_e_DEM0 <- equilib_list0[[5]]
-        rLmax_e_DEM0 <- equilib_list0[[6]]
-        rL0_e_SUP0 <- equilib_list0[[7]]
-        rLmax_e_SUP0 <- equilib_list0[[8]]
-        
-        mu_r_DEM0 <- Pe0 / P_factryProduct * mu_factry_efficiency_inv
-        mu_YDe_DEM0 <- exp(m_yCeil_factry) * NRyd_DEM(mu_r_DEM0, Pe0, l_credit = 0)
-        mu_r_SUP0 <- 1 / Pe0 * mu_cost_per_farmProduct
-        mu_YDe_SUP0 <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP0, Pe0, l_credit = 0)
-        
-      }
-      if(len_Pe0 == 0){
-        Pe0 <- NA
-        Qe0 <- NA
-        MktParticip_DEM0 <- 0
-        MktParticip_SUP0 <- 0
-        rL0_e_DEM0 <- equilib_list0[[5]]
-        rLmax_e_DEM0 <- equilib_list0[[6]]
-        rL0_e_SUP0 <- equilib_list0[[7]]
-        rLmax_e_SUP0 <- equilib_list0[[8]]
-        
-        mu_r_DEM0 <- NA
-        mu_YDe_DEM0 <- NA
-        mu_r_SUP0 <- NA
-        mu_YDe_SUP0 <- NA
-        
-      }
-      
+                                            Market0, P_eq_00,
+                                            graph_on = T)
+    df_Eq0 <- equilib_list[[1]]
+    df_Eq0_r <- equilib_list[[2]]
+    print(df_Eq0_r)
+    
+    if(is.null(df_Eq0)){
+      MktParticip_DEM0 <- 0
+      MktParticip_SUP0 <- 0
+      mat_Pe0[k, l] <- NA
+      mat_Qe0[k, l] <- NA
+      mat_MktParticip_DEM0[k, l] <- MktParticip_DEM0
+      mat_MktParticip_SUP0[k, l] <- MktParticip_SUP0
+      mat_muYDe_SUP0[k, l] <- NA
+      mat_muYDe_DEM0[k, l] <- NA
     }else{
-      Qe0 <- equilib_list0[[2]]
-      MktParticip_DEM0 <- equilib_list0[[3]]
-      MktParticip_SUP0 <- equilib_list0[[4]]
-      rL0_e_DEM0 <- equilib_list0[[5]]
-      rLmax_e_DEM0 <- equilib_list0[[6]]
-      rL0_e_SUP0 <- equilib_list0[[7]]
-      rLmax_e_SUP0 <- equilib_list0[[8]]
-      mu_r_DEM0 <- Pe0 / P_factryProduct * mu_factry_efficiency_inv
+      if(nrow(df_Eq0) > 1){
+        ind_keep <- which.max(df_Eq0$Pe)
+        df_Eq0 <- df_Eq0[ind_keep, ]
+      }
+      Pe0 <- df_Eq0$Pe
+      mu_r_DEM0 <- Pe0 / P_factryProduct * mu_factry_efficiency_inv_statQuo
       mu_YDe_DEM0 <- exp(m_yCeil_factry) * NRyd_DEM(mu_r_DEM0, Pe0, l_credit = 0)
-      mu_r_SUP0 <- 1 / Pe0 * mu_cost_per_farmProduct
+      mu_r_SUP0 <- 1 / Pe0 * mu_cost_per_farmProduct_statQuo
       mu_YDe_SUP0 <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP0, Pe0, l_credit = 0)
-      
+      #---
+      MktParticip_DEM0 <- df_Eq0$mkt_particip_DEM
+      MktParticip_SUP0 <- df_Eq0$mkt_particip_SUP
+      #---
+      mat_Pe0[k, l] <- Pe0
+      mat_Qe0[k, l] <- df_Eq0$Qe
+      mat_MktParticip_DEM0[k, l] <- df_Eq0$mkt_particip_DEM
+      mat_MktParticip_SUP0[k, l] <- df_Eq0$mkt_particip_SUP
+      mat_muYDe_SUP0[k, l] <- mu_YDe_SUP0
+      mat_muYDe_DEM0[k, l] <- mu_YDe_DEM0
+      #---
     }
     
-    
-    #--
-    if(this_eta_DEM == 0 & this_eta_SUP == 0){
-      Pe0 <- Pe00; Qe0 <- Qe00
-      MktParticip_DEM0 <- MktParticip00_DEM
-      MktParticip_SUP0 <- MktParticip00_SUP
-      rL0_e_DEM0 <- rL0_e_DEM00
-      rLmax_e_DEM0 <- rLmax_e_DEM00
-      rL0_e_SUP0 <- rL0_e_SUP00
-      rLmax_e_SUP0 <- rLmax_e_SUP00
-      mu_YDe_DEM0 <- mu_YDe_DEM00
-      mu_YDe_SUP0 <- mu_YDe_SUP00
-    }
-    #--
-    
-    df_Eq0 <- data.frame(Pe = Pe0, Qe = Qe0,
-                         MktParticip_DEM = MktParticip_DEM0, MktParticip_SUP = MktParticip_SUP0, Tech = "Baseline")
-    #print(df_Eq0)
-    df_Eq0_r <- data.frame(rL0_e_DEM = rL0_e_DEM0, rLmax_e_DEM = rLmax_e_DEM0,
-                           rL0_e_SUP = rL0_e_SUP0, rLmax_e_SUP = rLmax_e_SUP0, Tech = "Baseline")
-    #print(df_Eq0_r)
-    
-    
+#---
     
     Market0 <- F
-    equilib_list1 <- get_equilibrium_values(interval_P_feedstock,
+    equilib_list <- get_equilibrium_values(interval_P_feedstock,
                                             N_S = N_S,
                                             mu_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
                                             cv_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
@@ -1610,7 +1634,7 @@ for(k in 1:n){
                                             s2_yCeil_farm = s2_yCeil_farm,
                                             m_A_farm = m_A_farm,
                                             s2_A_farm = s2_A_farm,
-                                            df_rL0Lmax_SUP,
+                                            df_rL0max_SUP,
                                             chng_SUP,
                                             N_D = N_D,
                                             P_factryProduct = P_factryProduct,
@@ -1620,116 +1644,55 @@ for(k in 1:n){
                                             s2_yCeil_factry = s2_yCeil_factry,
                                             m_A_factry = m_A_factry,
                                             s2_A_factry = s2_A_factry,
-                                            df_rL0Lmax_DEM,
+                                            df_rL0max_DEM,
                                             chng_DEM,
-                                            Market0, P_eq_00)
-    
-    Pe1 <- equilib_list1[[1]]
-    #print(paste("Pe1 =", Pe1))
-    len_Pe1 <- length(Pe1)
-    if(len_Pe1 > 1 | len_Pe1 == 0){
-      if(len_Pe1 > 1){
-        #ind_keep <- which.max(Pe1)
-        ind_keep <- 2
-        Pe1 <- Pe1[ind_keep]
-        Qe1 <- equilib_list1[[2]][ind_keep]
-        MktParticip_DEM1 <- equilib_list1[[3]][ind_keep]
-        MktParticip_SUP1 <- equilib_list1[[4]][ind_keep]
-        rL0_e_DEM1 <- equilib_list1[[5]]
-        rLmax_e_DEM1 <- equilib_list1[[6]]
-        rL0_e_SUP1 <- equilib_list1[[7]]
-        rLmax_e_SUP1 <- equilib_list1[[8]]
-        mu_r_DEM1 <- Pe1 / P_factryProduct * mu_factry_efficiency_inv
-        mu_YDe_DEM1 <- exp(m_yCeil_factry) * NRyd_DEM(mu_r_DEM1, Pe1, l_credit = 0)
-        mu_r_SUP1 <- 1 / Pe1 * mu_cost_per_farmProduct
-        mu_YDe_SUP1 <- exp(m_yCeil_factry) * NRyd_SUP(mu_r_SUP1, Pe1, l_credit = 0)
-        
-      }
-      if(len_Pe1 == 0){
-        Pe1 <- NA
-        Qe1 <- NA
-        MktParticip_DEM1 <- 0
-        MktParticip_SUP1 <- 0
-        rL0_e_DEM1 <- equilib_list1[[5]]
-        rLmax_e_DEM1 <- equilib_list1[[6]]
-        rL0_e_SUP1 <- equilib_list1[[7]]
-        rLmax_e_SUP1 <- equilib_list1[[8]]
-        
-        mu_r_DEM1 <- NA
-        mu_YDe_DEM1 <- NA
-        mu_r_SUP1 <- NA
-        mu_YDe_SUP1 <- NA
-        
-      }
+                                            Market0, P_eq_00,
+                                            graph_on = T)
+    df_Eq1 <- equilib_list[[1]]
+    df_Eq1_r <- equilib_list[[2]]
+    print(df_Eq1_r)
+    if(is.null(df_Eq1)){
+      MktParticip_DEM1 <- 0
+      MktParticip_SUP1 <- 0
+      mat_Pe1[k, l] <- NA
+      mat_Qe1[k, l] <- NA
+      mat_MktParticip_DEM1[k, l] <- MktParticip_DEM1
+      mat_MktParticip_SUP1[k, l] <- MktParticip_SUP1
+      mat_muYDe_SUP1[k, l] <- NA
+      mat_muYDe_DEM1[k, l] <- NA
       
     }else{
-      Qe1 <- equilib_list1[[2]]
-      MktParticip_DEM1 <- equilib_list1[[3]]
-      MktParticip_SUP1 <- equilib_list1[[4]]
-      rL0_e_DEM1 <- equilib_list1[[5]]
-      rLmax_e_DEM1 <- equilib_list1[[6]]
-      rL0_e_SUP1 <- equilib_list1[[7]]
-      rLmax_e_SUP1 <- equilib_list1[[8]]
-      
-      mu_r_DEM1 <- Pe1 / P_factryProduct * mu_factry_efficiency_inv
+      if(nrow(df_Eq1) > 1){
+        ind_keep <- which.max(df_Eq1$Pe)
+        df_Eq1 <- df_Eq1[ind_keep, ]
+      }
+      Pe1 <- df_Eq1$Pe
+      mu_r_DEM1 <- Pe1 / P_factryProduct * mu_factry_efficiency_inv_new
       mu_YDe_DEM1 <- exp(m_yCeil_factry) * NRyd_DEM(mu_r_DEM1, Pe1, l_credit = 0)
-      mu_r_SUP1 <- 1 / Pe1 * mu_cost_per_farmProduct
+      mu_r_SUP1 <- 1 / Pe1 * mu_cost_per_farmProduct_new
       mu_YDe_SUP1 <- exp(m_yCeil_farm) * NRyd_SUP(mu_r_SUP1, Pe1, l_credit = 0)
+      #---
+      MktParticip_DEM1 <- df_Eq1$mkt_particip_DEM
+      MktParticip_SUP1 <- df_Eq1$mkt_particip_SUP
+      #---
+      mat_Pe1[k, l] <- Pe1
+      mat_Qe1[k, l] <- df_Eq1$Qe
+      mat_MktParticip_DEM1[k, l] <- df_Eq1$mkt_particip_DEM
+      mat_MktParticip_SUP1[k, l] <- df_Eq1$mkt_particip_SUP
+      mat_muYDe_SUP1[k, l] <- mu_YDe_SUP1
+      mat_muYDe_DEM1[k, l] <- mu_YDe_DEM1
     }
-    
-    
-    
-    
-    
-    df_Eq1 <- data.frame(Pe = Pe1, Qe = Qe1,
-                         MktParticip_DEM = MktParticip_DEM1, MktParticip_SUP = MktParticip_SUP1, Tech = "Alternative")
-    #print(df_Eq1)
-    df_Eq1_r <- data.frame(rL0_e_DEM = rL0_e_DEM1, rLmax_e_DEM = rLmax_e_DEM1,
-                           rL0_e_SUP = rL0_e_SUP1, rLmax_e_SUP = rLmax_e_SUP1, Tech = "Alternative")
-    #print(df_Eq1_r)
-    #---
-    t <- t + 1
-    df_Eq0_list[[t]] <- df_Eq0
-    df_Eq0r_list[[t]] <- df_Eq0_r
-    df_Eq1_list[[t]] <- df_Eq1
-    df_Eq1r_list[[t]] <- df_Eq1_r
-    
-    
-    mat_Pe0[k, l] <- Pe0
-    mat_Qe0[k, l] <- Qe0
-    mat_muYDe_SUP0[k, l] <- mu_YDe_SUP0
-    mat_muYDe_DEM0[k, l] <- mu_YDe_DEM0
-    mat_MktParticip_DEM0[k, l] <- MktParticip_DEM0
-    mat_MktParticip_SUP0[k, l] <- MktParticip_SUP0
-    
-    mat_Pe1[k, l] <- Pe1
-    mat_Qe1[k, l] <- Qe1
-    mat_muYDe_SUP1[k, l] <- mu_YDe_SUP1
-    mat_muYDe_DEM1[k, l] <- mu_YDe_DEM1
-    mat_MktParticip_DEM1[k, l] <- MktParticip_DEM1
-    mat_MktParticip_SUP1[k, l] <- MktParticip_SUP1
-    
-    
-    # Adopt_DEM1 <- ifelse(is.na(MktParticip_DEM1), 0, MktParticip_DEM1) / (ifelse(is.na(MktParticip_DEM1), 0, MktParticip_DEM1) + ifelse(is.na(MktParticip_DEM0), 0, MktParticip_DEM0))
-    # Adopt_SUP1 <- ifelse(is.na(MktParticip_SUP1), 0, MktParticip_SUP1) / (ifelse(is.na(MktParticip_SUP1), 0, MktParticip_SUP1) + ifelse(is.na(MktParticip_SUP0), 0, MktParticip_SUP0))
     Adopt_DEM1 <- MktParticip_DEM1 / (MktParticip_DEM1 + MktParticip_DEM0)
     Adopt_SUP1 <- MktParticip_SUP1 / (MktParticip_SUP1 + MktParticip_SUP0)
     Adopt_DEM1 <- ifelse(is.nan(Adopt_DEM1), NA, Adopt_DEM1)
     Adopt_SUP1 <- ifelse(is.nan(Adopt_SUP1), NA, Adopt_SUP1)
     # Adopt_DEM0 <- 1 - Adopt_DEM1
     # Adopt_SUP0 <- 1 - Adopt_SUP1
-    
     mat_Adopt_DEM1[k, l] <- Adopt_DEM1
     mat_Adopt_SUP1[k, l] <- Adopt_SUP1
-    
-    
+    #---
+    Adopt_SUP1
     print(c(k = k, l = l))
-    
-    
-    
-    
-    
-    
   }
 }
 
@@ -1884,6 +1847,132 @@ title(main = "Alternative Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1
 
 
 
+#-----------------------------------------
+#Yield participation plot
+P <- Pe00
+rL0 <- 1
+rLmax_base <- 0.8
+mu_r <- mu_cost_per_farmProduct_statQuo / P
+sig2_r <- (mu_r * cv_cost_per_farmProduct_statQuo)^2
+s2_yStar_implied <- sig2_r
+m_yStar_implied <- m_yCeil_farm - mu_r
+s_yStar_implied <- sqrt(s2_yStar_implied)
+y <- seq(0, exp(m_yCeil_farm), 0.1)
+df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
+                                     sdlog = s_yStar_implied))
+yStar_min <- exp(m_yCeil_farm - rL0)
+yStar_max <- exp(m_yCeil_farm - 0)
+df_y <- df_y %>% mutate(area = ifelse(y > yStar_min & y < yStar_max,
+                                      "Participating", "Not Participating"))
+yStar_max_base <- exp(m_yCeil_farm - rLmax_base)
+df_y <- df_y %>% mutate(area = ifelse(y >= yStar_max_base & y < yStar_max,
+                                      "Switch", area))
+gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
+gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
+gg <- gg + ggtitle("Yield density")
+gg <- gg + xlab("Yield (MT / ha)")
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + coord_cartesian(xlim = c(9, 28))
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1995,6 +2084,57 @@ df_QS0$Tech <- "Baseline"
 #----------------------------
 df_QD <- rbind(df_QD0, df_QD1)
 df_QS <- rbind(df_QS0, df_QS1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
