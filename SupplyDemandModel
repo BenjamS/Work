@@ -518,7 +518,7 @@ get_equilibrium_values <- function(interval_P,
     }
 
     gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
-    gg <- gg + geom_point()
+    gg <- gg + geom_line(lwd = 2)
     if(!(is.null(df_Eq))){gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")}
     gg <- gg + ggtitle(str_title)
     print(gg)
@@ -710,11 +710,13 @@ outlist <- list()
     #print(roots)
     if(length(roots) == 0){root_keep <- NULL}else{
       root_keep <- roots[roots > 0 & roots < 1]
-      if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
-      if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
+      if(length(root_keep) != 0){
+        if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
+        if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
+      }
     }
     #--
-    if(!(is.null(root_keep))){
+    if(length(root_keep) != 0){
       a_little_bit <- 0.001
       if(root_keep > 0.5){
         cond <- NR0_minus_NR1_SUP(root_keep - a_little_bit, P0, P1, chng_SUP) > 0
@@ -751,11 +753,13 @@ get_r01_L0max_DEM <- function(P1_vec, P0, interval_r = c(0, 1), chng_DEM){
                        P0 = P0, P1 = P1, chng_DEM = chng_DEM)
   if(length(roots) == 0){root_keep <- NULL}else{
     root_keep <- roots[roots > 0 & roots < 1]
-    if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
-    if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
+    if(length(root_keep) != 0){
+      if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
+      if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
+    }
   }
   #--
-  if(!(is.null(root_keep))){
+  if(length(root_keep) != 0){
   a_little_bit <- 0.001
   if(root_keep > 0.5){
     cond <- NR0_minus_NR1_DEM(root_keep - a_little_bit, P0, P1, chng_DEM) > 0
@@ -885,7 +889,7 @@ graph_on <- F
 #==================================
 df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
 df_QD00 <- Q_DorS(N = N_D,
-                  P_rev_per_output = P_rev_per_output_DEM,
+                  P_rev_per_output = P_rev_per_output_DEM_statQuo,
                   mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
                   mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
                   cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
@@ -1464,9 +1468,9 @@ print(df_Eq00)
 print(df_Eq00_r)
 Pe00 <- df_Eq00$Pe
 #------------------------------------
-df_QSQD00 <- merge(df_QS00, df_QD00, by = "Feedstock Price (lcu / MT)")
-df_QSQD00 <- df_QSQD00[, c("Feedstock Price (lcu / MT)", "Supply Market Participation", "Demand Market Participation",
-                           "Supply (MT)", "Demand (MT)")]
+# df_QSQD00 <- merge(df_QS00, df_QD00, by = "Feedstock Price (lcu / MT)")
+# df_QSQD00 <- df_QSQD00[, c("Feedstock Price (lcu / MT)", "Supply Market Participation", "Demand Market Participation",
+#                            "Supply (MT)", "Demand (MT)")]
 #colnames(df_QSQD)[4:5] <- c("Supply", "Demand")
 
 # df_QSQD00 <- df_QSQD00 %>% gather(Type, `Quantity (MT)`, `Supply (MT)`:`Demand (MT)`)
@@ -1478,7 +1482,7 @@ df_QSQD00 <- df_QSQD00[, c("Feedstock Price (lcu / MT)", "Supply Market Particip
 #====================================
 # Baseline market mean net revenue (yield)
 # Demand side:
-mu_r_DEM00 <- Pe00 / P_rev_per_output_DEM * beta_DEM_statQuo
+mu_r_DEM00 <- Pe00 / P_rev_per_output_DEM_statQuo * beta_DEM_statQuo
 mu_YDe_DEM00 <- exp(m_yCeil_DEM_statQuo) * NRyd_DEM(mu_r_DEM00, Pe00, l_credit = 0)
 # Supply side:
 mu_r_SUP00 <- mu_P_fdstkCost_per_output_SUP_statQuo / Pe00
@@ -1812,6 +1816,7 @@ for(k in 1:n){
     #interval_P_rev_per_output_SUP <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
     df_rL0max_DEM <- NULL
     df_rL0max_SUP <- NULL
+
     equilib_list <- get_equilibrium_values(interval_P_rev_per_output_SUP,
                                            N_S = N_S,
                                            mu_P_fdstkCost_per_output_SUP = mu_P_fdstkCost_per_output_SUP_statQuo,
@@ -1840,10 +1845,11 @@ for(k in 1:n){
                                            df_rL0max_DEM = df_rL0max_DEM,
                                            chng_DEM = this_chng_DEM,
                                            Market0, P_eq_00 = Pe00,
-                                            graph_on = T)
+                                           graph_on = T)
     df_Eq0 <- equilib_list[[1]]
     df_Eq0_r <- equilib_list[[2]]
-    print(df_Eq0_r)
+    #print(df_Eq0)
+    #print(df_Eq0_r)
     
     if(is.null(df_Eq0)){
       MktParticip_DEM0 <- 0
@@ -1857,6 +1863,7 @@ for(k in 1:n){
     }else{
       if(nrow(df_Eq0) > 1){
         ind_keep <- which.max(df_Eq0$Pe)
+        #ind_keep <- df_Eq0$Pe[2]
         df_Eq0 <- df_Eq0[ind_keep, ]
       }
       Pe0 <- df_Eq0$Pe
@@ -1914,7 +1921,7 @@ for(k in 1:n){
                                            graph_on = T)
     df_Eq1 <- equilib_list[[1]]
     df_Eq1_r <- equilib_list[[2]]
-    print(df_Eq1_r)
+    #print(df_Eq1_r)
     if(is.null(df_Eq1)){
       MktParticip_DEM1 <- 0
       MktParticip_SUP1 <- 0
@@ -1928,6 +1935,7 @@ for(k in 1:n){
     }else{
       if(nrow(df_Eq1) > 1){
         ind_keep <- which.max(df_Eq1$Pe)
+        #ind_keep <- df_Eq1$Pe[2]
         df_Eq1 <- df_Eq1[ind_keep, ]
       }
       Pe1 <- df_Eq1$Pe
@@ -1969,7 +1977,7 @@ for(k in 1:n){
 
 #-----------------
 xtick_labs <- 1 / beta_DEM_statQuo * (1 + eta_vec)
-ytick_labs <- mu_P_cost_per_output_SUP_statQuo * (1 + eta_vec)
+ytick_labs <- mu_P_fdstkCost_per_output_SUP_statQuo * (1 + eta_vec)
 mapPalette <- colorRampPalette(c("magenta", "cyan"))
 mapPalette_inv <- colorRampPalette(c("cyan", "magenta"))
 #-----------------
