@@ -306,8 +306,8 @@ get_equilibrium_values <- function(interval_P,
       }
     }
   }else{
-      baseline_mkt_before_adopt_DEM <- T
-    }
+    baseline_mkt_before_adopt_DEM <- T
+  }
   
   if(chng_SUP != 1){
     baseline_mkt_before_adopt_SUP <- F
@@ -315,15 +315,15 @@ get_equilibrium_values <- function(interval_P,
       #Involuntary adoption
       mu_P_fdstkCost_per_output_SUP <- mu_P_fdstkCost_per_output_SUP * chng_SUP
       adopt_voluntary_SUP <- F
-  }else{
-    #Voluntary adoption
-    adopt_voluntary_SUP <- T
-    if(Market0 == F){
-      #Alternative market
-      mu_P_fdstkCost_per_output_SUP <- mu_P_fdstkCost_per_output_SUP * chng_SUP
-      
+    }else{
+      #Voluntary adoption
+      adopt_voluntary_SUP <- T
+      if(Market0 == F){
+        #Alternative market
+        mu_P_fdstkCost_per_output_SUP <- mu_P_fdstkCost_per_output_SUP * chng_SUP
+        
+      }
     }
-  }
   }else{
     baseline_mkt_before_adopt_SUP <- T
   }
@@ -361,7 +361,7 @@ get_equilibrium_values <- function(interval_P,
   print(Pe)
   #---
   if(length(Pe) != 0){
-  #Get equilibrium quantity and supply/demand mkt. participation
+    #Get equilibrium quantity and supply/demand mkt. participation
     if(is.null(df_rL0max_DEM)){
       P0 <- P_eq_00
       P1_vec <- Pe
@@ -436,10 +436,10 @@ get_equilibrium_values <- function(interval_P,
     df_Eq_r <- cbind(df_rL0max_SUP_e, df_rL0max_DEM_e)
     colnames(df_Eq_r)[1:2] <- paste0(colnames(df_Eq_r)[1:2], "_SUP")
     colnames(df_Eq_r)[3:4] <- paste0(colnames(df_Eq_r)[3:4], "_DEM")
-    }else{
-      df_Eq <- NULL
-      df_Eq_r <- NULL
-    }
+  }else{
+    df_Eq <- NULL
+    df_Eq_r <- NULL
+  }
   #---
   outlist <- list(df_Eq, df_Eq_r)
   #-----------------------------------
@@ -516,10 +516,15 @@ get_equilibrium_values <- function(interval_P,
         str_title <- "New market (involuntary adoption)"
       }
     }
-
+    
     gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
     gg <- gg + geom_line(lwd = 2)
-    if(!(is.null(df_Eq))){gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")}
+    if(!(is.null(df_Eq))){
+      # gg <- gg + geom_vline(xintercept = Pe, linetype = "dashed")
+      # gg <- gg + geom_hline(yintercept = Qe, linetype = "dashed")
+      #  gg <- gg + geom_point(data = data.frame(Pe, Qe), aes(x = Pe, y = Qe), size = 2.5, color = "green")
+      gg <- gg + annotate("point", x = Pe, y = Qe, size = 2.5, color = "blue")
+    }
     gg <- gg + ggtitle(str_title)
     print(gg)
     #---
@@ -701,7 +706,7 @@ NR0_minus_NR1_SUP <- function(rvec, P0, P1, chng_SUP, l_credit = 0, graph_only =
 #==================================
 #P1_vec = P_seq
 get_r01_L0max_SUP <- function(P1_vec, P0, interval_r = c(0, 1), chng_SUP){
-outlist <- list()
+  outlist <- list()
   for(i in 1:length(P1_vec)){
     P1 <- P1_vec[i]
     roots <- uniroot.all(NR0_minus_NR1_SUP, interval_r,
@@ -733,10 +738,10 @@ outlist <- list()
       r1_range <- ifelse(cond, c(0, 0), c(0, 1))
     }
     this_df_r01_L0max_SUP <- data.frame(r0_L0_SUP = r0_range[2], r0_Lmax_SUP = r0_range[1],
-                                   r1_L0_SUP = r1_range[2], r1_Lmax_SUP = r1_range[1])
-
+                                        r1_L0_SUP = r1_range[2], r1_Lmax_SUP = r1_range[1])
+    
     outlist[[i]] <- this_df_r01_L0max_SUP
-
+    
   }
   df_r01_L0max_SUP <- do.call(rbind, outlist)
   return(df_r01_L0max_SUP)
@@ -747,39 +752,39 @@ outlist <- list()
 get_r01_L0max_DEM <- function(P1_vec, P0, interval_r = c(0, 1), chng_DEM){
   outlist <- list()
   for(i in 1:length(P1_vec)){
-  P1 <- P1_vec[i]
-  roots <- uniroot.all(NR0_minus_NR1_DEM, interval_r,
-                       lower = min(interval_r), upper = max(interval_r),
-                       P0 = P0, P1 = P1, chng_DEM = chng_DEM)
-  if(length(roots) == 0){root_keep <- NULL}else{
-    root_keep <- roots[roots > 0 & roots < 1]
-    if(length(root_keep) != 0){
-      if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
-      if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
+    P1 <- P1_vec[i]
+    roots <- uniroot.all(NR0_minus_NR1_DEM, interval_r,
+                         lower = min(interval_r), upper = max(interval_r),
+                         P0 = P0, P1 = P1, chng_DEM = chng_DEM)
+    if(length(roots) == 0){root_keep <- NULL}else{
+      root_keep <- roots[roots > 0 & roots < 1]
+      if(length(root_keep) != 0){
+        if(length(root_keep) > 1){print("SUP length(root_keep) > 1"); print(paste("chng_SUP =", chng_SUP))}
+        if(root_keep < 10^-3 | root_keep > 998 * 10^-3){root_keep = NULL}
+      }
     }
-  }
-  #--
-  if(length(root_keep) != 0){
-  a_little_bit <- 0.001
-  if(root_keep > 0.5){
-    cond <- NR0_minus_NR1_DEM(root_keep - a_little_bit, P0, P1, chng_DEM) > 0
-  }else{
-    cond <- NR0_minus_NR1_DEM(root_keep + a_little_bit, P0, P1, chng_DEM) < 0
-  }
-  cond <- rep(cond, 2)
-  r0_range <- ifelse(cond, c(0, root_keep), c(root_keep, 1))
-  r1_range <- ifelse(cond, c(root_keep, 1), c(0, root_keep))
-  }else{
-    cond <- NR0_minus_NR1_DEM(0.5, P0, P1, chng_DEM) > 0
-    cond <- rep(cond, 2)
-    r0_range <- ifelse(cond, c(0, 1), c(0, 0))
-    r1_range <- ifelse(cond, c(0, 0), c(0, 1))
-  }
-  this_df_r01_L0max_DEM <- data.frame(r0_L0_DEM = r0_range[2], r0_Lmax_DEM = r0_range[1],
-                                       r1_L0_DEM = r1_range[2], r1_Lmax_DEM = r1_range[1])
-  
-  outlist[[i]] <- this_df_r01_L0max_DEM
-
+    #--
+    if(length(root_keep) != 0){
+      a_little_bit <- 0.001
+      if(root_keep > 0.5){
+        cond <- NR0_minus_NR1_DEM(root_keep - a_little_bit, P0, P1, chng_DEM) > 0
+      }else{
+        cond <- NR0_minus_NR1_DEM(root_keep + a_little_bit, P0, P1, chng_DEM) < 0
+      }
+      cond <- rep(cond, 2)
+      r0_range <- ifelse(cond, c(0, root_keep), c(root_keep, 1))
+      r1_range <- ifelse(cond, c(root_keep, 1), c(0, root_keep))
+    }else{
+      cond <- NR0_minus_NR1_DEM(0.5, P0, P1, chng_DEM) > 0
+      cond <- rep(cond, 2)
+      r0_range <- ifelse(cond, c(0, 1), c(0, 0))
+      r1_range <- ifelse(cond, c(0, 0), c(0, 1))
+    }
+    this_df_r01_L0max_DEM <- data.frame(r0_L0_DEM = r0_range[2], r0_Lmax_DEM = r0_range[1],
+                                        r1_L0_DEM = r1_range[2], r1_Lmax_DEM = r1_range[1])
+    
+    outlist[[i]] <- this_df_r01_L0max_DEM
+    
   }
   df_r01_L0max_DEM <- do.call(rbind, outlist)
   return(df_r01_L0max_DEM)
@@ -801,7 +806,7 @@ get_r01_L0max_DEM <- function(P1_vec, P0, interval_r = c(0, 1), chng_DEM){
 # Baseline market, before release of new tech
 #==================================
 # Define price range
-P_rev_per_output_SUP <- seq(100, 5000, 10)
+P_rev_per_output_SUP <- seq(100, 4000, 10)
 #==================================
 # Demand side parameters
 # Ethanol demand
@@ -917,7 +922,7 @@ if(graph_on == T){
 }
 #==================================
 # Explore demand curve sensitivity
-#----------------------------------
+#---
 # to changes in mean conversion efficiency
 turn_on <- F
 #----------------------------------
@@ -1010,8 +1015,8 @@ if(turn_on == T){
   gathercols <- colnames(df_QD_factryProcCost)[1:2]
   df_QD_factryProcCost <- df_QD_factryProcCost %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QD_factryProcCost, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                           group = `CV Processing\nCost`,
-                                           color = `CV Processing\nCost`))
+                                         group = `CV Processing\nCost`,
+                                         color = `CV Processing\nCost`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1060,8 +1065,8 @@ if(turn_on == T){
   gathercols <- colnames(df_QD_factryMaxCap)[1:2]
   df_QD_factryMaxCap <- df_QD_factryMaxCap %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QD_factryMaxCap, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                         group = `Mean\nMax Factory\nCapacity\n(logged kL)`,
-                                         color = `Mean\nMax Factory\nCapacity\n(logged kL)`))
+                                       group = `Mean\nMax Factory\nCapacity\n(logged kL)`,
+                                       color = `Mean\nMax Factory\nCapacity\n(logged kL)`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1110,8 +1115,8 @@ if(turn_on == T){
   gathercols <- colnames(df_QD_factryMaxCapCV)[1:2]
   df_QD_factryMaxCapCV <- df_QD_factryMaxCapCV %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QD_factryMaxCapCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                       group = `CV (logged)\nMax Factory\nCapacity`,
-                                       color = `CV (logged)\nMax Factory\nCapacity`))
+                                         group = `CV (logged)\nMax Factory\nCapacity`,
+                                         color = `CV (logged)\nMax Factory\nCapacity`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1162,8 +1167,8 @@ if(turn_on == T){
   gathercols <- colnames(df_QD_factryPrice)[1:2]
   df_QD_factryPrice <- df_QD_factryPrice %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QD_factryPrice, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                         group = `Ethanol\nPrice\n(lcu / kL)`,
-                                         color = `Ethanol\nPrice\n(lcu / kL)`))
+                                      group = `Ethanol\nPrice\n(lcu / kL)`,
+                                      color = `Ethanol\nPrice\n(lcu / kL)`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1209,7 +1214,7 @@ if(graph_on == T){
 }
 #==================================
 # Explore supply curve sensitivity
-#----------------------------------
+#---
 # to changes in mean cost per farm output
 #----------------------------------
 turn_on <- F
@@ -1299,8 +1304,8 @@ if(turn_on == T){
   gathercols <- colnames(df_QS)[1:2]
   df_QS_farmCostCV <- df_QS %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QS_farmCostCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                   group = `CV Farm\nCost Per\nUnit Output`,
-                                   color = `CV Farm\nCost Per\nUnit Output`))
+                                     group = `CV Farm\nCost Per\nUnit Output`,
+                                     color = `CV Farm\nCost Per\nUnit Output`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1350,8 +1355,8 @@ if(turn_on == T){
   gathercols <- colnames(df_QS)[1:2]
   df_QS_farmSize <- df_QS %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QS_farmSize, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                     group = `Mean Farm\nSize (Ha.)`,
-                                     color = `Mean Farm\nSize (Ha.)`))
+                                   group = `Mean Farm\nSize (Ha.)`,
+                                   color = `Mean Farm\nSize (Ha.)`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1407,7 +1412,7 @@ if(turn_on == T){
                         strip.position = "left")
   gg <- gg + ylab(NULL)
   gg
-
+  
 }
 #====================================
 #====================================
@@ -1683,83 +1688,83 @@ for(k in 1:n){
   #graphs
   #-------------------------------
   if(graph_on){
-  factry_efficiency_new <- 1 / beta_DEM_statQuo * this_chng_DEM
-  beta_DEM_new <- 1 / factry_efficiency_new
-  P0 <- P_eq_00
-  #out_df <- get_rL0Lmax_01_DEM(P_rev_per_output_SUP, P0, interval_r, chng_DEM)
-  df_r01_L0max_DEM <- get_r01_L0max_DEM(P_rev_per_output_SUP, P0, interval_r, this_chng_DEM)
-  df_rL0max_DEM0_graph <- df_r01_L0max_DEM[, c(1, 2)]
-  colnames(df_rL0max_DEM0_graph) <- c("rL0", "rLmax")
-  df_rL0max_DEM1_graph <- df_r01_L0max_DEM[, c(3, 4)]
-  colnames(df_rL0max_DEM1_graph) <- c("rL0", "rLmax")
-  #---
-  df_QD0 <- Q_DorS(N = N_D,
-                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
-                    mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
-                    mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
-                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
-                    cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
-                    beta = beta_DEM_statQuo,
-                    m_yCeil = m_yCeil_DEM_statQuo,
-                    s2_yCeil = s2_yCeil_DEM_statQuo,
-                    m_A = m_A_DEM_statQuo,
-                    s2_A = s2_A_DEM_statQuo,
-                    df_rL0max = df_rL0max_DEM0_graph,
-                    l_credit = 0)
-  colnames(df_QD0) <- c("Demand (MT)", "Demand Market Participation")
-  df_QD0$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
-  #---
-  df_QD1 <- Q_DorS(N = N_D,
-                   P_rev_per_output = P_rev_per_output_DEM_statQuo,
-                   mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
-                   mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
-                   cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
-                   cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
-                   beta = beta_DEM_new,
-                   m_yCeil = m_yCeil_DEM_statQuo,
-                   s2_yCeil = s2_yCeil_DEM_statQuo,
-                   m_A = m_A_DEM_statQuo,
-                   s2_A = s2_A_DEM_statQuo,
-                   df_rL0max = df_rL0max_DEM1_graph,
-                   l_credit = 0)
-  colnames(df_QD1) <- c("Demand (MT)", "Demand Market Participation")
-  df_QD1$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
-  
-  df_QD1$Type <- "Alternative"
-  df_QD0$Type <- "Baseline"
-  df_QD00$Type <- "Before release"
-  df_QD01comp <- df_QD1
-  df_QD01comp$`Demand (MT)` <- df_QD0$`Demand (MT)` + df_QD1$`Demand (MT)`
-  df_QD01comp$`Demand Market Participation` <- df_QD0$`Demand Market Participation` + df_QD1$`Demand Market Participation`
-  df_QD01comp$Type <- "After release\n(alt + base tech)"
-  df_plot <- rbind(df_QD1, df_QD0)
-  df_plot <- rbind(df_plot, df_QD00)
-  #df_plot <- rbind(df_plot, df_QD01comp)
-  gathercols <- colnames(df_plot)[1:2]
-  df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
-  u <- df_plot$Value
-  df_plot$Value[which(u == 0)] <- NA
-  gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
-                            group = Type, color = Type))
-  gg <- gg + geom_line(lwd = 2)
-  gg <- gg + facet_wrap(~Graph, ncol = 1, scales = "free",
-                        strip.position = "left")
-  gg <- gg + ylab(NULL)
-  gg <- gg + theme(legend.title = element_blank())
-  gg
-#---
-  df_plot <- rbind(df_QD01comp, df_QD00)
-  df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
-  u <- df_plot$Value
-  df_plot$Value[which(u == 0)] <- NA
-  gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
-                            group = Type, color = Type))
-  gg <- gg + geom_line(lwd = 2)
-  gg <- gg + facet_wrap(~Graph, ncol = 1, scales = "free",
-                        strip.position = "left")
-  gg <- gg + ylab(NULL)
-  gg <- gg + theme(legend.title = element_blank())
-  gg
+    factry_efficiency_new <- 1 / beta_DEM_statQuo * this_chng_DEM
+    beta_DEM_new <- 1 / factry_efficiency_new
+    P0 <- P_eq_00
+    #out_df <- get_rL0Lmax_01_DEM(P_rev_per_output_SUP, P0, interval_r, chng_DEM)
+    df_r01_L0max_DEM <- get_r01_L0max_DEM(P_rev_per_output_SUP, P0, interval_r, this_chng_DEM)
+    df_rL0max_DEM0_graph <- df_r01_L0max_DEM[, c(1, 2)]
+    colnames(df_rL0max_DEM0_graph) <- c("rL0", "rLmax")
+    df_rL0max_DEM1_graph <- df_r01_L0max_DEM[, c(3, 4)]
+    colnames(df_rL0max_DEM1_graph) <- c("rL0", "rLmax")
+    #---
+    df_QD0 <- Q_DorS(N = N_D,
+                     P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                     mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                     mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                     cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                     cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                     beta = beta_DEM_statQuo,
+                     m_yCeil = m_yCeil_DEM_statQuo,
+                     s2_yCeil = s2_yCeil_DEM_statQuo,
+                     m_A = m_A_DEM_statQuo,
+                     s2_A = s2_A_DEM_statQuo,
+                     df_rL0max = df_rL0max_DEM0_graph,
+                     l_credit = 0)
+    colnames(df_QD0) <- c("Demand (MT)", "Demand Market Participation")
+    df_QD0$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
+    #---
+    df_QD1 <- Q_DorS(N = N_D,
+                     P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                     mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                     mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                     cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                     cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                     beta = beta_DEM_new,
+                     m_yCeil = m_yCeil_DEM_statQuo,
+                     s2_yCeil = s2_yCeil_DEM_statQuo,
+                     m_A = m_A_DEM_statQuo,
+                     s2_A = s2_A_DEM_statQuo,
+                     df_rL0max = df_rL0max_DEM1_graph,
+                     l_credit = 0)
+    colnames(df_QD1) <- c("Demand (MT)", "Demand Market Participation")
+    df_QD1$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
+    
+    df_QD1$Type <- "Alternative"
+    df_QD0$Type <- "Baseline"
+    df_QD00$Type <- "Before release"
+    df_QD01comp <- df_QD1
+    df_QD01comp$`Demand (MT)` <- df_QD0$`Demand (MT)` + df_QD1$`Demand (MT)`
+    df_QD01comp$`Demand Market Participation` <- df_QD0$`Demand Market Participation` + df_QD1$`Demand Market Participation`
+    df_QD01comp$Type <- "After release\n(alt + base tech)"
+    df_plot <- rbind(df_QD1, df_QD0)
+    #df_plot <- rbind(df_plot, df_QD00)
+    #df_plot <- rbind(df_plot, df_QD01comp)
+    gathercols <- colnames(df_plot)[1:2]
+    df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
+    u <- df_plot$Value
+    df_plot$Value[which(u == 0)] <- NA
+    gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
+                              group = Type, color = Type))
+    gg <- gg + geom_line(lwd = 2)
+    gg <- gg + facet_wrap(~Graph, ncol = 1, scales = "free",
+                          strip.position = "left")
+    gg <- gg + ylab(NULL)
+    gg <- gg + theme(legend.title = element_blank())
+    gg
+    #---
+    df_plot <- rbind(df_QD01comp, df_QD00)
+    df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
+    u <- df_plot$Value
+    df_plot$Value[which(u == 0)] <- NA
+    gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
+                              group = Type, color = Type))
+    gg <- gg + geom_line(lwd = 2)
+    gg <- gg + facet_wrap(~Graph, ncol = 1, scales = "free",
+                          strip.position = "left")
+    gg <- gg + ylab(NULL)
+    gg <- gg + theme(legend.title = element_blank())
+    gg
   }
   #-------------------------------
   
@@ -1825,13 +1830,29 @@ for(k in 1:n){
       df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
       u <- df_plot$Value
       df_plot$Value[which(u == 0)] <- NA
-      gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
-                                group = Type, color = Type))
-      gg <- gg + geom_line(lwd = 2)
+      AdoptRate = df_QS1$`Supply Market Participation` / (df_QS1$`Supply Market Participation` + df_QS0$`Supply Market Participation`)
+      n_bins <- length(P_rev_per_output_SUP)
+      df_plotAR <- data.frame(xmin = P_rev_per_output_SUP[-n_bins], xmax = P_rev_per_output_SUP[-1])
+      df_plotAR$`Adoption\nRate` <- AdoptRate[-1]
+      u <- df_QS1$`Supply (MT)`
+      P_adoptRange_start <- df_QS1$`Root Price (lcu / MT)`[which(u > 0)][1]
+      u <- df_QS0$`Supply (MT)`
+      ind <- which(u > 0)
+      P_adoptRange_stop <- df_QS0$`Root Price (lcu / MT)`[ind[length(ind)]]
+      P_adoptRange <- c(P_adoptRange_start, P_adoptRange_stop)
+      gg <- ggplot()
+      gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
+                                                   ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.3)
+      gg <- gg + scale_fill_gradient2(low = "cyan", mid = "white", high = "red",
+                                      midpoint = 0.5)
+      gg <- gg + geom_line(data = df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
+                                               group = Type, color = Type), lwd = 2)
+      gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
       gg <- gg + facet_wrap(~Graph, ncol = 1, scales = "free",
                             strip.position = "left")
       gg <- gg + ylab(NULL)
-      gg <- gg + theme(legend.title = element_blank())
+      #gg <- gg + theme(legend.title = element_blank())
+      gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.95, P_adoptRange_stop * 1.05))
       gg
       #---
       df_plot <- rbind(df_QS01comp, df_QS00)
@@ -1854,7 +1875,7 @@ for(k in 1:n){
     #interval_P_rev_per_output_SUP <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
     df_rL0max_DEM <- NULL
     df_rL0max_SUP <- NULL
-
+    
     equilib_list <- get_equilibrium_values(interval_P_rev_per_output_SUP,
                                            N_S = N_S,
                                            mu_P_fdstkCost_per_output_SUP = mu_P_fdstkCost_per_output_SUP_statQuo,
@@ -1926,7 +1947,7 @@ for(k in 1:n){
       #---
     }
     
-#---
+    #---
     Market0 <- F
     equilib_list <- get_equilibrium_values(interval_P_rev_per_output_SUP,
                                            N_S = N_S,
