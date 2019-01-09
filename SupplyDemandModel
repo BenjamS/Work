@@ -281,7 +281,7 @@ get_equilibrium_values <- function(interval_P,
                                    df_rL0max_DEM = NULL,
                                    chng_DEM = 1,
                                    Market0, P_eq_00,
-                                   graph_on = F){
+                                   graph_on = F, graphTitle_on = T){
   #---
   interval_r = c(0, 1)
   #---
@@ -527,7 +527,8 @@ get_equilibrium_values <- function(interval_P,
       #  gg <- gg + geom_point(data = data.frame(Pe, Qe), aes(x = Pe, y = Qe), size = 2.5, color = "green")
       gg <- gg + annotate("point", x = Pe, y = Qe, size = 2.5, color = "blue")
     }
-    gg <- gg + ggtitle(str_title)
+    if(graphTitle_on){gg <- gg + ggtitle(str_title)}
+    gg <- gg + theme_bw()
     print(gg)
     #---
   }
@@ -938,7 +939,7 @@ if(turn_on == T){
     new_factry_efficiency <- 1 / beta_DEM_statQuo * this_chng_DEM
     this_beta_DEM <- 1 / new_factry_efficiency
     df_QD <- Q_DorS(N = N_D,
-                    P_rev_per_output = P_rev_per_output_DEM,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
                     mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
                     mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
                     cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
@@ -974,6 +975,7 @@ if(turn_on == T){
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
   
 }
@@ -988,7 +990,7 @@ if(turn_on == T){
     this_eta_DEM <- eta_vec[i]
     this_cv_P_procCost_per_output_DEM <- cv_P_procCost_per_output_DEM_statQuo + this_eta_DEM
     df_QD <- Q_DorS(N = N_D,
-                    P_rev_per_output = P_rev_per_output_DEM,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
                     mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
                     mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
                     cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
@@ -1024,6 +1026,7 @@ if(turn_on == T){
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
 }
 #----------------------------------
@@ -1038,7 +1041,7 @@ if(turn_on == T){
     this_m_yCeil_DEM <- m_yCeil_DEM_statQuo + this_eta_DEM
     this_s2_yCeil_DEM <- (cv_lyCeil_DEM_statQuo * this_m_yCeil_DEM)^2
     df_QD <- Q_DorS(N = N_D,
-                    P_rev_per_output = P_rev_per_output_DEM,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
                     mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
                     mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
                     cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
@@ -1050,7 +1053,7 @@ if(turn_on == T){
                     s2_A = s2_A_DEM_statQuo,
                     df_rL0max,
                     l_credit = 0)
-    df_QD$`Mean\nMax Factory\nCapacity\n(logged kL)` <- as.character(round(this_m_yCeil_DEM, 2))
+    df_QD$`Mean\nMax Factory\nCapacity\n(kL / day)` <- as.character(round(exp(this_m_yCeil_DEM), 0))
     dfQD_list[[i]] <- df_QD
     
   }
@@ -1068,12 +1071,13 @@ if(turn_on == T){
   gathercols <- colnames(df_QD_factryMaxCap)[1:2]
   df_QD_factryMaxCap <- df_QD_factryMaxCap %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QD_factryMaxCap, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                       group = `Mean\nMax Factory\nCapacity\n(logged kL)`,
-                                       color = `Mean\nMax Factory\nCapacity\n(logged kL)`))
+                                       group = `Mean\nMax Factory\nCapacity\n(kL / day)`,
+                                       color = `Mean\nMax Factory\nCapacity\n(kL / day)`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
 }
 #----------------------------------
@@ -1088,7 +1092,7 @@ if(turn_on == T){
     this_cv_lyCeil_DEM <- cv_lyCeil_DEM_statQuo + this_eta_DEM
     this_s2_yCeil_DEM <- (this_cv_lyCeil_DEM * m_yCeil_DEM_statQuo)^2
     df_QD <- Q_DorS(N = N_D,
-                    P_rev_per_output = P_rev_per_output_DEM,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
                     mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
                     mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
                     cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
@@ -1100,7 +1104,7 @@ if(turn_on == T){
                     s2_A = s2_A_DEM_statQuo,
                     df_rL0max,
                     l_credit = 0)
-    df_QD$`CV (logged)\nMax Factory\nCapacity` <- as.character(this_cv_lyCeil_DEM)
+    df_QD$`CV Logged\nMax Factory\nCapacity` <- as.character(this_cv_lyCeil_DEM)
     dfQD_list[[i]] <- df_QD
     
   }
@@ -1118,12 +1122,13 @@ if(turn_on == T){
   gathercols <- colnames(df_QD_factryMaxCapCV)[1:2]
   df_QD_factryMaxCapCV <- df_QD_factryMaxCapCV %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QD_factryMaxCapCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                         group = `CV (logged)\nMax Factory\nCapacity`,
-                                         color = `CV (logged)\nMax Factory\nCapacity`))
+                                         group = `CV Logged\nMax Factory\nCapacity`,
+                                         color = `CV Logged\nMax Factory\nCapacity`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
   
 }
@@ -1176,6 +1181,7 @@ if(turn_on == T){
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
   
 }
@@ -1266,6 +1272,7 @@ if(turn_on == T){
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
 }
 #----------------------------------
@@ -1314,6 +1321,7 @@ if(turn_on == T){
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
   
 }
@@ -1322,7 +1330,7 @@ if(turn_on == T){
 #----------------------------------
 turn_on <- F
 if(turn_on == T){
-  eta_vec <- seq(-0.2, 0.1, 0.1)
+  eta_vec <- seq(-1, 1, 0.5)
   dfQS_list <- list()
   for(i in 1:length(eta_vec)){
     this_eta_SUP <- eta_vec[i]
@@ -1365,6 +1373,7 @@ if(turn_on == T){
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
   
 }
@@ -1373,7 +1382,7 @@ if(turn_on == T){
 #----------------------------------
 turn_on <- F
 if(turn_on == T){
-  eta_vec <- seq(-0.2, 0.1, 0.1)
+  eta_vec <- seq(0, 1, 0.3)
   dfQS_list <- list()
   for(i in 1:length(eta_vec)){
     this_eta_SUP <- eta_vec[i]
@@ -1392,7 +1401,7 @@ if(turn_on == T){
                     s2_A = this_s2_A_SUP,
                     df_rL0max,
                     l_credit = 0)
-    df_QS$`CV Farm\nSize (logged)` <- factor(round(this_cv_lA_SUP, 1))
+    df_QS$`CV Logged\nFarm Size` <- factor(round(this_cv_lA_SUP, 1))
     dfQS_list[[i]] <- df_QS
     
   }
@@ -1409,12 +1418,13 @@ if(turn_on == T){
   gathercols <- colnames(df_QS)[1:2]
   df_QS_farmSizeCV <- df_QS %>% gather_("Type", "Value", gathercols)
   gg <- ggplot(df_QS_farmSizeCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
-                                     group = `CV Farm\nSize (logged)`,
-                                     color = `CV Farm\nSize (logged)`))
+                                     group = `CV Logged\nFarm Size`,
+                                     color = `CV Logged\nFarm Size`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
   gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
   gg
   
 }
@@ -1455,7 +1465,7 @@ equilib_list <- get_equilibrium_values(interval_P,
                                        df_rL0max_DEM = df_rL0max_DEM,
                                        chng_DEM = 1,
                                        Market0 = NULL, P_eq_00 = NULL,
-                                       graph_on = T)
+                                       graph_on = T, graphTitle_on = F)
 Tech00 <- "Before release (Baseline)"
 df_Eq00 <- equilib_list[[1]]
 df_Eq00$Tech <- Tech00
@@ -1492,10 +1502,11 @@ mu_YDe_SUP00 <- exp(m_yCeil_SUP_statQuo) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit =
 #------------------------------------
 df_rL0max_DEM <- data.frame(rL0 = 1, rLmax = 0)
 df_rL0max_SUP <- data.frame(rL0 = 1, rLmax = 0)
-eta_vec <- seq(-0.4, 0.4, 0.05)
+eta_vec <- seq(-0.4, 0.4, 0.025)
 n <- length(eta_vec)
 mat_Pe <- matrix(NA, n, n)
 mat_Qe <- matrix(NA, n, n)
+mat_Qe_ethanol <- matrix(NA, n, n)
 mat_muYDe_DEM <- matrix(NA, n, n)
 mat_muYDe_SUP <- matrix(NA, n, n)
 mat_MktParticip_DEM <- matrix(NA, n, n)
@@ -1559,7 +1570,7 @@ for(k in 1:n){
     df_Eq_r_list[[t]] <- df_Eq_r
     this_Pe <- df_Eq$Pe
     # Demand side:
-    this_beta_DEM <- this_chng_DEM * beta_DEM_statQuo
+    this_beta_DEM <-  beta_DEM_statQuo / this_chng_DEM
     mu_r_DEM <- this_Pe / P_rev_per_output_DEM_statQuo * this_beta_DEM
     mu_YDe_DEM <- exp(m_yCeil_DEM_statQuo) * NRyd_DEM(mu_r_DEM, this_Pe, l_credit = 0)
     # Supply side:
@@ -1569,6 +1580,7 @@ for(k in 1:n){
     
     mat_Pe[k, l] <- df_Eq$Pe
     mat_Qe[k, l] <- df_Eq$Qe
+    mat_Qe_ethanol[k, l] <- df_Eq$Qe / this_beta_DEM 
     mat_muYDe_SUP[k, l] <- mu_YDe_SUP
     mat_muYDe_DEM[k, l] <- mu_YDe_DEM
     mat_MktParticip_DEM[k, l] <- df_Eq$mkt_particip_DEM
@@ -1579,6 +1591,34 @@ for(k in 1:n){
 }
 df_Eq <- do.call(rbind, df_Eq_list)
 
+#-----------------
+# Function to create divergent color ramp with specific color attached to specific midpoint
+DivMapPal <- function(inMat, midval, start.color = "magenta", end.color = "cyan", mid.color = "khaki2"){
+  ramp1 <- colorRampPalette(c(start.color,mid.color))
+  ramp2 <- colorRampPalette(c(mid.color,end.color))
+  # now specify the number of values on either side of "mid.value"
+  minval <- min(inMat[!(is.na(inMat))])
+  maxval <- max(inMat[!(is.na(inMat))])
+  scaleFactr <- 10^(-(floor(log10(maxval)) - 2))
+  max.breaks <- round((maxval - midval) * scaleFactr)
+  min.breaks <- round((midval - minval) * scaleFactr)
+  #mid.break <- round(midval * scaleFactr)
+  num.breaks <- max(max.breaks, min.breaks)
+  low.ramp <- ramp1(num.breaks)
+  high.ramp <- ramp2(num.breaks)
+  # now create a combined ramp from the higher values of "low.ramp" and
+  # the lower values of "high.ramp", with the longer one using all values
+  # high.ramp starts at 2 to avoid duplicating zero
+  if(midval > maxval){
+    out_DivMapPalette <- low.ramp[(num.breaks - min.breaks):num.breaks]
+    
+  }else{
+    out_DivMapPalette <- c(low.ramp[(num.breaks - min.breaks):num.breaks], high.ramp[2:max.breaks])
+    
+  }
+  return(out_DivMapPalette)
+}
+
 # Maps
 #------------------------------------
 xtick_labs <- 1 / beta_DEM_statQuo * (1 + eta_vec)
@@ -1587,57 +1627,105 @@ mapPalette <- colorRampPalette(c("magenta", "cyan"))
 mapPalette_inv <- colorRampPalette(c("cyan", "magenta"))
 #---
 inMat <- mat_Pe
+midval <- Pe00
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "cyan",
+                             end.color = "darkmagenta",
+                             mid.color = "khaki2")
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette_inv(45), method = "edge")
-title(main = "Equilibrium Price Map (lcu)", cex.main = 1)
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 3000, 200),
+             imgCol = this_mapPalette, method = "flattest",
+             cntrLwd = 2)
+title(main = "Equilibrium Price Map (lcu / MT Root)", cex.main = 1)
 
 inMat <- mat_Qe
+midval <- df_Eq00$Qe
+this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette(45), method = "edge")
-title(main = "Equilibrium Quantity Map (MT / day)", cex.main = 1)
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 3000, 200),
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2)
+title(main = "Equilibrium Quantity Map (MT Root / day)", cex.main = 1)
+
+
+inMat <- mat_Qe_ethanol
+midval <- df_Eq00$Qe / beta_DEM_statQuo
+this_mapPalette <- DivMapPal(inMat, midval)
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plotSurface2(surface, type = "C",
+             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 700, 100),
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2)
+title(main = "Equilibrium Quantity Map (kL Ethanol / day)", cex.main = 1)
+
 
 inMat <- mat_muYDe_SUP
+midval <- mu_YDe_SUP00
+this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette(45), method = "edge")
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 16000, 2000),
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2)
 title(main = "Mean Farm Net Revenue Map (lcu / ha.)", cex.main = 1)
 
 inMat <- mat_muYDe_DEM
+midval <- mu_YDe_DEM00
+this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette(45), method = "edge")
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2)
 title(main = "Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
 
 inMat <- mat_MktParticip_DEM
+midval <- df_Eq00$mkt_particip_DEM
+this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette(45), method = "edge")
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 1, 0.025),
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2)
 title(main = "Demand Market Participation Map", cex.main = 1)
 
 inMat <- mat_MktParticip_SUP
+midval <- df_Eq00$mkt_particip_SUP
+this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, col = mapPalette(45), method = "edge")
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 1, 0.05),
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2)
 title(main = "Supply Market Participation Map", cex.main = 1)
 #====================================
 #====================================
@@ -1656,7 +1744,7 @@ title(main = "Supply Market Participation Map", cex.main = 1)
 rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P_eq_00 <- Pe00
-eta_vec <- round(seq(0, 0.5, 0.01), 2)
+eta_vec <- round(seq(0.01, 0.45, 0.01), 2)
 interval_P_rev_per_output_SUP <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
 df_rL0max_DEM <- data.frame(rL0 = NULL, rLmax = NULL)
 df_rL0max_SUP <- data.frame(rL0 = NULL, rLmax = NULL)
@@ -1916,7 +2004,7 @@ for(k in 1:n){
       # Supply curves AND mkt particip curves together using facet_wrap
       gg <- ggplot()
       gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
-                                                   ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.4)
+                                                 ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.4)
       gg <- gg + scale_fill_gradient2(low = "orange", mid = "white", high = "#9999CC",
                                       midpoint = 0.5)
       gg <- gg + geom_line(data = df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
@@ -2186,33 +2274,6 @@ smoothMat <- function(M){
   #M[!(is.na(M_new))] <- M_new[!(is.na(M_new))]
   return(M)
 }
-#-----------------
-# Function to create divergent color ramp with specific color attached to specific midpoint
-DivMapPal <- function(inMat, midval, start.color = "magenta", end.color = "cyan", mid.color = "khaki2"){
-  ramp1 <- colorRampPalette(c(start.color,mid.color))
-  ramp2 <- colorRampPalette(c(mid.color,end.color))
-  # now specify the number of values on either side of "mid.value"
-  minval <- min(inMat[!(is.na(inMat))])
-  maxval <- max(inMat[!(is.na(inMat))])
-  scaleFactr <- 10^(-(floor(log10(maxval)) - 2))
-  max.breaks <- round((maxval - midval) * scaleFactr)
-  min.breaks <- round((midval - minval) * scaleFactr)
-  #mid.break <- round(midval * scaleFactr)
-  num.breaks <- max(max.breaks, min.breaks)
-  low.ramp <- ramp1(num.breaks)
-  high.ramp <- ramp2(num.breaks)
-  # now create a combined ramp from the higher values of "low.ramp" and
-  # the lower values of "high.ramp", with the longer one using all values
-  # high.ramp starts at 2 to avoid duplicating zero
-  if(midval > maxval){
-    out_DivMapPalette <- low.ramp[(num.breaks - min.breaks):num.breaks]
-    
-  }else{
-    out_DivMapPalette <- c(low.ramp[(num.breaks - min.breaks):num.breaks], high.ramp[2:max.breaks])
-    
-  }
-  return(out_DivMapPalette)
-}
 
 
 #-----------------
@@ -2290,7 +2351,7 @@ plotSurface2(surface, type = "C",
              #imgCol = mapPalette_inv(45), method = "edge",
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2)
-             #ylab = "Mean farm cost (lcu / MT Root)", levels = seq(1000, 3500, 200), labcex = 1,imgCol = mapPalette_inv(45), method = "edge")
+#ylab = "Mean farm cost (lcu / MT Root)", levels = seq(1000, 3500, 200), labcex = 1,imgCol = mapPalette_inv(45), method = "edge")
 title(main = "Alternative Market Equilibrium Price Map (lcu / MT)", cex.main = 1)
 
 
@@ -2705,103 +2766,306 @@ m_A = m_A_DEM_statQuo
 s2_A = s2_A_DEM_statQuo
 df_rL0max
 l_credit = 0
+#--------------------------------
+# mu_r
+ratio_price <- (mu_P_fdstkCost_per_output + mu_P_procCost_per_output) / P_rev_per_output
+mu_r <- ratio_price * beta * (1 - l_credit)
+#--------------------------------
+# sig2_r
+sig2_fdstkCost_per_output <- (mu_P_fdstkCost_per_output * cv_P_fdstkCost_per_output)^2
+sig2_procCost_per_output <- (mu_P_procCost_per_output * cv_P_procCost_per_output)^2
+sig2_r <- (sig2_fdstkCost_per_output + sig2_procCost_per_output) * (beta / P_rev_per_output)^2
+#--------------------------------
+# s_qStar
+s2_qStar <- s2_A + s2_yCeil + sig2_r
+s_qStar <- sqrt(s2_qStar)
+#--------------------------------
+# mu_qStar
+m_qStar <- m_A + m_yCeil - mu_r
+mu_qStar <- exp(m_qStar + s2_qStar / 2)
+#--------------------------------
+# Nvr0, Nvr1
+# Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
+if(cv_P_fdstkCost_per_output != 0 | cv_P_procCost_per_output != 0){
+  rL0 <- df_rL0max$rL0
+  rLmax <- df_rL0max$rLmax
+  vrLmax <- (-rLmax + mu_r - s2_qStar) / s_qStar
+  vrL0 <- (-rL0 + mu_r - s2_qStar) / s_qStar
+  NvrLmax <- pnorm(vrLmax)
+  NvrL0 <- pnorm(vrL0)
   #--------------------------------
-  # mu_r
-  ratio_price <- (mu_P_fdstkCost_per_output + mu_P_procCost_per_output) / P_rev_per_output
-  mu_r <- ratio_price * beta * (1 - l_credit)
-  #--------------------------------
-  # sig2_r
-  sig2_fdstkCost_per_output <- (mu_P_fdstkCost_per_output * cv_P_fdstkCost_per_output)^2
-  sig2_procCost_per_output <- (mu_P_procCost_per_output * cv_P_procCost_per_output)^2
-  sig2_r <- (sig2_fdstkCost_per_output + sig2_procCost_per_output) * (beta / P_rev_per_output)^2
-  #--------------------------------
-  # s_qStar
-  s2_qStar <- s2_A + s2_yCeil + sig2_r
-  s_qStar <- sqrt(s2_qStar)
-  #--------------------------------
-  # mu_qStar
-  m_qStar <- m_A + m_yCeil - mu_r
-  mu_qStar <- exp(m_qStar + s2_qStar / 2)
-  #--------------------------------
-  # Nvr0, Nvr1
-  # Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
-  if(cv_P_fdstkCost_per_output != 0 | cv_P_procCost_per_output != 0){
-    rL0 <- df_rL0max$rL0
-    rLmax <- df_rL0max$rLmax
-    vrLmax <- (-rLmax + mu_r - s2_qStar) / s_qStar
-    vrL0 <- (-rL0 + mu_r - s2_qStar) / s_qStar
-    NvrLmax <- pnorm(vrLmax)
-    NvrL0 <- pnorm(vrL0)
-    #--------------------------------
-    # QD or QS
-    #mkt_participation <- (1 + NvrLmax - NvrL0) / 2
-    mkt_participation <- NvrLmax - NvrL0
-    Q_D_or_S <- N * mu_qStar * mkt_participation
-  }else{
-    Q_D_or_S <- mu_qStar
+  # QD or QS
+  #mkt_participation <- (1 + NvrLmax - NvrL0) / 2
+  mkt_participation <- NvrLmax - NvrL0
+  Q_D_or_S <- N * mu_qStar * mkt_participation
+}else{
+  Q_D_or_S <- mu_qStar
+}
+#--------------------------------
+if(nrow(df_rL0max) > 1){
+  # ind1 <- which(df_rL0max$rL0 == 0)
+  # ind2 <- which(df_rL0max$rLmax == 0)
+  # ind0 <- intersect(ind1, ind2)
+  # Q_D_or_S[ind0] <- 0
+  # mkt_participation[ind0] <- NA
+}else{
+  if(rL0 == 0 & rLmax == 0){
+    Q_D_or_S <- 0
+    mkt_participation <- NA
   }
-  #--------------------------------
-  if(nrow(df_rL0max) > 1){
-    # ind1 <- which(df_rL0max$rL0 == 0)
-    # ind2 <- which(df_rL0max$rLmax == 0)
-    # ind0 <- intersect(ind1, ind2)
-    # Q_D_or_S[ind0] <- 0
-    # mkt_participation[ind0] <- NA
-  }else{
-    if(rL0 == 0 & rLmax == 0){
-      Q_D_or_S <- 0
-      mkt_participation <- NA
-    }
+}
+#--------------------------------
+df_out <- data.frame(Q_D_or_S, mkt_participation)
+#--------------------------------
+
+
+y <- seq(-3, 3, 0.1)
+df_y <- data.frame(y = y, f = dnorm(y))
+df_y <- df_y %>% mutate(area = ifelse(y > vrL0 & y < vrLmax,
+                                      "Participating", "Not Participating"))
+gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
+#gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
+#gg <- gg + ggtitle("Yield density")
+#gg <- gg + xlab("Yield (kL / day)")
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + theme(axis.title.x = element_blank())
+#gg <- gg + coord_cartesian(xlim = c(115, 175))
+gg
+
+
+#---
+# Demand yield plot
+s2_yStar_implied <- sig2_r
+m_yStar_implied <- m_yCeil_DEM_statQuo - mu_r
+s_yStar_implied <- sqrt(s2_yStar_implied)
+y <- seq(0, exp(m_yCeil_DEM_statQuo), 0.1)
+df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
+                                     sdlog = s_yStar_implied))
+yStar_min <- exp(m_yCeil_DEM_statQuo - rL0)
+yStar_max <- exp(m_yCeil_DEM_statQuo - 0)
+df_y <- df_y %>% mutate(area = ifelse(y > yStar_min & y < yStar_max,
+                                      "Participating", "Not Participating"))
+# yStar_max_base <- exp(m_yCeil_factry - rLmax_base)
+# df_y <- df_y %>% mutate(area = ifelse(y >= yStar_max_base & y < yStar_max,
+#                                       "Switch", area))
+gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
+# gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
+#gg <- gg + ggtitle("Yield density")
+gg <- gg + xlab("Yield (kL / day)")
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + coord_cartesian(xlim = c(115, 140))
+gg
+
+
+
+#=========================================
+# Baseline Demand and Supply Together (aka the market, PE model, etc.)
+# Here we get Pe the baseline equilibrium price before release of the alternative
+interval_P <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
+df_rL0max_SUP <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max_DEM <- data.frame(rL0 = 1, rLmax = 0)
+eta_vec_graph <- seq(-0.2, 0.4, 0.2)
+df_QS_list <- list()
+df_QD_list <- list()
+df_Eq_list <- list()
+df_Eq_r_list <- list()
+t <- 0
+for(k in 1:length(eta_vec_graph)){
+  this_eta_DEM <- eta_vec_graph[k]
+  this_chng_DEM <- 1 + this_eta_DEM
+  this_beta_DEM <- beta_DEM_statQuo / this_chng_DEM
+  df_QD <- Q_DorS(N = N_D,
+                  P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                  mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                  mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                  cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                  cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                  beta = this_beta_DEM,
+                  m_yCeil = m_yCeil_DEM_statQuo,
+                  s2_yCeil = s2_yCeil_DEM_statQuo,
+                  m_A = m_A_DEM_statQuo,
+                  s2_A = s2_A_DEM_statQuo,
+                  df_rL0max_DEM,
+                  l_credit = 0)
+  colnames(df_QD) <- c("Root Quantity (MT / day)", "mkt_particip")
+  df_QD$Type <- paste("Demand", this_beta_DEM)
+  df_QD$`Price (lcu / MT)` <- P_rev_per_output_SUP
+  df_QD_list[[k]] <- df_QD
+  
+  for(l in 1:length(eta_vec_graph)){
+    this_eta <- eta_vec_graph[l]
+    this_chng_SUP <- 1 + this_eta
+    equilib_list <- get_equilibrium_values(interval_P_rev_per_output_SUP,
+                                           N_S = N_S,
+                                           mu_P_fdstkCost_per_output_SUP = mu_P_fdstkCost_per_output_SUP_statQuo,
+                                           cv_P_fdstkCost_per_output_SUP = cv_P_fdstkCost_per_output_SUP_statQuo,
+                                           mu_P_procCost_per_output_SUP = mu_P_procCost_per_output_SUP_statQuo,
+                                           cv_P_procCost_per_output_SUP = cv_P_procCost_per_output_SUP_statQuo,
+                                           beta_SUP = beta_SUP_statQuo,
+                                           m_yCeil_SUP = m_yCeil_SUP_statQuo,
+                                           s2_yCeil_SUP = s2_yCeil_SUP_statQuo,
+                                           m_A_SUP = m_A_SUP_statQuo,
+                                           s2_A_SUP = s2_A_SUP_statQuo,
+                                           df_rL0max_SUP = df_rL0max_SUP,
+                                           chng_SUP = this_chng_SUP,
+                                           #---
+                                           P_rev_per_output_DEM = P_rev_per_output_DEM_statQuo,
+                                           N_D = N_D,
+                                           mu_P_fdstkCost_per_output_DEM = mu_P_fdstkCost_per_output_DEM_statQuo,
+                                           cv_P_fdstkCost_per_output_DEM = cv_P_fdstkCost_per_output_DEM_statQuo,
+                                           mu_P_procCost_per_output_DEM = mu_P_procCost_per_output_DEM_statQuo,
+                                           cv_P_procCost_per_output_DEM = cv_P_procCost_per_output_DEM_statQuo,
+                                           beta_DEM = beta_DEM_statQuo,
+                                           m_yCeil_DEM = m_yCeil_DEM_statQuo,
+                                           s2_yCeil_DEM = s2_yCeil_DEM_statQuo,
+                                           m_A_DEM = m_A_DEM_statQuo,
+                                           s2_A_DEM = s2_A_DEM_statQuo,
+                                           df_rL0max_DEM = df_rL0max_DEM,
+                                           chng_DEM = this_chng_DEM,
+                                           Market0 = NULL, P_eq_00 = NULL,
+                                           graph_on = F)
+    #Sys.sleep(1.5)
+    df_Eq <- equilib_list[[1]]
+    df_Eq$Tech <- New_Tech
+    df_Eq_r <- equilib_list[[2]]
+    df_Eq_r$Tech <- New_Tech
+    print(df_Eq)
+    print(df_Eq_r)
+    #---
+    t <- t + 1
+    df_Eq_list[[t]] <- df_Eq
+    df_Eq_r_list[[t]] <- df_Eq_r
+    this_Pe <- df_Eq$Pe
+    # Demand side:
+    # this_beta_DEM <-  beta_DEM_statQuo / this_chng_DEM
+    # mu_r_DEM <- this_Pe / P_rev_per_output_DEM_statQuo * this_beta_DEM
+    # mu_YDe_DEM <- exp(m_yCeil_DEM_statQuo) * NRyd_DEM(mu_r_DEM, this_Pe, l_credit = 0)
+    # Supply side:
+    this_mu_P_fdstkCost_per_output_SUP <- this_chng_SUP * mu_P_fdstkCost_per_output_SUP_statQuo
+    mu_r_SUP <- this_mu_P_fdstkCost_per_output_SUP / df_Eq$Pe
+    mu_YDe_SUP <- exp(m_yCeil_SUP_statQuo) * NRyd_SUP(mu_r_SUP, this_Pe, l_credit = 0)
+    #---
+    df_QS <- Q_DorS(N = N_S,
+                    P_rev_per_output = P_rev_per_output_SUP,
+                    mu_P_fdstkCost_per_output = this_mu_P_fdstkCost_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                    beta = beta_SUP_statQuo,
+                    m_yCeil = m_yCeil_SUP_statQuo,
+                    s2_yCeil = s2_yCeil_SUP_statQuo,
+                    m_A = m_A_SUP_statQuo,
+                    s2_A = s2_A_SUP_statQuo,
+                    df_rL0max_SUP,
+                    l_credit = 0)
+    colnames(df_QS) <- c("Root Quantity (MT / day)", "mkt_particip")
+    df_QS$Type <- paste("Supply", this_mu_P_fdstkCost_per_output_SUP)
+    df_QS$`Price (lcu / MT)` <- P_rev_per_output_SUP
+    df_QS_list[[l]] <- df_QS
+    #---
   }
-  #--------------------------------
-  df_out <- data.frame(Q_D_or_S, mkt_participation)
-  #--------------------------------
   
-  
-  y <- seq(-3, 3, 0.1)
-  df_y <- data.frame(y = y, f = dnorm(y))
-  df_y <- df_y %>% mutate(area = ifelse(y > vrL0 & y < vrLmax,
-                                        "Participating", "Not Participating"))
-  gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
-  gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
-  gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
-  #gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
-  #gg <- gg + ggtitle("Yield density")
-  #gg <- gg + xlab("Yield (kL / day)")
-  gg <- gg + theme_bw()
-  gg <- gg + theme(legend.title = element_blank())
-  gg <- gg + theme(axis.text.y = element_blank())
-  gg <- gg + theme(axis.ticks.y = element_blank())
-  gg <- gg + theme(axis.title.x = element_blank())
-  #gg <- gg + coord_cartesian(xlim = c(115, 175))
-  gg
-  
-  
-  #---
-  # Demand yield plot
-  s2_yStar_implied <- sig2_r
-  m_yStar_implied <- m_yCeil_DEM_statQuo - mu_r
-  s_yStar_implied <- sqrt(s2_yStar_implied)
-  y <- seq(0, exp(m_yCeil_DEM_statQuo), 0.1)
-  df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
-                                       sdlog = s_yStar_implied))
-  yStar_min <- exp(m_yCeil_DEM_statQuo - rL0)
-  yStar_max <- exp(m_yCeil_DEM_statQuo - 0)
-  df_y <- df_y %>% mutate(area = ifelse(y > yStar_min & y < yStar_max,
-                                        "Participating", "Not Participating"))
-  # yStar_max_base <- exp(m_yCeil_factry - rLmax_base)
-  # df_y <- df_y %>% mutate(area = ifelse(y >= yStar_max_base & y < yStar_max,
-  #                                       "Switch", area))
-  gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
-  gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
-  gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
-  # gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
-  #gg <- gg + ggtitle("Yield density")
-  gg <- gg + xlab("Yield (kL / day)")
-  gg <- gg + theme(legend.title = element_blank())
-  gg <- gg + theme(axis.text.y = element_blank())
-  gg <- gg + theme(axis.ticks.y = element_blank())
-  gg <- gg + coord_cartesian(xlim = c(115, 140))
-  gg
-  
-  
+}
+#---
+df_QD <- do.call(rbind, df_QD_list)
+df_QS <- do.call(rbind, df_QS_list)
+df_Eq <- do.call(rbind, df_Eq_list)
+Pe_vec <- df_Eq$Pe
+Qe_vec <- df_Eq$Qe
+#---
+df_plot <- rbind(df_QD, df_QS)
+#df_plot$`Quantity (MT)`[which(df_plot$`Root Quantity (MT / day)` == 0)] <- NA
+gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Root Quantity (MT / day)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 2)
+gg <- gg + annotate("point", x = Pe_vec, y = Qe_vec, size = 2.5, color = "blue")
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.position = "none")
+gg
+#---
+
+
+
+
+
+#------------------------------------
+# df_QSQD00 <- merge(df_QS00, df_QD00, by = "Feedstock Price (lcu / MT)")
+# df_QSQD00 <- df_QSQD00[, c("Feedstock Price (lcu / MT)", "Supply Market Participation", "Demand Market Participation",
+#                            "Supply (MT)", "Demand (MT)")]
+#colnames(df_QSQD)[4:5] <- c("Supply", "Demand")
+
+# df_QSQD00 <- df_QSQD00 %>% gather(Type, `Quantity (MT)`, `Supply (MT)`:`Demand (MT)`)
+# gg <- ggplot()
+# gg <- gg + geom_line(data = df_QSQD00, aes(x = `Feedstock Price (lcu / MT)`, y = `Quantity (MT)`, color = Type, group = Type), lwd = 2)
+# gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+# gg <- gg + theme(legend.title = element_blank())
+# gg
+#====================================
+# Baseline market mean net revenue (yield)
+# Demand side:
+mu_r_DEM00 <- Pe00 / P_rev_per_output_DEM_statQuo * beta_DEM_statQuo
+mu_YDe_DEM00 <- exp(m_yCeil_DEM_statQuo) * NRyd_DEM(mu_r_DEM00, Pe00, l_credit = 0)
+# Supply side:
+mu_r_SUP00 <- mu_P_fdstkCost_per_output_SUP_statQuo / Pe00
+mu_YDe_SUP00 <- exp(m_yCeil_SUP_statQuo) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit = 0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+t <- 0
+for(k in 1:n){
+  this_eta_DEM <- eta_vec[k]
+  this_chng_DEM <- 1 + this_eta_DEM
+  # mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
+  # mu_factry_efficiency_inv <- 1 / mu_factry_efficiency_new
+  # sig2_factry_efficiency_inv <- (cv_factry_efficiency_inv_statQuo * mu_factry_efficiency_inv)^2
+  for(l in 1:n){
+    this_eta_SUP <- eta_vec[l]
+    this_chng_SUP <- 1 + this_eta_SUP
+    # mu_cost_per_farmProduct <- mu_cost_per_farmProduct_statQuo * chng_SUP
+    # sig2_cost_per_farmProduct <- (cv_cost_per_farmProduct_statQuo * mu_cost_per_farmProduct)^2
+    #---
+    
+    mat_Pe[k, l] <- df_Eq$Pe
+    mat_Qe[k, l] <- df_Eq$Qe
+    mat_Qe_ethanol[k, l] <- df_Eq$Qe / this_beta_DEM 
+    mat_muYDe_SUP[k, l] <- mu_YDe_SUP
+    mat_muYDe_DEM[k, l] <- mu_YDe_DEM
+    mat_MktParticip_DEM[k, l] <- df_Eq$mkt_particip_DEM
+    mat_MktParticip_SUP[k, l] <- df_Eq$mkt_particip_SUP
+    
+    print(c(k = k, l = l))
+  }
+}
+df_Eq <- do.call(rbind, df_Eq_list)
