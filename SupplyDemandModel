@@ -5,11 +5,42 @@ library(dplyr)
 library(tidyr)
 library(fields)
 
+# Function to create divergent color ramp with specific color attached to specific midpoint
+DivMapPal <- function(inMat, midval, start.color = "magenta", end.color = "cyan", mid.color = "khaki2"){
+  ramp1 <- colorRampPalette(c(start.color,mid.color))
+  ramp2 <- colorRampPalette(c(mid.color,end.color))
+  # now specify the number of values on either side of "mid.value"
+  minval <- min(inMat[!(is.na(inMat))])
+  maxval <- max(inMat[!(is.na(inMat))])
+  scaleFactr <- 10^(-(floor(log10(maxval)) - 2))
+  max.breaks <- round((maxval - midval) * scaleFactr)
+  min.breaks <- round((midval - minval) * scaleFactr)
+  #mid.break <- round(midval * scaleFactr)
+  num.breaks <- max(max.breaks, min.breaks)
+  low.ramp <- ramp1(num.breaks)
+  high.ramp <- ramp2(num.breaks)
+  # now create a combined ramp from the higher values of "low.ramp" and
+  # the lower values of "high.ramp", with the longer one using all values
+  # high.ramp starts at 2 to avoid duplicating zero
+  if(midval > maxval){
+    out_DivMapPalette <- low.ramp[(num.breaks - min.breaks):num.breaks]
+    
+  }else{
+    out_DivMapPalette <- c(low.ramp[(num.breaks - min.breaks):num.breaks], high.ramp[2:max.breaks])
+    
+  }
+  return(out_DivMapPalette)
+}
+
+
 plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL, 
                           ylab = NULL, levels = NULL, zlim = NULL, graphics.reset = NULL, 
                           labcex = 0.6, method = "flattest", imgCol, add.legend = TRUE,
-                          cntrCol = par("fg"), cntrLty = par("lty"), cntrLwd = par("lwd"),...) 
+                          cntrCol = par("fg"), cntrLty = par("lty"), cntrLwd = par("lwd"),
+                          imgBigplot, imgSmallplot, ...)
 {
+  # bigplot <- imgBigplot
+  # smallplot <- imgSmallplot
   obj <- x
   old.par <- par(no.readonly = TRUE)
   if (is.na(match(type, c("b", "c", "C", "I", "p")))) {
@@ -60,7 +91,8 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
   }
   if (type == "I") {
     image.plot(obj$x, obj$y, obj$z, xlab = xlab, ylab = ylab, 
-               zlim = zlim, col = imgCol, ...)
+               zlim = zlim, col = imgCol,
+               bigplot = imgBigplot, smallplot = imgSmallplot,...)
     if ((!is.null(main)) & type != "b") 
       title(main)
   }
@@ -76,9 +108,11 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
     if (type == "b") {
       par(mar = old.mar)
     }
-    image.plot(obj$x, obj$y, obj$z, xlab = xlab, ylab = ylab, 
-               graphics.reset = graphics.reset, zlim = zlim,
-               col = imgCol, ...)
+    image.plot(obj$x, obj$y, obj$z, xlab = xlab, ylab = ylab,
+               zlim = zlim,
+               graphics.reset = graphics.reset,
+               col = imgCol,
+               bigplot = imgBigplot, smallplot = imgSmallplot,...)
     if (is.null(levels)) 
       levels <- pretty(obj$z[!is.na(obj$z)], 5)
     contour(obj$x, obj$y, obj$z, add = TRUE, levels = levels, 
@@ -1556,7 +1590,7 @@ for(k in 1:n){
                                            df_rL0max_DEM = df_rL0max_DEM,
                                            chng_DEM = this_chng_DEM,
                                            Market0 = NULL, P_eq_00 = NULL,
-                                           graph_on = F)
+                                           graph_on = F, graphTitle_on = F)
     #Sys.sleep(1.5)
     df_Eq <- equilib_list[[1]]
     df_Eq$Tech <- New_Tech
@@ -1592,32 +1626,6 @@ for(k in 1:n){
 df_Eq <- do.call(rbind, df_Eq_list)
 
 #-----------------
-# Function to create divergent color ramp with specific color attached to specific midpoint
-DivMapPal <- function(inMat, midval, start.color = "magenta", end.color = "cyan", mid.color = "khaki2"){
-  ramp1 <- colorRampPalette(c(start.color,mid.color))
-  ramp2 <- colorRampPalette(c(mid.color,end.color))
-  # now specify the number of values on either side of "mid.value"
-  minval <- min(inMat[!(is.na(inMat))])
-  maxval <- max(inMat[!(is.na(inMat))])
-  scaleFactr <- 10^(-(floor(log10(maxval)) - 2))
-  max.breaks <- round((maxval - midval) * scaleFactr)
-  min.breaks <- round((midval - minval) * scaleFactr)
-  #mid.break <- round(midval * scaleFactr)
-  num.breaks <- max(max.breaks, min.breaks)
-  low.ramp <- ramp1(num.breaks)
-  high.ramp <- ramp2(num.breaks)
-  # now create a combined ramp from the higher values of "low.ramp" and
-  # the lower values of "high.ramp", with the longer one using all values
-  # high.ramp starts at 2 to avoid duplicating zero
-  if(midval > maxval){
-    out_DivMapPalette <- low.ramp[(num.breaks - min.breaks):num.breaks]
-    
-  }else{
-    out_DivMapPalette <- c(low.ramp[(num.breaks - min.breaks):num.breaks], high.ramp[2:max.breaks])
-    
-  }
-  return(out_DivMapPalette)
-}
 
 # Maps
 #------------------------------------
@@ -1625,6 +1633,7 @@ xtick_labs <- 1 / beta_DEM_statQuo * (1 + eta_vec)
 ytick_labs <- mu_P_fdstkCost_per_output_SUP_statQuo * (1 + eta_vec)
 mapPalette <- colorRampPalette(c("magenta", "cyan"))
 mapPalette_inv <- colorRampPalette(c("cyan", "magenta"))
+pct_chng_vec <- eta_vec * 100
 #---
 inMat <- mat_Pe
 midval <- Pe00
@@ -1636,12 +1645,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 3000, 200),
              imgCol = this_mapPalette, method = "flattest",
-             cntrLwd = 2)
-title(main = "Equilibrium Price Map (lcu / MT Root)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Equilibrium Price Map (lcu / MT Root)", cex.main = 1, line = 4)
 
 inMat <- mat_Qe
 midval <- df_Eq00$Qe
@@ -1650,12 +1664,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 3000, 200),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Equilibrium Quantity Map (MT Root / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Equilibrium Quantity Map (MT Root / day)", cex.main = 1, line = 4)
 
 
 inMat <- mat_Qe_ethanol
@@ -1665,12 +1684,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 700, 100),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Equilibrium Quantity Map (kL Ethanol / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Equilibrium Quantity Map (kL Ethanol / day)", cex.main = 1, line = 4)
 
 
 inMat <- mat_muYDe_SUP
@@ -1680,12 +1704,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 16000, 2000),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Mean Farm Net Revenue Map (lcu / ha.)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Mean Farm Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
 
 inMat <- mat_muYDe_DEM
 midval <- mu_YDe_DEM00
@@ -1694,11 +1723,16 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Mean Factory Net Revenue Map (lcu / day)", cex.main = 1, line = 4)
 
 inMat <- mat_MktParticip_DEM
 midval <- df_Eq00$mkt_particip_DEM
@@ -1707,12 +1741,18 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.025),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Demand Market Participation Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Demand Market Participation Map", cex.main = 1, line = 4)
+
 
 inMat <- mat_MktParticip_SUP
 midval <- df_Eq00$mkt_particip_SUP
@@ -1721,12 +1761,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.05),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Supply Market Participation Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. change in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. change in factory productivity", 3, line = 2.5)
+title(main = "Supply Market Participation Map", cex.main = 1, line = 4)
 #====================================
 #====================================
 #====================================
@@ -1744,7 +1789,8 @@ title(main = "Supply Market Participation Map", cex.main = 1)
 rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P_eq_00 <- Pe00
-eta_vec <- round(seq(0.01, 0.45, 0.01), 2)
+#eta_vec <- round(seq(0.01, 0.4, 0.0025), 4)
+eta_vec <- seq(0.01, 0.4, 0.0025)
 interval_P_rev_per_output_SUP <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
 df_rL0max_DEM <- data.frame(rL0 = NULL, rLmax = NULL)
 df_rL0max_SUP <- data.frame(rL0 = NULL, rLmax = NULL)
@@ -2100,7 +2146,7 @@ for(k in 1:n){
                                            df_rL0max_DEM = df_rL0max_DEM,
                                            chng_DEM = this_chng_DEM,
                                            Market0, P_eq_00 = Pe00,
-                                           graph_on = F)
+                                           graph_on = F, graphTitle_on = T)
     df_Eq0 <- equilib_list[[1]]
     df_Eq0_r <- equilib_list[[2]]
     #print(df_Eq0)
@@ -2175,7 +2221,7 @@ for(k in 1:n){
                                            df_rL0max_DEM = df_rL0max_DEM,
                                            chng_DEM = this_chng_DEM,
                                            Market0, P_eq_00 = Pe00,
-                                           graph_on = F)
+                                           graph_on = F, graphTitle_on = T)
     df_Eq1 <- equilib_list[[1]]
     df_Eq1_r <- equilib_list[[2]]
     #print(df_Eq1_r)
@@ -2281,6 +2327,9 @@ xtick_labs <- 1 / beta_DEM_statQuo * (1 + eta_vec)
 ytick_labs <- mu_P_fdstkCost_per_output_SUP_statQuo * (1 + eta_vec)
 mapPalette <- colorRampPalette(c("magenta", "cyan"), bias = 1.5)
 mapPalette_inv <- colorRampPalette(c("cyan", "magenta"), bias = 0.5)
+pct_chng_vec <- 100 * eta_vec
+imgBigplot = c(0.1, 0.81, 0.15, 0.85)
+imgSmallplot = c(0.9, 0.93, .2, .8)
 #-----------------
 
 
@@ -2291,47 +2340,60 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              #ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, imgCol = mapPalette(45), method = "edge")
              ylab = "Mean farm cost (lcu / MT Root)", levels = seq(0, 800, 100), labcex = 1,
-             #imgCol = mapPalette(45), method = "edge", cntrLwd = 2)
-             imgCol = this_mapPalette, method = "edge", cntrLwd = 2)
-title(main = "Alternative Market Equilibrium Ethanol Output Map (kL / day)", cex.main = 1)
+             imgCol = this_mapPalette, method = "edge", cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Market Equilibrium Ethanol Output Map (kL / day)", cex.main = 1, line = 4)
 
 
 inMat <- mat_Qe0_ethanol
-#image(inMat)
 midval <- df_Eq00$Qe / beta_DEM_statQuo
 this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             #ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, imgCol = mapPalette(45), method = "edge")
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", levels = seq(0, 500, 100), labcex = 1,
-             #imgCol = mapPalette(45), method = "edge", cntrLwd = 2)
-             imgCol = this_mapPalette, method = "edge", cntrLwd = 2)
-title(main = "Baseline Market Equilibrium Ethanol Output Map (kL / day)", cex.main = 1)
+             imgCol = this_mapPalette, method = "edge", cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Market Equilibrium Ethanol Output Map (kL / day)", cex.main = 1, line = 4)
 
+
+# graphics.off()
+# close.screen( all=TRUE)
+# #par(mar = par("mar"))
+# par("mar")
 
 inMat <- mat_QeC_ethanol
 inMat <- smoothMat(inMat)
-#image(inMat)
 midval <- df_Eq00$Qe / beta_DEM_statQuo
 this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             #ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, imgCol = mapPalette(45), method = "edge")
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              levels = seq(0, 700, 100), labcex = 1,
-             #imgCol = mapPalette(45), method = "edge", cntrLwd = 2)
-             imgCol = this_mapPalette, method = "edge", cntrLwd = 2)
-title(main = "Composite Equilibrium Ethanol Output Map (kL / day)", cex.main = 1)
-
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Composite Equilibrium Ethanol Output Map (kL / day)", cex.main = 1, line = 4)
 
 
 
@@ -2345,14 +2407,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              levels = seq(0, 3000, 200), labcex = 1,
-             #imgCol = mapPalette_inv(45), method = "edge",
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-#ylab = "Mean farm cost (lcu / MT Root)", levels = seq(1000, 3500, 200), labcex = 1,imgCol = mapPalette_inv(45), method = "edge")
-title(main = "Alternative Market Equilibrium Price Map (lcu / MT)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Market Equilibrium Price Map (lcu / MT)", cex.main = 1, line = 4)
 
 
 
@@ -2363,13 +2428,18 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              levels = seq(0, 4000, 500), labcex = 1,
              #imgCol = mapPalette(45), method = "edge",
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Alternative Market Equilibrium Quantity Map (MT / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Market Equilibrium Quantity Map (MT / day)", cex.main = 1, line = 4)
 
 
 
@@ -2383,12 +2453,19 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              levels = seq(1000, 3500, 100), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Baseline Market Equilibrium Price Map (lcu / MT)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Market Equilibrium Price Map (lcu / MT)", cex.main = 1, line = 4)
+
+
 
 inMat <- mat_Qe0
 midval <- df_Eq00$Qe
@@ -2397,11 +2474,16 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Baseline Market Equilibrium Root Quantity Map (MT / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Market Equilibrium Root Quantity Map (MT / day)", cex.main = 1, line = 4)
 
 
 inMat <- mat_QeC
@@ -2413,13 +2495,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              levels = seq(0, 4000, 100), labcex = 1,
-             #imgCol = mapPalette(45), method = "edge",
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Composite Equilibrium Root Quantity Map (MT / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Composite Equilibrium Root Quantity Map (MT / day)", cex.main = 1, line = 4)
 
 
 
@@ -2431,12 +2517,18 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.25),
              imgCol = mapPalette(45), method = "edge",
-             cntrLwd = 2)
-title(main = "Supply Side Adoption Rate Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Supply Side Adoption Rate Map", cex.main = 1, line = 4)
+
 
 inMat <- mat_Adopt_DEM1
 # inMat[which(inMat == 0)] <- NA
@@ -2445,28 +2537,39 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.25),
              imgCol = mapPalette(45), method = "edge",
-             cntrLwd = 2)
-title(main = "Demand Side Adoption Rate Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Demand Side Adoption Rate Map", cex.main = 1, line = 4)
+
+
 
 inMat <- mat_MktParticip_SUP1
 midval <- df_Eq00$mkt_particip_SUP
 this_mapPalette <- DivMapPal(inMat, midval)
-#inMat[c(18, 19), 17] <- 0.92
-#View(inMat)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 1, 0.25), labcex = 1,
+             levels = seq(0, 1, 0.2), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Alternative Supply Market Participation Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Supply Market Participation Map", cex.main = 1, line = 4)
+
 
 
 inMat <- mat_MktParticip_SUP0
@@ -2476,11 +2579,18 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
+             ylab = "Mean farm cost (lcu / MT Root)",
+             levels = seq(0, 1, 0.2), labcex = 0.1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Baseline Supply Market Participation Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Supply Market Participation Map", cex.main = 1, line = 4)
+
 
 
 mat_MktParticip_SUPC <- mat_MktParticip_SUP0 + mat_MktParticip_SUP1
@@ -2491,47 +2601,58 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.05),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Composite Supply Market Participation Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Composite Supply Market Participation Map", cex.main = 1, line = 4)
 
 
 inMat <- mat_MktParticip_DEM1
 midval <- df_Eq00$mkt_particip_DEM
 this_mapPalette <- DivMapPal(inMat, midval)
-#inMat[c(18, 19), 17] <- 0.4
-#View(inMat)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 0.6, 0.01), labcex = 1,
+             levels = seq(0, 0.6, 0.05), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrCol = "black", cntrLty = "solid",
-             cntrLwd = 2)
-title(main = "Alternative Demand Market Participaion Map", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Demand Market Participaion Map", cex.main = 1, line = 4)
 
 
 
 inMat <- mat_MktParticip_DEM0
+midval <- df_Eq00$mkt_particip_DEM
+this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, imgCol = mapPalette(45), method = "edge")
-title(main = "Baseline Demand Market Participation Map", cex.main = 1)
-
-
-
-
-
-
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Demand Market Participation Map", cex.main = 1, line = 4)
 
 
 
@@ -2542,12 +2663,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 0.8,
              #levels = seq(0, 5e+05, 1e+05),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Baseline Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Mean Factory Net Revenue Map (lcu / day)", cex.main = 1, line = 4)
 
 
 
@@ -2558,12 +2684,17 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 12000, 1000),
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Baseline Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Baseline Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
 
 
 inMat <- mat_muYDe_DEM1
@@ -2573,28 +2704,48 @@ surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              levels = seq(0, 1e+06, 10^5), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Alternative Mean Factory Net Revenue Map (lcu / day)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Mean Factory Net Revenue Map (lcu / day)", cex.main = 1, line = 4)
+
 
 inMat <- mat_muYDe_SUP1
 midval <- mu_YDe_SUP00
 this_mapPalette <- DivMapPal(inMat, midval)
-#inMat[c(18, 19), 17] <- c(9750.9, 10005.36) #254.46
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
-             xlab = "Mean factory efficiency (kL Ethanol / MT Root)",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
              #levels = seq(6000, 16000, 1000),
              labcex = 1,
              imgCol = this_mapPalette, method = "edge",
-             cntrLwd = 2)
-title(main = "Alternative Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1)
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Alternative Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2932,7 +3083,7 @@ for(k in 1:length(eta_vec_graph)){
                                            df_rL0max_DEM = df_rL0max_DEM,
                                            chng_DEM = this_chng_DEM,
                                            Market0 = NULL, P_eq_00 = NULL,
-                                           graph_on = F)
+                                           graph_on = F, graphTitle_on = F)
     #Sys.sleep(1.5)
     df_Eq <- equilib_list[[1]]
     df_Eq$Tech <- New_Tech
