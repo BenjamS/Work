@@ -5,6 +5,39 @@ library(dplyr)
 library(tidyr)
 library(fields)
 
+
+#-----------------
+# Matrix smoothing function
+smoothMat <- function(M){
+  n_row <- nrow(M)
+  n_col <- ncol(M)
+  M_new <- matrix(NA, n_row, n_col)
+  for(i in 2:(n_row - 1)){
+    for(j in 2:(n_col - 1)){
+      x <- M[i, j]
+      top_row <- c(M[(i - 1), (j - 1)], M[(i - 1), j], M[(i - 1), (j + 1)])
+      bottom_row <- c(M[(i + 1), (j - 1)], M[(i + 1), j], M[(i + 1), (j + 1)])
+      sides <- c(M[i, (j - 1)], M[i, (j + 1)])
+      neighborhood <- c(top_row, bottom_row, sides)
+      if(length(which(neighborhood == 0)) >= 3){next()}
+      mu_neighborhood <- mean(neighborhood[(neighborhood != 0)])
+      sd_neighborhood <- sd(neighborhood[(neighborhood != 0)])
+      d <- abs(x - mu_neighborhood)
+      if(d > 100){
+        print(i)
+        print(j)
+        print(neighborhood)
+        print(x)
+        print(mu_neighborhood)
+        print(d)
+        #M_new[i, j] <- mu_neighborhood
+        M[i,j] <- mu_neighborhood
+      }
+    }
+  }
+  #M[!(is.na(M_new))] <- M_new[!(is.na(M_new))]
+  return(M)
+}
 # Function to create divergent color ramp with specific color attached to specific midpoint
 DivMapPal <- function(inMat, midval, start.color = "magenta", end.color = "cyan", mid.color = "khaki2"){
   ramp1 <- colorRampPalette(c(start.color,mid.color))
@@ -906,22 +939,22 @@ cv_lA_SUP_statQuo <- cv_lA_farm_statQuo
 s2_A_SUP_statQuo <- (m_A_SUP_statQuo * cv_lA_SUP_statQuo)^2
 #==================================
 #==================================
-# df_table <- data.frame(Ethanol_price_lcu_kL = P_ethanol_lcu_kL_statQuo,
-#                        Number_factories = N_D,
-#                        Productivity_MTrootsTokL = 1 / beta_DEM_statQuo,
-#                        Mean_processing_cost = mu_cost_process_ethanol_lcu_kL_statQuo,
-#                        CV_processing_cost = cv_cost_process_ethanol_lcu_MTRoots_statQuo,
-#                        Mean_logged_maxcapacity = m_yCeil_factry_ethanol_statQuo,
-#                        CV_logged_maxcapacity = cv_lyCeil_factry_ethanol_statQuo,
-#                        Number_farms = N_S,
-#                        Mean_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
-#                        CV_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
-#                        Mean_logged_maxyield = m_yCeil_farm,
-#                        CV_logged_maxyield = cv_lyCeil_farm,
-#                        Mean_logged_area = m_A_farm,
-#                        CV_logged_area = cv_lA_farm)
-# df_table <- as.data.frame(t(df_table))
-# write.csv(df_table, "RTB DEPEMap Study.csv")
+df_table <- data.frame(Ethanol_price_lcu_kL = P_ethanol_lcu_kL_statQuo,
+                       Number_factories = N_D,
+                       Productivity_MTrootsTokL = 1 / beta_DEM_statQuo,
+                       Mean_processing_cost = mu_cost_process_ethanol_lcu_kL_statQuo,
+                       CV_processing_cost = cv_cost_process_ethanol_lcu_MTRoots_statQuo,
+                       Mean_logged_maxcapacity = m_yCeil_DEM_statQuo,
+                       CV_logged_maxcapacity = cv_lyCeil_DEM_statQuo,
+                       Number_farms = N_S,
+                       Mean_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
+                       CV_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
+                       Mean_logged_maxyield = m_yCeil_SUP_statQuo,
+                       CV_logged_maxyield = cv_lyCeil_SUP_statQuo,
+                       Mean_logged_area = m_A_SUP_statQuo,
+                       CV_logged_area = cv_lA_SUP_statQuo)
+df_table <- as.data.frame(t(df_table))
+write.csv(df_table, "RTB DEPEMap Study.csv")
 #==================================
 #==================================
 #==================================
@@ -1790,7 +1823,7 @@ rvec <- seq(0, 1, 0.001)
 interval_r <- c(rvec[1], rvec[length(rvec)])
 P_eq_00 <- Pe00
 #eta_vec <- round(seq(0.01, 0.4, 0.0025), 4)
-eta_vec <- seq(0.01, 0.4, 0.0025)
+eta_vec <- seq(0.01, 0.4, 0.01)
 interval_P_rev_per_output_SUP <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
 df_rL0max_DEM <- data.frame(rL0 = NULL, rLmax = NULL)
 df_rL0max_SUP <- data.frame(rL0 = NULL, rLmax = NULL)
@@ -1817,6 +1850,16 @@ df_Eq0_list <- list()
 df_Eq0r_list <- list()
 df_Eq1_list <- list()
 df_Eq1r_list <- list()
+t <- 0
+#--
+df_QD0_list <- list()
+df_QD1_list <- list()
+df_QS0_list <- list()
+df_QS1_list <- list()
+Pe0_vec <- c()
+Qe0_vec <- c()
+Pe1_vec <- c()
+Qe1_vec <- c()
 #====================================
 #====================================
 #====================================
@@ -1965,6 +2008,12 @@ for(k in 1:n){
     gg
   }
   #-------------------------------
+  df_QD0$eta <- this_eta_DEM
+  df_QD1$eta <- this_eta_DEM
+  df_QD0_list[[k]] <- df_QD0
+  df_QD1_list[[k]] <- df_QD1
+  #---
+  
   
   for(l in 1:n){
     this_eta_SUP <- eta_vec[l]
@@ -2111,6 +2160,11 @@ for(k in 1:n){
       
     }
     #-------------------------------
+    df_QS0$eta <- this_eta_SUP
+    df_QS1$eta <- this_eta_SUP
+    df_QS0_list[[l]] <- df_QS0
+    df_QS1_list[[l]] <- df_QS1
+    #---
     
     #---
     Market0 <- T
@@ -2149,9 +2203,6 @@ for(k in 1:n){
                                            graph_on = F, graphTitle_on = T)
     df_Eq0 <- equilib_list[[1]]
     df_Eq0_r <- equilib_list[[2]]
-    #print(df_Eq0)
-    #print(df_Eq0_r)
-    
     if(is.null(df_Eq0)){
       MktParticip_DEM0 <- 0
       MktParticip_SUP0 <- 0
@@ -2190,6 +2241,8 @@ for(k in 1:n){
       mat_muYDe_DEM0[k, l] <- mu_YDe_DEM0
       #---
     }
+    t <- t + 1
+    df_Eq0_list[[t]] <- df_Eq1
     
     #---
     Market0 <- F
@@ -2224,7 +2277,6 @@ for(k in 1:n){
                                            graph_on = F, graphTitle_on = T)
     df_Eq1 <- equilib_list[[1]]
     df_Eq1_r <- equilib_list[[2]]
-    #print(df_Eq1_r)
     if(is.null(df_Eq1)){
       MktParticip_DEM1 <- 0
       MktParticip_SUP1 <- 0
@@ -2263,6 +2315,9 @@ for(k in 1:n){
       mat_muYDe_SUP1[k, l] <- mu_YDe_SUP1
       mat_muYDe_DEM1[k, l] <- mu_YDe_DEM1
     }
+    df_Eq1_list[[t]] <- df_Eq1
+    
+    
     Adopt_DEM1 <- MktParticip_DEM1 / (MktParticip_DEM1 + MktParticip_DEM0)
     Adopt_SUP1 <- MktParticip_SUP1 / (MktParticip_SUP1 + MktParticip_SUP0)
     Adopt_DEM1 <- ifelse(is.nan(Adopt_DEM1), NA, Adopt_DEM1)
@@ -2272,10 +2327,80 @@ for(k in 1:n){
     mat_Adopt_DEM1[k, l] <- Adopt_DEM1
     mat_Adopt_SUP1[k, l] <- Adopt_SUP1
     #---
-    Adopt_SUP1
     print(c(k = k, l = l))
+    Pe0_vec[t] <- mat_Pe0[l, k]
+    Qe0_vec[t] <- mat_Qe0[l, k]
+    Pe1_vec[t] <- mat_Pe1[l, k]
+    Qe1_vec[t] <- mat_Qe1[l, k]
+    
   }
 }
+#------------------------------
+# graphs
+if(graph_on){
+  df_QD0 <- do.call(rbind, df_QD0_list)
+  df_QD1 <- do.call(rbind, df_QD1_list)
+  df_QS0 <- do.call(rbind, df_QS0_list)
+  df_QS1 <- do.call(rbind, df_QS1_list)
+  df_QDcomp <- df_QD0
+  df_QDcomp$`Demand (MT)` <- df_QD0$`Demand (MT)` + df_QD1$`Demand (MT)`
+  df_QScomp <- df_QS0
+  df_QScomp$`Supply (MT)` <- df_QS0$`Supply (MT)` + df_QS1$`Supply (MT)`
+  # df_Eq0 <- do.call(rbind, df_Eq0_list)
+  # df_Eq1 <- do.call(rbind, df_Eq1_list)
+  # Pe0_vec <- df_Eq0$Pe
+  # Qe0_vec <- df_Eq0$Qe
+  # Pe1_vec <- df_Eq1$Pe
+  # Qe1_vec <- df_Eq1$Qe
+  #--
+  colnames(df_QD0)[1:2] <- c("Quantity (MT / day)", "Market Participation")
+  df_QD0$Type <- paste("Demand", df_QD0$eta)
+  colnames(df_QS0)[1:2] <- c("Quantity (MT / day)", "Market Participation")
+  df_QS0$Type <- paste("Supply", df_QS0$eta)
+  df_plot <- rbind(df_QD0, df_QS0)
+  u <- df_plot$`Quantity (MT / day)`
+  df_plot$`Quantity (MT / day)`[u == 0] <- NA
+  gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = `Quantity (MT / day)`,
+                            group = Type, color = Type))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + annotate("point", x = Pe0_vec, y = Qe0_vec, size = 2.5, color = "blue")
+  gg <- gg + theme_bw()
+  gg <- gg + theme(legend.position = "none")
+  gg
+  #--
+  colnames(df_QD1)[1:2] <- c("Quantity (MT / day)", "Market Participation")
+  df_QD1$Type <- paste("Demand", df_QD1$eta)
+  colnames(df_QS1)[1:2] <- c("Quantity (MT / day)", "Market Participation")
+  df_QS1$Type <- paste("Supply", df_QS1$eta)
+  df_plot <- rbind(df_QD1, df_QS1)
+  u <- df_plot$`Quantity (MT / day)`
+  df_plot$`Quantity (MT / day)`[u == 0] <- NA
+  gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = `Quantity (MT / day)`,
+                            group = Type, color = Type))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + annotate("point", x = Pe1_vec, y = Qe1_vec, size = 2.5, color = "blue")
+  gg <- gg + theme_bw()
+  gg <- gg + theme(legend.position = "none")
+  gg
+  #--
+  colnames(df_QDcomp)[1:2] <- c("Quantity (MT / day)", "Market Participation")
+  df_QDcomp$Type <- paste("Demand", df_QDcomp$eta)
+  colnames(df_QScomp)[1:2] <- c("Quantity (MT / day)", "Market Participation")
+  df_QScomp$Type <- paste("Supply", df_QScomp$eta)
+  df_plot <- rbind(df_QDcomp, df_QScomp)
+  u <- df_plot$`Quantity (MT / day)`
+  df_plot$`Quantity (MT / day)`[u == 0] <- NA
+  gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = `Quantity (MT / day)`,
+                            group = Type, color = Type))
+  gg <- gg + geom_line(lwd = 2)
+  #gg <- gg + annotate("point", x = Pe1_vec, y = Qe1_vec, size = 2.5, color = "blue")
+  gg <- gg + theme_bw()
+  gg <- gg + theme(legend.position = "none")
+  gg
+  
+}
+
+#------------------------------
 # Composite supply
 mat0 <- mat_Qe0
 mat0[is.na(mat0)] <- 0
@@ -2288,38 +2413,6 @@ mat0[is.na(mat0)] <- 0
 mat1 <- mat_Qe1_ethanol
 mat1[is.na(mat1)] <- 0
 mat_QeC_ethanol <- mat0 + mat1
-#-----------------
-# Matrix smoothing function
-smoothMat <- function(M){
-  n_row <- nrow(M)
-  n_col <- ncol(M)
-  M_new <- matrix(NA, n_row, n_col)
-  for(i in 2:(n_row - 1)){
-    for(j in 2:(n_col - 1)){
-      x <- M[i, j]
-      top_row <- c(M[(i - 1), (j - 1)], M[(i - 1), j], M[(i - 1), (j + 1)])
-      bottom_row <- c(M[(i + 1), (j - 1)], M[(i + 1), j], M[(i + 1), (j + 1)])
-      sides <- c(M[i, (j - 1)], M[i, (j + 1)])
-      neighborhood <- c(top_row, bottom_row, sides)
-      if(length(which(neighborhood == 0)) >= 3){next()}
-      mu_neighborhood <- mean(neighborhood[(neighborhood != 0)])
-      sd_neighborhood <- sd(neighborhood[(neighborhood != 0)])
-      d <- abs(x - mu_neighborhood)
-      if(d > 100){
-        print(i)
-        print(j)
-        print(neighborhood)
-        print(x)
-        print(mu_neighborhood)
-        print(d)
-        #M_new[i, j] <- mu_neighborhood
-        M[i,j] <- mu_neighborhood
-      }
-    }
-  }
-  #M[!(is.na(M_new))] <- M_new[!(is.na(M_new))]
-  return(M)
-}
 
 
 #-----------------
@@ -2339,6 +2432,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+#windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              #ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, imgCol = mapPalette(45), method = "edge")
@@ -2494,6 +2588,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
@@ -2506,21 +2601,26 @@ mtext("Pct. increase in farm cost", 4, line = 2.5)
 axis(3, at = xtick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in factory productivity", 3, line = 2.5)
 title(main = "Composite Equilibrium Root Quantity Map (MT / day)", cex.main = 1, line = 4)
-
-
+#savePlot("clipboard", type="wmf") #saves plot to WMF
 
 
 inMat <- mat_Adopt_SUP1
 # inMat[which(inMat == 0)] <- NA
 # inMat[which(inMat == 1)] <- NA
+midval <- 0.5
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "orange",
+                             end.color = "#9999CC",
+                             mid.color = "white")
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.25),
-             imgCol = mapPalette(45), method = "edge",
+             imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
 axis(4, at = ytick_labs, labels = pct_chng_vec)
@@ -2533,14 +2633,20 @@ title(main = "Supply Side Adoption Rate Map", cex.main = 1, line = 4)
 inMat <- mat_Adopt_DEM1
 # inMat[which(inMat == 0)] <- NA
 # inMat[which(inMat == 1)] <- NA
+midval <- 0.5
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "orange",
+                             end.color = "#9999CC",
+                             mid.color = "white")
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
              levels = seq(0, 1, 0.25),
-             imgCol = mapPalette(45), method = "edge",
+             imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
 axis(4, at = ytick_labs, labels = pct_chng_vec)
@@ -2600,6 +2706,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
@@ -2655,6 +2762,29 @@ mtext("Pct. increase in factory productivity", 3, line = 2.5)
 title(main = "Baseline Demand Market Participation Map", cex.main = 1, line = 4)
 
 
+mat_MktParticip_DEMC <- mat_MktParticip_DEM0 + mat_MktParticip_DEM1
+inMat <- mat_MktParticip_DEMC
+midval <- df_Eq00$mkt_particip_DEM
+this_mapPalette <- DivMapPal(inMat, midval)
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
+plotSurface2(surface, type = "C",
+             xlab = "Mean factory productivity (kL Ethanol / MT Root)",
+             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             levels = seq(0, 1, 0.05),
+             imgCol = this_mapPalette, method = "edge",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in farm cost", 4, line = 2.5)
+axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("Pct. increase in factory productivity", 3, line = 2.5)
+title(main = "Composite Demand Market Participation Map", cex.main = 1, line = 4)
+
+
+
 
 inMat <- mat_muYDe_DEM0
 midval <- mu_YDe_DEM00
@@ -2662,6 +2792,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+#windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 0.8,
@@ -2683,6 +2814,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+#windows(1000, 773, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
@@ -2694,7 +2826,7 @@ axis(4, at = ytick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in farm cost", 4, line = 2.5)
 axis(3, at = xtick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in factory productivity", 3, line = 2.5)
-title(main = "Baseline Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
+title(main = "Baseline Mean Farm Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
 
 
 inMat <- mat_muYDe_DEM1
@@ -2703,10 +2835,11 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 1e+06, 10^5), labcex = 1,
+             levels = seq(0, 1e+06, 0.5 * 10^5), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2716,17 +2849,18 @@ axis(3, at = xtick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in factory productivity", 3, line = 2.5)
 title(main = "Alternative Mean Factory Net Revenue Map (lcu / day)", cex.main = 1, line = 4)
 
-
+#imgBigplot <- c(0.10, 0.81, 0.15, 0.85)
 inMat <- mat_muYDe_SUP1
 midval <- mu_YDe_SUP00
 this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
+windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             #levels = seq(6000, 16000, 1000),
+             levels = seq(6000, 16000, 1000),
              labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
@@ -2735,7 +2869,7 @@ axis(4, at = ytick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in farm cost", 4, line = 2.5)
 axis(3, at = xtick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in factory productivity", 3, line = 2.5)
-title(main = "Alternative Mean Supply Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
+title(main = "Alternative Mean Farm Net Revenue Map (lcu / ha.)", cex.main = 1, line = 4)
 
 
 
@@ -3167,56 +3301,3 @@ mu_YDe_DEM00 <- exp(m_yCeil_DEM_statQuo) * NRyd_DEM(mu_r_DEM00, Pe00, l_credit =
 # Supply side:
 mu_r_SUP00 <- mu_P_fdstkCost_per_output_SUP_statQuo / Pe00
 mu_YDe_SUP00 <- exp(m_yCeil_SUP_statQuo) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit = 0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-t <- 0
-for(k in 1:n){
-  this_eta_DEM <- eta_vec[k]
-  this_chng_DEM <- 1 + this_eta_DEM
-  # mu_factry_efficiency_new <- 1 / mu_factry_efficiency_inv_statQuo * chng_DEM
-  # mu_factry_efficiency_inv <- 1 / mu_factry_efficiency_new
-  # sig2_factry_efficiency_inv <- (cv_factry_efficiency_inv_statQuo * mu_factry_efficiency_inv)^2
-  for(l in 1:n){
-    this_eta_SUP <- eta_vec[l]
-    this_chng_SUP <- 1 + this_eta_SUP
-    # mu_cost_per_farmProduct <- mu_cost_per_farmProduct_statQuo * chng_SUP
-    # sig2_cost_per_farmProduct <- (cv_cost_per_farmProduct_statQuo * mu_cost_per_farmProduct)^2
-    #---
-    
-    mat_Pe[k, l] <- df_Eq$Pe
-    mat_Qe[k, l] <- df_Eq$Qe
-    mat_Qe_ethanol[k, l] <- df_Eq$Qe / this_beta_DEM 
-    mat_muYDe_SUP[k, l] <- mu_YDe_SUP
-    mat_muYDe_DEM[k, l] <- mu_YDe_DEM
-    mat_MktParticip_DEM[k, l] <- df_Eq$mkt_particip_DEM
-    mat_MktParticip_SUP[k, l] <- df_Eq$mkt_particip_SUP
-    
-    print(c(k = k, l = l))
-  }
-}
-df_Eq <- do.call(rbind, df_Eq_list)
