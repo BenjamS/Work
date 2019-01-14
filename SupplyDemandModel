@@ -2006,12 +2006,14 @@ for(k in 1:n){
     gg <- gg + theme(legend.title = element_blank())
     gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.85, P_adoptRange_stop))
     gg
+    
+    df_QD0$eta <- this_eta_DEM
+    df_QD1$eta <- this_eta_DEM
+    df_QD0_list[[k]] <- df_QD0
+    df_QD1_list[[k]] <- df_QD1
+    
   }
   #-------------------------------
-  df_QD0$eta <- this_eta_DEM
-  df_QD1$eta <- this_eta_DEM
-  df_QD0_list[[k]] <- df_QD0
-  df_QD1_list[[k]] <- df_QD1
   #---
   
   
@@ -2157,13 +2159,13 @@ for(k in 1:n){
       gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.85, P_adoptRange_stop * 1.15))
       gg
       
-      
+      df_QS0$eta <- this_eta_SUP
+      df_QS1$eta <- this_eta_SUP
+      df_QS0_list[[l]] <- df_QS0
+      df_QS1_list[[l]] <- df_QS1  
     }
     #-------------------------------
-    df_QS0$eta <- this_eta_SUP
-    df_QS1$eta <- this_eta_SUP
-    df_QS0_list[[l]] <- df_QS0
-    df_QS1_list[[l]] <- df_QS1
+    
     #---
     
     #---
@@ -2241,8 +2243,8 @@ for(k in 1:n){
       mat_muYDe_DEM0[k, l] <- mu_YDe_DEM0
       #---
     }
-    t <- t + 1
-    df_Eq0_list[[t]] <- df_Eq1
+    # t <- t + 1
+    # df_Eq0_list[[t]] <- df_Eq1
     
     #---
     Market0 <- F
@@ -2315,7 +2317,7 @@ for(k in 1:n){
       mat_muYDe_SUP1[k, l] <- mu_YDe_SUP1
       mat_muYDe_DEM1[k, l] <- mu_YDe_DEM1
     }
-    df_Eq1_list[[t]] <- df_Eq1
+    #df_Eq1_list[[t]] <- df_Eq1
     
     
     Adopt_DEM1 <- MktParticip_DEM1 / (MktParticip_DEM1 + MktParticip_DEM0)
@@ -2436,7 +2438,8 @@ surface <- list(x = xtick_labs,
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              #ylab = "Mean farm cost (lcu / MT Root)", labcex = 1, imgCol = mapPalette(45), method = "edge")
-             ylab = "Mean farm cost (lcu / MT Root)", levels = seq(0, 800, 100), labcex = 1,
+             ylab = "Mean farm cost (lcu / MT Root)",
+             levels = seq(0, 800, 50), labcex = 0.8,
              imgCol = this_mapPalette, method = "edge", cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
 axis(4, at = ytick_labs, labels = pct_chng_vec)
@@ -2454,7 +2457,8 @@ surface <- list(x = xtick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", levels = seq(0, 500, 100), labcex = 1,
+             ylab = "Mean farm cost (lcu / MT Root)",
+             levels = seq(0, 500, 50), labcex = 0.8,
              imgCol = this_mapPalette, method = "edge", cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
 axis(4, at = ytick_labs, labels = pct_chng_vec)
@@ -2479,7 +2483,7 @@ surface <- list(x = xtick_labs,
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 700, 100), labcex = 1,
+             levels = seq(0, 700, 25), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2503,7 +2507,7 @@ surface <- list(x = xtick_labs,
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 3000, 200), labcex = 1,
+             levels = seq(0, 3000, 100), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2524,7 +2528,7 @@ surface <- list(x = xtick_labs,
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 4000, 500), labcex = 1,
+             levels = seq(0, 4000, 250), labcex = 1,
              #imgCol = mapPalette(45), method = "edge",
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
@@ -2533,7 +2537,7 @@ axis(4, at = ytick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in farm cost", 4, line = 2.5)
 axis(3, at = xtick_labs, labels = pct_chng_vec)
 mtext("Pct. increase in factory productivity", 3, line = 2.5)
-title(main = "Alternative Market Equilibrium Quantity Map (MT / day)", cex.main = 1, line = 4)
+title(main = "Alternative Market Equilibrium Root Quantity Map (MT / day)", cex.main = 1, line = 4)
 
 
 
@@ -2569,7 +2573,8 @@ surface <- list(x = xtick_labs,
                 z = inMat)
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
-             ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
+             ylab = "Mean farm cost (lcu / MT Root)",
+             levels = seq(0, 3000, 250), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2588,11 +2593,11 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
-windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
+#windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
-             levels = seq(0, 4000, 100), labcex = 1,
+             levels = seq(0, 4000, 50), labcex = 1,
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2706,11 +2711,11 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
-windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
+#windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
-             levels = seq(0, 1, 0.05),
+             levels = seq(0, 1, 0.025),
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2769,11 +2774,11 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
-windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
+#windows(800, 600, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 1,
-             levels = seq(0, 1, 0.05),
+             levels = seq(0, 1, 0.01),
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2796,7 +2801,7 @@ surface <- list(x = xtick_labs,
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)", labcex = 0.8,
-             #levels = seq(0, 5e+05, 1e+05),
+             levels = seq(0, 5e+05, 0.25e+05),
              imgCol = this_mapPalette, method = "edge",
              cntrLwd = 2,
              imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
@@ -2835,7 +2840,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
-windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
+#windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
@@ -2856,7 +2861,7 @@ this_mapPalette <- DivMapPal(inMat, midval)
 surface <- list(x = xtick_labs,
                 y = ytick_labs,
                 z = inMat)
-windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
+#windows(800, 500, pointsize = 12) #opens a separate window with the size you want 
 plotSurface2(surface, type = "C",
              xlab = "Mean factory productivity (kL Ethanol / MT Root)",
              ylab = "Mean farm cost (lcu / MT Root)",
