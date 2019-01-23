@@ -1,0 +1,862 @@
+library(ggplot2)
+library(rootSolve)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(fields)
+
+
+Q_DorS <- function(N, P_rev_per_output,
+                   mu_P_fdstkCost_per_output,
+                   mu_P_procCost_per_output = 0,
+                   cv_P_fdstkCost_per_output,
+                   cv_P_procCost_per_output = 0,
+                   beta,
+                   m_yCeil, cv_lyCeil,
+                   m_A, cv_lA,
+                   df_rL0max = data.frame(rL0 = 1, rLmax = 0),
+                   l_credit = 0){
+  #--------------------------------
+  s2_yCeil <- (cv_lyCeil * m_yCeil)^2
+  s2_A <- (cv_lA * m_A)^2
+  #--------------------------------
+  # mu_r
+  ratio_price <- (mu_P_fdstkCost_per_output + mu_P_procCost_per_output) / P_rev_per_output
+  mu_r <- ratio_price * beta * (1 - l_credit)
+  #--------------------------------
+  # sig2_r
+  sig2_fdstkCost_per_output <- (mu_P_fdstkCost_per_output * cv_P_fdstkCost_per_output)^2
+  sig2_procCost_per_output <- (mu_P_procCost_per_output * cv_P_procCost_per_output)^2
+  sig2_r <- (sig2_fdstkCost_per_output + sig2_procCost_per_output) * (beta / P_rev_per_output)^2
+  #--------------------------------
+  # s_qStar
+  s2_qStar <- s2_A + s2_yCeil + sig2_r
+  s_qStar <- sqrt(s2_qStar)
+  #--------------------------------
+  # mu_qStar
+  m_qStar <- m_A + m_yCeil - mu_r
+  mu_qStar <- exp(m_qStar + s2_qStar / 2)
+  #--------------------------------
+  # Nvr0, Nvr1
+  # Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
+  if(cv_P_fdstkCost_per_output != 0 | cv_P_procCost_per_output != 0){
+    term <- (1 - l_credit) / s_qStar
+    rL0 <- df_rL0max$rL0
+    rLmax <- df_rL0max$rLmax
+    theta_upper <- (-rLmax + mu_r) * term - s_qStar
+    theta_lower <- (-rL0 + mu_r) * term - s_qStar
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    # vrLmax <- (-rLmax + mu_r - s2_qStar) / s_qStar
+    # vrL0 <- (-rL0 + mu_r - s2_qStar) / s_qStar
+    # NvrLmax <- pnorm(vrLmax)
+    # NvrL0 <- pnorm(vrL0)
+    #--------------------------------
+    # QD or QS
+    mkt_participation <- N_upper - N_lower
+    #mkt_participation <- (1 + NvrLmax - NvrL0) / 2
+    #mkt_participation <- NvrLmax - NvrL0
+    Q_D_or_S <- N * mu_qStar * mkt_participation
+  }else{
+    Q_D_or_S <- mu_qStar
+  }
+  #--------------------------------
+  if(nrow(df_rL0max) > 1){
+    # ind1 <- which(df_rL0max$rL0 == 0)
+    # ind2 <- which(df_rL0max$rLmax == 0)
+    # ind0 <- intersect(ind1, ind2)
+    # Q_D_or_S[ind0] <- 0
+    # mkt_participation[ind0] <- NA
+  }else{
+    if(rL0 == 0 & rLmax == 0){
+      Q_D_or_S <- 0
+      mkt_participation <- NA
+    }
+  }
+  #--------------------------------
+  df_out <- data.frame(Q_D_or_S, mkt_participation)
+  #--------------------------------
+  return(df_out)
+}
+#==================================
+# Function for finding max mkt participation and corresponding price
+root_maxMktParticip <- function(P_rev_per_output,
+                                mu_P_fdstkCost_per_output,
+                           mu_P_procCost_per_output = 0,
+                           cv_P_fdstkCost_per_output,
+                           cv_P_procCost_per_output = 0,
+                           beta,
+                           m_yCeil, cv_lyCeil,
+                           m_A, cv_lA,
+                           df_rL0max, l_credit){
+  #--------------------------------
+  s2_yCeil <- (cv_lyCeil * m_yCeil)^2
+  s2_A <- (cv_lA * m_A)^2  
+  #--------------------------------
+  # mu_r
+  ratio_price <- (mu_P_fdstkCost_per_output + mu_P_procCost_per_output) / P_rev_per_output
+  mu_r <- ratio_price * beta * (1 - l_credit)
+  #--------------------------------
+  # sig2_r
+  sig2_fdstkCost_per_output <- (mu_P_fdstkCost_per_output * cv_P_fdstkCost_per_output)^2
+  sig2_procCost_per_output <- (mu_P_procCost_per_output * cv_P_procCost_per_output)^2
+  sig2_r <- (sig2_fdstkCost_per_output + sig2_procCost_per_output) * (beta / P_rev_per_output)^2
+  #--------------------------------
+  # s_qStar
+  s2_qStar <- s2_A + s2_yCeil + sig2_r
+  s_qStar <- sqrt(s2_qStar)
+  #--------------------------------
+  term <- (1 - l_credit) / s_qStar
+  rL0 <- df_rL0max$rL0
+  rLmax <- df_rL0max$rLmax
+  u_upper <- (-rLmax + mu_r) * term
+  u_lower <- (-rL0 + mu_r) * term
+  theta_upper <- u_upper - s_qStar
+  theta_lower <- u_lower - s_qStar
+  dsqStar_dP <- -term * (1 - l_credit) * sig2_r / P_rev_per_output
+  dthetaLo_dP <- -u_lower * dsqStar_dP / s_qStar - term * mu_r / P_rev_per_output - dsqStar_dP
+  #dthetaUp_dP <- -u_upper / s_qStar * dsqStar_dP - term * mu_r / P_rev_per_output - dsqStar_dP
+  dthetaUp_dP <- dsqStar_dP / s_qStar - (theta_upper - theta_lower)
+  #ratio_derivatives <- 1 - term / s_qStar * 1 / dthetaUp_dP
+  ratio_derivatives <- dthetaLo_dP / dthetaUp_dP
+  ratio_density <- exp((-theta_upper^2 + theta_lower^2) / 2)
+  slack <- ratio_derivatives - ratio_density
+  return(slack)
+}
+#==================================
+#==================================
+#==================================
+# Baseline market, before release of new tech
+#==================================
+# Define price range
+P_rev_per_output_SUP <- seq(200, 4000, 10)
+#==================================
+# Demand side parameters
+# Ethanol demand
+P_ethanol_lcu_kL_statQuo <- 23500 #https://www.ceicdata.com/en/thailand/biofuel-reference-price/reference-price-ethanol-price-
+MTRootsPerkLEthanol_statQuo <- 6 # 6 - Thierry (2014)
+mu_Q_ethanol_kL_day_statQuo <- 200 # 150 -Thierry (2014) but hay also 8 new plants with 560 max cap
+mu_Q_root_MT_day_ethanol_statQuo <- mu_Q_ethanol_kL_day_statQuo * MTRootsPerkLEthanol_statQuo
+mu_cost_process_ethanol_lcu_kL_statQuo <- 9000 # 8806 Thierry (2014)
+mu_cost_process_ethanol_lcu_MTRoots_statQuo <- mu_cost_process_ethanol_lcu_kL_statQuo / MTRootsPerkLEthanol_statQuo
+cv_cost_process_ethanol_lcu_MTRoots_statQuo <- 0.08
+N_D_factry_ethanol_statQuo <- 33 # 25 plus 8 under construction Thierry (2014)
+m_yCeil_factry_ethanol_statQuo <- log(mu_Q_ethanol_kL_day_statQuo * 1.5)
+cv_lyCeil_factry_ethanol_statQuo <- 0.15
+# Starch demand
+P_starch_lcu_MT_statQuo <- 14000
+MTRootsPerMTStarch_statQuo <- 4.21 #Thierry interview
+Q_root_MT_day_starch_statQuo <- 1200
+Q_starch_MT_day_statQuo <- Q_root_MT_day_starch_statQuo / MTRootsPerMTStarch_statQuo
+N_D_factry_starch_statQuo <- 10
+cv_factryEfficiency_starch_statQuo <- 0.12
+m_yCeil_factry_starch_statQuo <- log(Q_starch_MT_day_statQuo * 1.5)
+cv_lyCeil_factry_starch_statQuo <- 0.5
+#----------------------------------
+N_D <- N_D_factry_ethanol_statQuo
+P_rev_per_output_DEM_statQuo <- P_ethanol_lcu_kL_statQuo
+beta_DEM_statQuo <- MTRootsPerkLEthanol_statQuo
+mu_P_fdstkCost_per_output_DEM_statQuo <- NULL #In functions here input P_rev_output_SUP
+cv_P_fdstkCost_per_output_DEM_statQuo <- 0 
+mu_P_procCost_per_output_DEM_statQuo <- mu_cost_process_ethanol_lcu_MTRoots_statQuo
+cv_P_procCost_per_output_DEM_statQuo <- cv_cost_process_ethanol_lcu_MTRoots_statQuo
+m_yCeil_DEM_statQuo <- m_yCeil_factry_ethanol_statQuo
+cv_lyCeil_DEM_statQuo <- cv_lyCeil_factry_ethanol_statQuo
+s2_yCeil_DEM_statQuo <- (m_yCeil_DEM_statQuo * cv_lyCeil_DEM_statQuo)^2
+m_A_DEM_statQuo <- 0
+cv_lA_DEM_statQuo <- 0
+s2_A_DEM_statQuo <- (m_A_DEM_statQuo * cv_lA_DEM_statQuo)^2
+#==================================
+# Supply side parameters
+N_S_farm_statQuo <- 100
+mu_cost_per_farmProduct_statQuo <- 1500 #850 Thierry (2014)
+cv_cost_per_farmProduct_statQuo <- 0.2 #0.15 surmise
+m_yCeil_farm_statQuo <- log(45) #log(43.8375)
+cv_lyCeil_farm_statQuo <- 0
+s2_yCeil_farm_statQuo <- (m_yCeil_farm_statQuo * cv_lyCeil_farm_statQuo)^2
+m_A_farm_statQuo <- log(1.25) # log(4.673574) Thierry data, 0.5-2 Thierry (2014)
+cv_lA_farm_statQuo <- 0.55 #0.5466573 Thierry data
+s2_A_farm_statQuo <- (m_A_farm_statQuo * cv_lA_farm_statQuo)^2
+#----------------------------------
+N_S <- N_S_farm_statQuo
+beta_SUP_statQuo <- 1
+mu_P_fdstkCost_per_output_SUP_statQuo <- mu_cost_per_farmProduct_statQuo
+cv_P_fdstkCost_per_output_SUP_statQuo <- cv_cost_per_farmProduct_statQuo
+mu_P_procCost_per_output_SUP_statQuo <- 0
+cv_P_procCost_per_output_SUP_statQuo <- 0
+m_yCeil_SUP_statQuo <- m_yCeil_farm_statQuo
+cv_lyCeil_SUP_statQuo <- cv_lyCeil_farm_statQuo
+s2_yCeil_SUP_statQuo <- (m_yCeil_SUP_statQuo * cv_lyCeil_SUP_statQuo)^2
+m_A_SUP_statQuo <- m_A_farm_statQuo
+cv_lA_SUP_statQuo <- cv_lA_farm_statQuo
+s2_A_SUP_statQuo <- (m_A_SUP_statQuo * cv_lA_SUP_statQuo)^2
+#==================================
+#==================================
+df_table <- data.frame(Ethanol_price_lcu_kL = P_ethanol_lcu_kL_statQuo,
+                       Number_factories = N_D,
+                       Productivity_MTrootsTokL = 1 / beta_DEM_statQuo,
+                       Mean_processing_cost = mu_cost_process_ethanol_lcu_kL_statQuo,
+                       CV_processing_cost = cv_cost_process_ethanol_lcu_MTRoots_statQuo,
+                       Mean_logged_maxcapacity = m_yCeil_DEM_statQuo,
+                       CV_logged_maxcapacity = cv_lyCeil_DEM_statQuo,
+                       Number_farms = N_S,
+                       Mean_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
+                       CV_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
+                       Mean_logged_maxyield = m_yCeil_SUP_statQuo,
+                       CV_logged_maxyield = cv_lyCeil_SUP_statQuo,
+                       Mean_logged_area = m_A_SUP_statQuo,
+                       CV_logged_area = cv_lA_SUP_statQuo)
+df_table <- as.data.frame(t(df_table))
+write.csv(df_table, "RTB DEPEMap Study.csv")
+#==================================
+#==================================
+#==================================
+#==================================
+#==================================
+# Determine maximum supply market participation given parameters
+P_rev_per_output_SUP <- seq(200, 5000, 10)
+df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
+interval_P <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
+P_maxParticip_SUP <- uniroot.all(root_maxMktParticip, interval_P,
+                  lower = min(interval_P), upper = max(interval_P),
+                  mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                  mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                  cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                  cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                  beta = beta_SUP_statQuo,
+                  m_yCeil = m_yCeil_SUP_statQuo,
+                  cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                  m_A = m_A_SUP_statQuo,
+                  cv_lA = cv_lA_SUP_statQuo,
+                  df_rL0max = df_rL0max, l_credit = 0)
+P_maxParticip_SUP
+#==================================
+# Baseline Supply curve plot
+#==================================
+P_rev_per_output_SUP <- seq(200, 5000, 10)
+df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
+df_QS00 <- Q_DorS(N = N_S,
+                  P_rev_per_output = P_rev_per_output_SUP,
+                  mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                  mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                  cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                  cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                  beta = beta_SUP_statQuo,
+                  m_yCeil = m_yCeil_SUP_statQuo,
+                  cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                  m_A = m_A_SUP_statQuo,
+                  cv_lA = cv_lA_SUP_statQuo,
+                  df_rL0max,
+                  l_credit = 0)
+colnames(df_QS00) <- c("Supply (MT / day)", "Supply Market Participation")
+df_QS00$`Price (lcu / MT)` <- P_rev_per_output_SUP
+graph_on <- T
+if(graph_on == T){
+  # Supply curve alone
+  df_plot <- df_QS00
+  gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Supply (MT / day)`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + theme_bw()
+  gg <- gg + coord_cartesian(xlim = c(0, 5000))
+  gg
+  # Supply market participation curve alone
+  df_plot <- df_QS00
+  gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Supply Market Participation`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + theme_bw()
+  gg <- gg + geom_vline(xintercept = P_maxParticip_SUP)
+  gg <- gg + coord_cartesian(xlim = c(0, 5000))
+  gg
+  # Both together
+  df_plot <- df_QS00
+  gathercols <- colnames(df_plot)[1:2]
+  df_plot <- df_plot %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = Value))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + coord_cartesian(xlim = c(0, 5000))
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+}
+#==================================
+# Explore supply curve sensitivity
+#---
+# to changes in mean cost per farm output
+#----------------------------------
+turn_on <- F
+if(turn_on == T){
+  P_rev_per_output_SUP <- seq(100, 5000, 10)
+  eta_vec <- seq(-0.3, 0.6, 0.3)
+  dfQS_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_SUP <- eta_vec[i]
+    chng_SUP <- 1 + this_eta_SUP
+    this_mu_P_fdstkCost_per_output_SUP <- mu_P_fdstkCost_per_output_SUP_statQuo * chng_SUP
+    df_QS <- Q_DorS(N = N_S,
+                    P_rev_per_output = P_rev_per_output_SUP,
+                    mu_P_fdstkCost_per_output = this_mu_P_fdstkCost_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                    beta = beta_SUP_statQuo,
+                    m_yCeil = m_yCeil_SUP_statQuo,
+                    s2_yCeil = s2_yCeil_SUP_statQuo,
+                    m_A = m_A_SUP_statQuo,
+                    s2_A = s2_A_SUP_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QS$`Mean Farm\nCost Per\nUnit Output\n(lcu / MT)` <- factor(round(this_mu_P_fdstkCost_per_output_SUP, 0))
+    dfQS_list[[i]] <- df_QS
+    
+  }
+  df_QS <- do.call(rbind, dfQS_list)
+  colnames(df_QS)[1:2] <- c("Supply (MT)", "Supply Market Participation")
+  df_QS$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QS
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply (MT)`, group = `Mean Cost\nPer Unit\nFarm Output\n(lcu)`, color = `Mean Cost\nPer Unit\nFarm Output\n(lcu)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply Market Participation`, group = `Mean Cost\nPer Unit\nFarm Output\n(lcu)`, color = `Mean Cost\nPer Unit\nFarm Output\n(lcu)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  gathercols <- colnames(df_QS)[1:2]
+  df_QS_farmCost <- df_QS %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QS_farmCost, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                   group = `Mean Farm\nCost Per\nUnit Output\n(lcu / MT)`,
+                                   color = `Mean Farm\nCost Per\nUnit Output\n(lcu / MT)`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+}
+#----------------------------------
+# to changes in variance (cv) of farm cost per unit output
+#----------------------------------
+turn_on <- F
+if(turn_on == T){
+  P_rev_per_output_SUP <- seq(150, 5000, 10)
+  eta_vec <- seq(-0.1, 0.8, 0.3)
+  dfQS_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_SUP <- eta_vec[i]
+    this_cv_P_fdstkCost_per_output_SUP <- cv_P_fdstkCost_per_output_SUP_statQuo + this_eta_SUP
+    df_QS <- Q_DorS(N = N_S,
+                    P_rev_per_output = P_rev_per_output_SUP,
+                    mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                    cv_P_fdstkCost_per_output = this_cv_P_fdstkCost_per_output_SUP,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                    beta = beta_SUP_statQuo,
+                    m_yCeil = m_yCeil_SUP_statQuo,
+                    s2_yCeil = s2_yCeil_SUP_statQuo,
+                    m_A = m_A_SUP_statQuo,
+                    s2_A = s2_A_SUP_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QS$`CV Farm\nCost Per\nUnit Output` <- factor(this_cv_P_fdstkCost_per_output_SUP)
+    dfQS_list[[i]] <- df_QS
+  }
+  df_QS <- do.call(rbind, dfQS_list)
+  colnames(df_QS)[1:2] <- c("Supply (MT)", "Supply Market Participation")
+  df_QS$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QS
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply (MT)`, group = `CV Cost\nPer Unit\nFarm Output\n(lcu)`, color = `CV Cost\nPer Unit\nFarm Output\n(lcu)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply Market Participation`, group = `CV Cost\nPer Unit\nFarm Output\n(lcu)`, color = `CV Cost\nPer Unit\nFarm Output\n(lcu)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  gathercols <- colnames(df_QS)[1:2]
+  df_QS_farmCostCV <- df_QS %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QS_farmCostCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                     group = `CV Farm\nCost Per\nUnit Output`,
+                                     color = `CV Farm\nCost Per\nUnit Output`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+#----------------------------------
+# to changes in mean farm size
+#----------------------------------
+turn_on <- F
+if(turn_on == T){
+  eta_vec <- seq(-1, 1, 0.5)
+  dfQS_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_SUP <- eta_vec[i]
+    chng_SUP <- 1 + this_eta_SUP
+    this_m_A_SUP <- m_A_SUP_statQuo * chng_SUP
+    this_s2_A_SUP <- (cv_lA_SUP_statQuo * this_m_A_SUP)^2
+    df_QS <- Q_DorS(N = N_S,
+                    P_rev_per_output = P_rev_per_output_SUP,
+                    mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                    beta = beta_SUP_statQuo,
+                    m_yCeil = m_yCeil_SUP_statQuo,
+                    s2_yCeil = s2_yCeil_SUP_statQuo,
+                    m_A = this_m_A_SUP,
+                    s2_A = this_s2_A_SUP,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QS$`Mean Farm\nSize (Ha.)` <- factor(round(exp(this_m_A_SUP), 1))
+    dfQS_list[[i]] <- df_QS
+    
+  }
+  df_QS <- do.call(rbind, dfQS_list)
+  colnames(df_QS)[1:2] <- c("Supply (MT)", "Supply Market Participation")
+  df_QS$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QS
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply (MT)`, group = `Mean (logged)\nFarm Size (Ha.)`, color = `Mean (logged)\nFarm Size (Ha.)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply Market Participation`, group = `Mean (logged)\nFarm Size (Ha.)`, color = `Mean (logged)\nFarm Size (Ha.)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  gathercols <- colnames(df_QS)[1:2]
+  df_QS_farmSize <- df_QS %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QS_farmSize, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                   group = `Mean Farm\nSize (Ha.)`,
+                                   color = `Mean Farm\nSize (Ha.)`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+#----------------------------------
+# to changes in variance (cv) of farm size
+#----------------------------------
+turn_on <- F
+if(turn_on == T){
+  eta_vec <- seq(0, 1, 0.3)
+  dfQS_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_SUP <- eta_vec[i]
+    this_cv_lA_SUP <- cv_lA_SUP_statQuo + this_eta_SUP
+    this_s2_A_SUP <- (this_cv_lA_SUP * m_A_SUP_statQuo)^2
+    df_QS <- Q_DorS(N = N_S,
+                    P_rev_per_output = P_rev_per_output_SUP,
+                    mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                    beta = beta_SUP_statQuo,
+                    m_yCeil = m_yCeil_SUP_statQuo,
+                    s2_yCeil = s2_yCeil_SUP_statQuo,
+                    m_A = m_A_SUP_statQuo,
+                    s2_A = this_s2_A_SUP,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QS$`CV Logged\nFarm Size` <- factor(round(this_cv_lA_SUP, 1))
+    dfQS_list[[i]] <- df_QS
+    
+  }
+  df_QS <- do.call(rbind, dfQS_list)
+  colnames(df_QS)[1:2] <- c("Supply (MT)", "Supply Market Participation")
+  df_QS$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QS
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply (MT)`, group = `CV (logged)\nFarm Size (Ha.)`, color = `CV (logged)\nFarm Size (Ha.)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Supply Market Participation`, group = `CV (logged)\nFarm Size (Ha.)`, color = `CV (logged)\nFarm Size (Ha.)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  gathercols <- colnames(df_QS)[1:2]
+  df_QS_farmSizeCV <- df_QS %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QS_farmSizeCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                     group = `CV Logged\nFarm Size`,
+                                     color = `CV Logged\nFarm Size`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+#====================================
+#====================================
+#====================================
+
+
+
+
+
+
+
+
+
+
+
+# Baseline Demand curve plot
+graph_on <- F
+#==================================
+df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
+df_QD00 <- Q_DorS(N = N_D,
+                  P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                  mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                  mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                  cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                  cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                  beta = beta_DEM_statQuo,
+                  m_yCeil = m_yCeil_DEM_statQuo,
+                  s2_yCeil = s2_yCeil_DEM_statQuo,
+                  m_A = m_A_DEM_statQuo,
+                  s2_A = s2_A_DEM_statQuo,
+                  df_rL0max,
+                  l_credit = 0)
+colnames(df_QD00) <- c("Demand (MT)", "Demand Market Participation")
+df_QD00$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
+if(graph_on == T){
+  df_plot <- df_QD00
+  gathercols <- colnames(df_plot)[1:2]
+  df_plot <- df_plot %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_plot, aes(x = `Root Price (lcu / MT)`, y = Value))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+#==================================
+# Explore demand curve sensitivity
+#---
+# to changes in mean conversion efficiency
+turn_on <- F
+#----------------------------------
+if(turn_on == T){
+  eta_vec <- seq(-0.4, 0.4, 0.2)
+  dfQD_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_DEM <- eta_vec[i]
+    this_chng_DEM <- 1 + this_eta_DEM
+    new_factry_efficiency <- 1 / beta_DEM_statQuo * this_chng_DEM
+    this_beta_DEM <- 1 / new_factry_efficiency
+    df_QD <- Q_DorS(N = N_D,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                    mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                    beta = this_beta_DEM,
+                    m_yCeil = m_yCeil_DEM_statQuo,
+                    s2_yCeil = s2_yCeil_DEM_statQuo,
+                    m_A = m_A_DEM_statQuo,
+                    s2_A = s2_A_DEM_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QD$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+    df_QD$`Productivity\n(L / kg Roots)` <- as.character(round(new_factry_efficiency, 2))
+    dfQD_list[[i]] <- df_QD
+    
+  }
+  df_QD <- do.call(rbind, dfQD_list)
+  colnames(df_QD)[1:2] <- c("Demand (MT)", "Demand Market Participation")
+  # df_plot <- df_QD
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand (MT)`, group = `Mean Conversion\nEfficiency`, color = `Mean Conversion\nEfficiency`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand Market Participation`, group = `Mean Conversion\nEfficiency`, color = `Mean Conversion\nEfficiency`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  df_QD_factryEfficiency <- df_QD
+  gathercols <- colnames(df_QD_factryEfficiency)[1:2]
+  df_QD_factryEfficiency <- df_QD_factryEfficiency %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QD_factryEfficiency, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                           group = `Productivity\n(L / kg Roots)`,
+                                           color = `Productivity\n(L / kg Roots)`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+#----------------------------------
+# to changes in variance (cv) of processing cost
+turn_on <- F
+#----------------------------------
+if(turn_on == T){
+  eta_vec <- seq(0.1, 1.1, 0.3)
+  dfQD_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_DEM <- eta_vec[i]
+    this_cv_P_procCost_per_output_DEM <- cv_P_procCost_per_output_DEM_statQuo + this_eta_DEM
+    df_QD <- Q_DorS(N = N_D,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                    mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                    cv_P_procCost_per_output = this_cv_P_procCost_per_output_DEM,
+                    beta = beta_DEM_statQuo,
+                    m_yCeil = m_yCeil_DEM_statQuo,
+                    s2_yCeil = s2_yCeil_DEM_statQuo,
+                    m_A = m_A_DEM_statQuo,
+                    s2_A = s2_A_DEM_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QD$`CV Processing\nCost` <- as.character(this_cv_P_procCost_per_output_DEM)
+    dfQD_list[[i]] <- df_QD
+    
+  }
+  df_QD <- do.call(rbind, dfQD_list)
+  colnames(df_QD)[1:2] <- c("Demand (MT)", "Demand Market Participation")
+  df_QD$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QD
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand (MT)`, group = `CV Conversion\nEfficiency`, color = `CV Conversion\nEfficiency`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand Market Participation`, group = `CV Conversion\nEfficiency`, color = `CV Conversion\nEfficiency`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg  
+  df_QD_factryProcCost <- df_QD
+  gathercols <- colnames(df_QD_factryProcCost)[1:2]
+  df_QD_factryProcCost <- df_QD_factryProcCost %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QD_factryProcCost, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                         group = `CV Processing\nCost`,
+                                         color = `CV Processing\nCost`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+}
+#----------------------------------
+# to changes in mean factory capacity
+turn_on <- F
+#----------------------------------
+if(turn_on == T){
+  eta_vec <- seq(0.2, 0.9, 0.2)
+  dfQD_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_DEM <- eta_vec[i]
+    this_m_yCeil_DEM <- m_yCeil_DEM_statQuo + this_eta_DEM
+    this_s2_yCeil_DEM <- (cv_lyCeil_DEM_statQuo * this_m_yCeil_DEM)^2
+    df_QD <- Q_DorS(N = N_D,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                    mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                    beta = beta_DEM_statQuo,
+                    m_yCeil = this_m_yCeil_DEM,
+                    s2_yCeil = this_s2_yCeil_DEM,
+                    m_A = m_A_DEM_statQuo,
+                    s2_A = s2_A_DEM_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QD$`Mean\nMax Factory\nCapacity\n(kL / day)` <- as.character(round(exp(this_m_yCeil_DEM), 0))
+    dfQD_list[[i]] <- df_QD
+    
+  }
+  df_QD <- do.call(rbind, dfQD_list)
+  colnames(df_QD)[1:2] <- c("Demand (MT)", "Demand Market Participation")
+  df_QD$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QD
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand (MT)`, group = `Mean (logged)\nFactory Capacity`, color = `Mean (logged)\nFactory Capacity`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand Market Participation`, group = `Mean (logged)\nFactory Capacity`, color = `Mean (logged)\nFactory Capacity`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  df_QD_factryMaxCap <- df_QD
+  gathercols <- colnames(df_QD_factryMaxCap)[1:2]
+  df_QD_factryMaxCap <- df_QD_factryMaxCap %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QD_factryMaxCap, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                       group = `Mean\nMax Factory\nCapacity\n(kL / day)`,
+                                       color = `Mean\nMax Factory\nCapacity\n(kL / day)`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+}
+#----------------------------------
+# to changes in variance (cv) of factory capacity
+#----------------------------------
+turn_on <- F
+if(turn_on == T){
+  eta_vec <- seq(0.05, 0.2, 0.05)
+  dfQD_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_DEM <- eta_vec[i]
+    this_cv_lyCeil_DEM <- cv_lyCeil_DEM_statQuo + this_eta_DEM
+    this_s2_yCeil_DEM <- (this_cv_lyCeil_DEM * m_yCeil_DEM_statQuo)^2
+    df_QD <- Q_DorS(N = N_D,
+                    P_rev_per_output = P_rev_per_output_DEM_statQuo,
+                    mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                    beta = beta_DEM_statQuo,
+                    m_yCeil = m_yCeil_DEM_statQuo,
+                    s2_yCeil = this_s2_yCeil_DEM,
+                    m_A = m_A_DEM_statQuo,
+                    s2_A = s2_A_DEM_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QD$`CV Logged\nMax Factory\nCapacity` <- as.character(this_cv_lyCeil_DEM)
+    dfQD_list[[i]] <- df_QD
+    
+  }
+  df_QD <- do.call(rbind, dfQD_list)
+  colnames(df_QD)[1:2] <- c("Demand (MT)", "Demand Market Participation")
+  df_QD$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QD
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand (MT)`, group = `CV (logged)\nFactory Capacity`, color = `CV (logged)\nFactory Capacity`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand Market Participation`, group = `CV (logged)\nFactory Capacity`, color = `CV (logged)\nFactory Capacity`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg  
+  df_QD_factryMaxCapCV <- df_QD
+  gathercols <- colnames(df_QD_factryMaxCapCV)[1:2]
+  df_QD_factryMaxCapCV <- df_QD_factryMaxCapCV %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QD_factryMaxCapCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                         group = `CV Logged\nMax Factory\nCapacity`,
+                                         color = `CV Logged\nMax Factory\nCapacity`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+
+#----------------------------------
+# to changes in expected output price
+turn_on <- F
+#----------------------------------
+if(turn_on == T){
+  eta_vec <- seq(-0.2, 0.2, 0.1)
+  dfQD_list <- list()
+  for(i in 1:length(eta_vec)){
+    this_eta_DEM <- eta_vec[i]
+    chng_DEM <- 1 + this_eta_DEM
+    this_P_rev_per_output_DEM <- P_rev_per_output_DEM_statQuo * chng_DEM
+    df_QD <- Q_DorS(N = N_D,
+                    P_rev_per_output = this_P_rev_per_output_DEM,
+                    mu_P_fdstkCost_per_output = P_rev_per_output_SUP,
+                    mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo,
+                    cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo,
+                    cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo,
+                    beta = beta_DEM_statQuo,
+                    m_yCeil = m_yCeil_DEM_statQuo,
+                    s2_yCeil = s2_yCeil_DEM_statQuo,
+                    m_A = m_A_DEM_statQuo,
+                    s2_A = s2_A_DEM_statQuo,
+                    df_rL0max,
+                    l_credit = 0)
+    df_QD$`Ethanol\nPrice\n(lcu / kL)` <- as.character(this_P_rev_per_output_DEM)
+    dfQD_list[[i]] <- df_QD
+    
+  }
+  df_QD <- do.call(rbind, dfQD_list)
+  colnames(df_QD)[1:2] <- c("Demand (MT)", "Demand Market Participation")
+  df_QD$`Feedstock Price (lcu / MT)` <- P_rev_per_output_SUP
+  # df_plot <- df_QD
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand (MT)`, group = `Output Price\n(lcu / kL)`, color = `Output Price\n(lcu / kL)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  # gg <- ggplot(df_plot, aes(x = `Feedstock Price (lcu / MT)`, y = `Demand Market Participation`, group = `Output Price\n(lcu / kL)`, color = `Output Price\n(lcu / kL)`))
+  # gg <- gg + geom_line(lwd = 2)
+  # gg
+  df_QD_factryPrice <- df_QD
+  gathercols <- colnames(df_QD_factryPrice)[1:2]
+  df_QD_factryPrice <- df_QD_factryPrice %>% gather_("Type", "Value", gathercols)
+  gg <- ggplot(df_QD_factryPrice, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
+                                      group = `Ethanol\nPrice\n(lcu / kL)`,
+                                      color = `Ethanol\nPrice\n(lcu / kL)`))
+  gg <- gg + geom_line(lwd = 2)
+  gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
+                        strip.position = "left")
+  gg <- gg + ylab(NULL)
+  gg <- gg + theme_bw()
+  gg
+  
+}
+#==================================
+#==================================
+#==================================
+#==================================
+#====================================
+# Baseline Demand and Supply Together (aka the market, PE model, etc.)
+# Here we get Pe the baseline equilibrium price before release of the alternative
+interval_P <- c(P_rev_per_output_SUP[1], P_rev_per_output_SUP[length(P_rev_per_output_SUP)])
+df_rL0max_SUP <- data.frame(rL0 = 1, rLmax = 0)
+df_rL0max_DEM <- data.frame(rL0 = 1, rLmax = 0)
+equilib_list <- get_equilibrium_values(interval_P,
+                                       N_S = N_S,
+                                       mu_P_fdstkCost_per_output_SUP = mu_P_fdstkCost_per_output_SUP_statQuo,
+                                       cv_P_fdstkCost_per_output_SUP = cv_P_fdstkCost_per_output_SUP_statQuo,
+                                       mu_P_procCost_per_output_SUP = mu_P_procCost_per_output_SUP_statQuo,
+                                       cv_P_procCost_per_output_SUP = cv_P_procCost_per_output_SUP_statQuo,
+                                       beta_SUP = beta_SUP_statQuo,
+                                       m_yCeil_SUP = m_yCeil_SUP_statQuo,
+                                       s2_yCeil_SUP = s2_yCeil_SUP_statQuo,
+                                       m_A_SUP = m_A_SUP_statQuo,
+                                       s2_A_SUP = s2_A_SUP_statQuo,
+                                       df_rL0max_SUP = df_rL0max_SUP,
+                                       chng_SUP = 1,
+                                       #---
+                                       P_rev_per_output_DEM = P_rev_per_output_DEM_statQuo,
+                                       N_D = N_D,
+                                       mu_P_fdstkCost_per_output_DEM = mu_P_fdstkCost_per_output_DEM_statQuo,
+                                       cv_P_fdstkCost_per_output_DEM = cv_P_fdstkCost_per_output_DEM_statQuo,
+                                       mu_P_procCost_per_output_DEM = mu_P_procCost_per_output_DEM_statQuo,
+                                       cv_P_procCost_per_output_DEM = cv_P_procCost_per_output_DEM_statQuo,
+                                       beta_DEM = beta_DEM_statQuo,
+                                       m_yCeil_DEM = m_yCeil_DEM_statQuo,
+                                       s2_yCeil_DEM = s2_yCeil_DEM_statQuo,
+                                       m_A_DEM = m_A_DEM_statQuo,
+                                       s2_A_DEM = s2_A_DEM_statQuo,
+                                       df_rL0max_DEM = df_rL0max_DEM,
+                                       chng_DEM = 1,
+                                       Market0 = NULL, P_eq_00 = NULL,
+                                       graph_on = T, graphTitle_on = F)
+Tech00 <- "Before release (Baseline)"
+df_Eq00 <- equilib_list[[1]]
+df_Eq00$Tech <- Tech00
+df_Eq00_r <- equilib_list[[2]]
+df_Eq00_r$Tech <- Tech00
+print(df_Eq00)
+print(df_Eq00_r)
+Pe00 <- df_Eq00$Pe
+#------------------------------------
+# df_QSQD00 <- merge(df_QS00, df_QD00, by = "Feedstock Price (lcu / MT)")
+# df_QSQD00 <- df_QSQD00[, c("Feedstock Price (lcu / MT)", "Supply Market Participation", "Demand Market Participation",
+#                            "Supply (MT)", "Demand (MT)")]
+#colnames(df_QSQD)[4:5] <- c("Supply", "Demand")
+
+# df_QSQD00 <- df_QSQD00 %>% gather(Type, `Quantity (MT)`, `Supply (MT)`:`Demand (MT)`)
+# gg <- ggplot()
+# gg <- gg + geom_line(data = df_QSQD00, aes(x = `Feedstock Price (lcu / MT)`, y = `Quantity (MT)`, color = Type, group = Type), lwd = 2)
+# gg <- gg + geom_vline(xintercept = Pe00, linetype = "dashed")
+# gg <- gg + theme(legend.title = element_blank())
+# gg
+#====================================
+# Baseline market mean net revenue (yield)
+# Demand side:
+mu_r_DEM00 <- Pe00 / P_rev_per_output_DEM_statQuo * beta_DEM_statQuo
+mu_YDe_DEM00 <- exp(m_yCeil_DEM_statQuo) * NRyd_DEM(mu_r_DEM00, Pe00, l_credit = 0)
+# Supply side:
+mu_r_SUP00 <- mu_P_fdstkCost_per_output_SUP_statQuo / Pe00
+mu_YDe_SUP00 <- exp(m_yCeil_SUP_statQuo) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit = 0)
