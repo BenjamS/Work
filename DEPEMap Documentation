@@ -113,13 +113,16 @@ root_maxMktParticip <- function(P_rev_per_output,
   u_lower <- (-rL0 + mu_r) * term
   theta_upper <- u_upper - s_qStar
   theta_lower <- u_lower - s_qStar
-  dsqStar_dP <- -term * (1 - l_credit) * sig2_r / P_rev_per_output
-  dthetaLo_dP <- -u_lower * dsqStar_dP / s_qStar - term * mu_r / P_rev_per_output - dsqStar_dP
+  dSqStar_dP <- -term * (1 - l_credit) * sig2_r / P_rev_per_output^3
+  dThetaUpper_dP <- -u_upper * (1 / P_rev_per_output + dSqStar_dP / s_qStar) - dSqStar_dP
+  dThetaLower_dP <- dThetaUpper_dP + term * dSqStar_dP / s_qStar
+  #dthetaLo_dP <- -u_lower * dsqStar_dP / s_qStar - term * mu_r / P_rev_per_output - dsqStar_dP
   #dthetaUp_dP <- -u_upper / s_qStar * dsqStar_dP - term * mu_r / P_rev_per_output - dsqStar_dP
-  dthetaUp_dP <- dsqStar_dP / s_qStar - (theta_upper - theta_lower)
+  #dthetaUp_dP <- dsqStar_dP / s_qStar - (theta_upper - theta_lower)
   #ratio_derivatives <- 1 - term / s_qStar * 1 / dthetaUp_dP
-  ratio_derivatives <- dthetaLo_dP / dthetaUp_dP
-  ratio_density <- exp((-theta_upper^2 + theta_lower^2) / 2)
+  ratio_derivatives <- dThetaLower_dP / dThetaUpper_dP
+  #ratio_density <- exp((-theta_upper^2 + theta_lower^2) / 2)
+  ratio_density <- dnorm(theta_upper) / dnorm(theta_lower)
   slack <- ratio_derivatives - ratio_density
   return(slack)
 }
@@ -174,7 +177,7 @@ cv_cost_per_farmProduct_statQuo <- 0.2 #0.15 surmise
 m_yCeil_farm_statQuo <- log(45) #log(43.8375)
 cv_lyCeil_farm_statQuo <- 0
 s2_yCeil_farm_statQuo <- (m_yCeil_farm_statQuo * cv_lyCeil_farm_statQuo)^2
-m_A_farm_statQuo <- log(1.25) # log(4.673574) Thierry data, 0.5-2 Thierry (2014)
+m_A_farm_statQuo <- log(4) #log(1.25) # log(4.673574) Thierry data, 0.5-2 Thierry (2014)
 cv_lA_farm_statQuo <- 0.55 #0.5466573 Thierry data
 s2_A_farm_statQuo <- (m_A_farm_statQuo * cv_lA_farm_statQuo)^2
 #----------------------------------
@@ -191,6 +194,7 @@ m_A_SUP_statQuo <- m_A_farm_statQuo
 cv_lA_SUP_statQuo <- cv_lA_farm_statQuo
 s2_A_SUP_statQuo <- (m_A_SUP_statQuo * cv_lA_SUP_statQuo)^2
 #==================================
+l_credit_statusQuo <- 0
 #==================================
 df_table <- data.frame(Ethanol_price_lcu_kL = P_ethanol_lcu_kL_statQuo,
                        Number_factories = N_D,
@@ -229,11 +233,32 @@ P_maxParticip_SUP <- uniroot.all(root_maxMktParticip, interval_P,
                   m_A = m_A_SUP_statQuo,
                   cv_lA = cv_lA_SUP_statQuo,
                   df_rL0max = df_rL0max, l_credit = 0)
+df_maxParticip_SUP <- Q_DorS(N = N_S,
+                  P_rev_per_output = P_maxParticip_SUP,
+                  mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                  mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                  cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                  cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                  beta = beta_SUP_statQuo,
+                  m_yCeil = m_yCeil_SUP_statQuo,
+                  cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                  m_A = m_A_SUP_statQuo,
+                  cv_lA = cv_lA_SUP_statQuo,
+                  df_rL0max,
+                  l_credit = 0)
 P_maxParticip_SUP
+maxParticip_SUP <- df_maxParticip_SUP$mkt_participation
+#==================================
+# Determine market participation lower asymptote given parameters
+limitP_theta_upper <- -sqrt(s2_A_SUP_statQuo + s2_yCeil_SUP_statQuo)
+limitP_theta_lower <- (1 - l_credit_statusQuo) / limitP_theta_upper + limitP_theta_upper
+unemployment_lower_bound <- pnorm(limitP_theta_upper) - pnorm(limitP_theta_lower)
+unemployment_lower_bound
 #==================================
 # Baseline Supply curve plot
 #==================================
-P_rev_per_output_SUP <- seq(200, 5000, 10)
+price_upper_limit <- 75000
+P_rev_per_output_SUP <- seq(200, price_upper_limit, 10)
 df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
 df_QS00 <- Q_DorS(N = N_S,
                   P_rev_per_output = P_rev_per_output_SUP,
@@ -257,7 +282,7 @@ if(graph_on == T){
   gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Supply (MT / day)`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + theme_bw()
-  gg <- gg + coord_cartesian(xlim = c(0, 5000))
+  gg <- gg + coord_cartesian(xlim = c(0, price_upper_limit))
   gg
   # Supply market participation curve alone
   df_plot <- df_QS00
@@ -265,7 +290,9 @@ if(graph_on == T){
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + theme_bw()
   gg <- gg + geom_vline(xintercept = P_maxParticip_SUP)
-  gg <- gg + coord_cartesian(xlim = c(0, 5000))
+  gg <- gg + geom_hline(yintercept = maxParticip_SUP)
+  gg <- gg + geom_hline(yintercept = unemployment_lower_bound)
+  gg <- gg + coord_cartesian(xlim = c(0, price_upper_limit))
   gg
   # Both together
   df_plot <- df_QS00
