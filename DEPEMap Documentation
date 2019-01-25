@@ -88,7 +88,9 @@ root_maxMktParticip <- function(P_rev_per_output,
                            beta,
                            m_yCeil, cv_lyCeil,
                            m_A, cv_lA,
-                           df_rL0max, l_credit){
+                           df_rL0max, l_credit,
+                           find_maxMktParticip = T,
+                           find_maxQ = F){
   #--------------------------------
   s2_yCeil <- (cv_lyCeil * m_yCeil)^2
   s2_A <- (cv_lA * m_A)^2  
@@ -123,8 +125,15 @@ root_maxMktParticip <- function(P_rev_per_output,
   ratio_derivatives <- dThetaLower_dP / dThetaUpper_dP
   #ratio_density <- exp((-theta_upper^2 + theta_lower^2) / 2)
   ratio_density <- dnorm(theta_upper) / dnorm(theta_lower)
-  slack <- ratio_derivatives - ratio_density
-  return(slack)
+  slack_maxMktParticip <- ratio_derivatives - ratio_density
+  #--------------------------------
+  # supply max f.o.c.
+  Chi <- pnorm(theta_upper) - pnorm(theta_lower)
+  dChi_dP <- dnorm(theta_upper) * dThetaUpper_dP - dnorm(theta_lower) * dThetaLower_dP
+  slack_maxQ <- P_rev_per_output * dChi_dP / Chi - sig2_r + mu_r
+  #--------------------------------
+  if(find_maxMktParticip){return(slack_maxMktParticip)}
+  if(find_maxQ){return(slack_maxQ)}
 }
 #==================================
 #==================================
@@ -232,7 +241,24 @@ P_maxParticip_SUP <- uniroot.all(root_maxMktParticip, interval_P,
                   cv_lyCeil = cv_lyCeil_SUP_statQuo,
                   m_A = m_A_SUP_statQuo,
                   cv_lA = cv_lA_SUP_statQuo,
-                  df_rL0max = df_rL0max, l_credit = 0)
+                  df_rL0max = df_rL0max, l_credit = 0,
+                  find_maxMktParticip = T,
+                  find_maxQ = F)
+P_maxQ_SUP <- uniroot.all(root_maxMktParticip, interval_P,
+                                 lower = min(interval_P), upper = max(interval_P),
+                                 mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                                 mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                                 cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                                 cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                                 beta = beta_SUP_statQuo,
+                                 m_yCeil = m_yCeil_SUP_statQuo,
+                                 cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                                 m_A = m_A_SUP_statQuo,
+                                 cv_lA = cv_lA_SUP_statQuo,
+                                 df_rL0max = df_rL0max, l_credit = 0,
+                                 find_maxMktParticip = F,
+                                 find_maxQ = T)
+#---
 df_maxParticip_SUP <- Q_DorS(N = N_S,
                   P_rev_per_output = P_maxParticip_SUP,
                   mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
@@ -246,18 +272,39 @@ df_maxParticip_SUP <- Q_DorS(N = N_S,
                   cv_lA = cv_lA_SUP_statQuo,
                   df_rL0max,
                   l_credit = 0)
-P_maxParticip_SUP
+df_maxQ_SUP <- Q_DorS(N = N_S,
+                             P_rev_per_output = P_maxQ_SUP,
+                             mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                             mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                             cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                             cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                             beta = beta_SUP_statQuo,
+                             m_yCeil = m_yCeil_SUP_statQuo,
+                             cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                             m_A = m_A_SUP_statQuo,
+                             cv_lA = cv_lA_SUP_statQuo,
+                             df_rL0max,
+                             l_credit = 0)
 maxParticip_SUP <- df_maxParticip_SUP$mkt_participation
+maxQ_SUP <- df_maxQ_SUP$Q_D_or_S
+P_maxParticip_SUP
+maxParticip_SUP
+P_maxQ_SUP
+maxQ_SUP
 #==================================
 # Determine market participation lower asymptote given parameters
 limitP_theta_upper <- -sqrt(s2_A_SUP_statQuo + s2_yCeil_SUP_statQuo)
 limitP_theta_lower <- (1 - l_credit_statusQuo) / limitP_theta_upper + limitP_theta_upper
-unemployment_lower_bound <- pnorm(limitP_theta_upper) - pnorm(limitP_theta_lower)
-unemployment_lower_bound
+unemployment_lowerBound_SUP <- pnorm(limitP_theta_upper) - pnorm(limitP_theta_lower)
+mu_A_SUP <- exp(m_A_SUP_statQuo + s2_A_SUP_statQuo^2 / 2)
+mu_yCeil_SUP <- exp(m_yCeil_SUP_statQuo + s2_yCeil_SUP_statQuo^2 / 2)
+Q_lowerBound_SUP <- N_S * mu_A_SUP * mu_yCeil_SUP * unemployment_lowerBound_SUP
+unemployment_lowerBound_SUP
+Q_lowerBound_SUP
 #==================================
 # Baseline Supply curve plot
 #==================================
-price_upper_limit <- 75000
+price_upper_limit <- 90000
 P_rev_per_output_SUP <- seq(200, price_upper_limit, 10)
 df_rL0max <- data.frame(rL0 = 1, rLmax = 0)
 df_QS00 <- Q_DorS(N = N_S,
@@ -282,6 +329,8 @@ if(graph_on == T){
   gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Supply (MT / day)`))
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + theme_bw()
+  gg <- gg + geom_vline(xintercept = P_maxQ_SUP)
+  gg <- gg + geom_hline(yintercept = Q_lowerBound_SUP)
   gg <- gg + coord_cartesian(xlim = c(0, price_upper_limit))
   gg
   # Supply market participation curve alone
@@ -291,7 +340,7 @@ if(graph_on == T){
   gg <- gg + theme_bw()
   gg <- gg + geom_vline(xintercept = P_maxParticip_SUP)
   gg <- gg + geom_hline(yintercept = maxParticip_SUP)
-  gg <- gg + geom_hline(yintercept = unemployment_lower_bound)
+  gg <- gg + geom_hline(yintercept = unemployment_lowerBound_SUP)
   gg <- gg + coord_cartesian(xlim = c(0, price_upper_limit))
   gg
   # Both together
