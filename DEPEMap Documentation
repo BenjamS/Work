@@ -1504,7 +1504,7 @@ old_theta_lower <- theta_lower
 z <- seq(-3, 3, 0.001)
 df_z <- data.frame(z = z, f = dnorm(z))
 df_z <- as.data.frame(df_z %>% mutate(area = ifelse(z > theta_lower0 & z < theta_upper,
-                                      "Participating", "Not Participating")))
+                                                    "Participating", "Not Participating")))
 df_z <- as.data.frame(df_z %>% mutate(area = ifelse(z > old_theta_lower & z <= theta_lower0,
                                                     "Switch", area)))
 gg <- ggplot(data = df_z, aes(x = z, ymin = 0, ymax = f))
@@ -1604,7 +1604,7 @@ gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
 gg <- gg + scale_fill_gradient2(low = "orange", mid = "white", high = "#9999CC",
                                 midpoint = 0.5)
 gg <- gg + geom_line(data = df_plot1, aes(x = `Root Price (lcu / MT)`, y = `Supply (MT / day)`,
-                                         group = Type, color = Type), lwd = 2)
+                                          group = Type, color = Type), lwd = 2)
 gg <- gg + scale_color_manual(values=c("lightsalmon", "lightsalmon4"))
 gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
 gg <- gg + theme_bw()
@@ -1701,3 +1701,90 @@ gg
 
 
 #==================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#==================================
+P <- seq(0, 10000, 100)
+yCeil <- 45
+lambda <- 0
+C <- 2100
+eta1 <- 1.20
+eta2 <- 0.8
+y0 <- yCeil * exp(-C / P * (1 - lambda))
+y1 <- yCeil * exp(-C / P * (1 - lambda) * eta1)
+y2 <- yCeil * exp(-C / P * (1 - lambda) * eta2)
+colors_yieldfn <- c("azure4", "coral", "coral3")
+df_plot <- data.frame(P, y0, y1, y2)
+colnames(df_plot) <- c("Price (lcu / MT)", "Baseline", "Farm cost +20%", "Farm cost -20%")
+df_plot <- df_plot %>% gather(Type, `Yield (MT / ha)`, Baseline:`Farm cost -20%`)
+gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Yield (MT / ha)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + scale_color_manual(values = colors_yieldfn)
+gg <- gg + coord_cartesian(ylim = c(0, 45))
+gg <- gg + theme_bw()
+gg <- gg + theme(axis.text = element_blank(),
+                 axis.ticks = element_blank(),
+                 legend.title = element_blank())
+gg
+
+eta1 <- 1.10
+eta2 <- 0.9
+y0 <- yCeil * exp(-C / P * (1 - lambda))
+y1 <- yCeil * eta1 * exp(-C / P * (1 - lambda))
+y2 <- yCeil * eta2 * exp(-C / P * (1 - lambda))
+df_plot <- data.frame(P = P, y0, y1, y2)
+colnames(df_plot) <- c("Price (lcu / MT)", "Baseline", "Yield ceiling +10%", "Yield ceiling -10%")
+df_plot <- df_plot %>% gather(Type, `Yield (MT / ha)`, Baseline:`Yield ceiling -10%`)
+gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Yield (MT / ha)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + scale_color_manual(values = colors_yieldfn)
+gg <- gg + coord_cartesian(ylim = c(0, 45))
+gg <- gg + theme_bw()
+gg <- gg + theme(axis.text = element_blank(),
+                 axis.ticks = element_blank(),
+                 legend.title = element_blank())
+gg
+
+
+
+#=========================
+# Plot of adoption decision equation
+k <- 0.9#1.1 #0.9
+g <- 0.99
+b <- 1
+price_chng <- 0.88#1.017 #0.88
+P0 <- Pe00
+P1 <- price_chng * P0
+yCeil0 <- 45
+yCeil1 <- b * yCeil0
+lambda <- 0
+C0 <- seq(0, P0, 10)
+C1 <- k * C0^g
+# r0 <- C0 / P0 * (1 - lambda)
+# r1 <- C1 / P1 * (1 - lambda)
+yStar0 <- yCeil0 * exp(-C0 / P0 * (1 - lambda))
+yStar1 <- yCeil1 * exp(-C1 / P1 * (1 - lambda))
+NR0 <- yStar0 * (P0 - C0 * (1 - lambda))
+NR1 <- yStar1 * (P1 - C1 * (1 - lambda))
+d <- NR1 - NR0
+df_plot <- data.frame(C0, d)
+gg <- ggplot(df_plot, aes(x = C0, y = d))
+gg <- gg + geom_line(lwd = 1.5)
+gg
+
+
+
+
