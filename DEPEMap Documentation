@@ -871,6 +871,8 @@ if(graph_on == T){
 #---
 # to changes in mean cost per farm output
 #----------------------------------
+colorvec <- c("lightsalmon", "lightsalmon3", "sienna3", "lightsalmon4")
+#----------------------------------
 turn_on <- F
 if(turn_on == T){
   P_rev_per_output_SUP <- seq(100, 5000, 10)
@@ -912,6 +914,7 @@ if(turn_on == T){
   gg <- ggplot(df_QS_farmCost, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                    group = `Mean Farm\nCost Per\nUnit Output\n(lcu / MT)`,
                                    color = `Mean Farm\nCost Per\nUnit Output\n(lcu / MT)`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -961,6 +964,7 @@ if(turn_on == T){
   gg <- ggplot(df_QS_farmCostCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                      group = `CV Farm\nCost Per\nUnit Output`,
                                      color = `CV Farm\nCost Per\nUnit Output`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1012,6 +1016,7 @@ if(turn_on == T){
   gg <- ggplot(df_QS_farmSize, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                    group = `Mean Farm\nSize (Ha.)`,
                                    color = `Mean Farm\nSize (Ha.)`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1062,6 +1067,7 @@ if(turn_on == T){
   gg <- ggplot(df_QS_farmSizeCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                      group = `CV Logged\nFarm Size`,
                                      color = `CV Logged\nFarm Size`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1104,12 +1110,14 @@ if(graph_on == T){
 }
 #==================================
 # Explore demand curve sensitivity
-#---
+#----------------------------------
+colorvec <- c("lightskyblue3", "lightslateblue", "mediumblue", "orchid4")
+#----------------------------------
 # to changes in mean conversion efficiency
 turn_on <- F
 #----------------------------------
 if(turn_on == T){
-  eta_vec <- seq(-0.4, 0.4, 0.2)
+  eta_vec <- seq(-0.4, 0.3, 0.2)
   dfQD_list <- list()
   for(i in 1:length(eta_vec)){
     this_eta_DEM <- eta_vec[i]
@@ -1149,6 +1157,7 @@ if(turn_on == T){
   gg <- ggplot(df_QD_factryEfficiency, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                            group = `Productivity\n(L / kg Roots)`,
                                            color = `Productivity\n(L / kg Roots)`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1200,6 +1209,7 @@ if(turn_on == T){
   gg <- ggplot(df_QD_factryProcCost, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                          group = `CV Processing\nCost`,
                                          color = `CV Processing\nCost`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1250,6 +1260,7 @@ if(turn_on == T){
   gg <- ggplot(df_QD_factryMaxCap, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                        group = `Mean\nMax Factory\nCapacity\n(kL / day)`,
                                        color = `Mean\nMax Factory\nCapacity\n(kL / day)`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1300,6 +1311,7 @@ if(turn_on == T){
   gg <- ggplot(df_QD_factryMaxCapCV, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                          group = `CV Logged\nMax Factory\nCapacity`,
                                          color = `CV Logged\nMax Factory\nCapacity`))
+  gg <- gg + scale_color_manual(values = colorvec)
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1314,7 +1326,7 @@ if(turn_on == T){
 turn_on <- F
 #----------------------------------
 if(turn_on == T){
-  eta_vec <- seq(-0.2, 0.2, 0.1)
+  eta_vec <- seq(-0.2, 0.1, 0.1)
   dfQD_list <- list()
   for(i in 1:length(eta_vec)){
     this_eta_DEM <- eta_vec[i]
@@ -1353,6 +1365,7 @@ if(turn_on == T){
   gg <- ggplot(df_QD_factryPrice, aes(x = `Feedstock Price (lcu / MT)`, y = Value,
                                       group = `Ethanol\nPrice\n(lcu / kL)`,
                                       color = `Ethanol\nPrice\n(lcu / kL)`))
+  gg <- gg + scale_color_manual(values = colorvec)  
   gg <- gg + geom_line(lwd = 2)
   gg <- gg + facet_wrap(~Type, ncol = 1, scales = "free",
                         strip.position = "left")
@@ -1762,27 +1775,60 @@ gg
 
 #=========================
 # Plot of adoption decision equation
-k <- 0.9#1.1 #0.9
-g <- 0.99
-b <- 1
-price_chng <- 0.88#1.017 #0.88
 P0 <- Pe00
-P1 <- price_chng * P0
+prod_chng <- 0.15
+yCeil_chng <- 0.1
+C0_min <- 0
+C0_max <- P0
+interval_C0 <- c(C0_min, C0_max)
+C0 <- seq(C0_min, C0_max, length.out = 50)
+Prod0 <- seq(min(1 / C0), 0.001, length.out = length(C0))
+interval_Prod0 <- c(min(Prod0), max(Prod0))
+decay_rate <- 1 / 500
+# chng_decay <- 1 - exp(-decay_rate / Prod0)
+# quantile(chng_decay)
+# Prod1 <- Prod0 * (1 + prod_chng * (1 - exp(-decay_rate / Prod0)))
+# quantile(1000 * (Prod1 - Prod0))
+price_chng <- -0.095
+P1 <- P0 * (1 + price_chng)
 yCeil0 <- 45
-yCeil1 <- b * yCeil0
+yCeil1 <- yCeil0 * (1 + yCeil_chng)
 lambda <- 0
-C0 <- seq(0, P0, 10)
-C1 <- k * C0^g
 # r0 <- C0 / P0 * (1 - lambda)
 # r1 <- C1 / P1 * (1 - lambda)
-yStar0 <- yCeil0 * exp(-C0 / P0 * (1 - lambda))
-yStar1 <- yCeil1 * exp(-C1 / P1 * (1 - lambda))
-NR0 <- yStar0 * (P0 - C0 * (1 - lambda))
-NR1 <- yStar1 * (P1 - C1 * (1 - lambda))
-d <- NR1 - NR0
-df_plot <- data.frame(C0, d)
-gg <- ggplot(df_plot, aes(x = C0, y = d))
-gg <- gg + geom_line(lwd = 1.5)
+adtoptDecision_fun <- function(Prod0, prod_chng, P0, P1,
+                               yCeil0, yCeil1,
+                               decay_rate, lambda){
+  C0 <- 1 / Prod0
+  chng_decay <- 1 - exp(-decay_rate / Prod0)
+  Prod1 <- Prod0 * (1 + prod_chng * chng_decay)
+  C1 <- 1 / Prod1
+  yStar0 <- yCeil0 * exp(-C0 / P0 * (1 - lambda))
+  yStar1 <- yCeil1 * exp(-C1 / P1 * (1 - lambda))
+  NR0 <- yStar0 * (P0 - C0 * (1 - lambda))
+  NR1 <- yStar1 * (P1 - C1 * (1 - lambda))
+  d <- NR1 - NR0
+  return(d)
+}
+d <- adtoptDecision_fun(Prod0, prod_chng, P0, P1, yCeil0, yCeil1, decay_rate, lambda)
+d_roots <- uniroot.all(adtoptDecision_fun, interval_Prod0, lower = min(interval_Prod0),
+                       upper = max(interval_Prod0), prod_chng = prod_chng,
+                       P0 = P0, P1 = P1, yCeil0 = yCeil0, yCeil1 = yCeil1,
+                       decay_rate = decay_rate, lambda = lambda)
+df_plot <- data.frame(1000 * Prod0, C0, d)
+d_roots <- d_roots * 1000
+colnames(df_plot) <- c("Baseline productivity (kg output / lcu cost)",
+                       "Baseline farm cost (lcu / output)",
+                       "New net rev. - Baseline net rev. (lcu)")
+gg <- ggplot(df_plot, aes(x = `Baseline productivity (kg output / lcu cost)`,
+                          #x = `Baseline farm cost (lcu / output)`,
+                          y = `New net rev. - Baseline net rev. (lcu)`))
+gg <- gg + geom_line(lwd = 2)
+gg <- gg + geom_hline(yintercept = 0, color = "red", lwd = 1.5)
+gg <- gg + geom_vline(xintercept = d_roots, linetype = "dashed",
+                      #xintercept = 1 / d_roots, linetype = "dashed",
+                      lwd = 1.5, color = "lemonchiffon4")
+gg <- gg + theme_bw()
 gg
 
 
