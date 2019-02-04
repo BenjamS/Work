@@ -1447,7 +1447,7 @@ mu_r_SUP00 <- mu_P_fdstkCost_per_output_SUP_statQuo / Pe00
 mu_YDe_SUP00 <- exp(m_yCeil_SUP_statQuo) * NRyd_SUP(mu_r_SUP00, Pe00, l_credit = 0)
 #====================================
 #====================================
-# Adoption
+# Adoption - Supply Side
 #------------------------------------
 # Status quo supply mkt. participation density plot
 #------------------------------------
@@ -1505,13 +1505,15 @@ gg <- gg + theme(axis.title.x = element_blank())
 gg
 #--------------------------------
 # Mkt participation density plot with switch to new tech
-this_chng_SUP <- 0.9
-this_chng_P <- 0.93
+#(have to switch r0_Lmax_SUP0 depending on whether cost change is positive or negative)
+this_chng_SUP <- 0.9 #1.15 #0.9
+this_chng_P <- 0.93 #1.10 #0.93
 P0 <- P_rev_per_output
 P1 <- P0 * this_chng_P
 df_out <- get_r01_L0max_SUP(P1, P0, interval_r = c(0, 1), this_chng_SUP)
 df_out
-r0_Lmax_SUP0 <- df_out$r0_L0_SUP
+#r0_Lmax_SUP0 <- df_out$r0_L0_SUP
+r0_Lmax_SUP0 <- df_out$r0_Lmax_SUP
 theta_lower0 <- (-r0_Lmax_SUP0 + mu_r) * term - s_qStar
 old_theta_lower <- theta_lower
 z <- seq(-3, 3, 0.001)
@@ -1700,9 +1702,276 @@ gg <- gg + theme(legend.title = element_blank())
 gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.99, P_adoptRange_stop * 1.01))
 gg
 
-
 #====================================
-
+#====================================
+#====================================
+# Adoption - Demand Side
+#------------------------------------
+# Status quo supply mkt. participation density plot
+#------------------------------------
+# P_rev_per_output = Pe00
+# mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo
+# mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo
+# cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo
+# cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo
+# beta = beta_SUP_statQuo
+# m_yCeil = m_yCeil_SUP_statQuo
+# cv_lyCeil = cv_lyCeil_SUP_statQuo
+# m_A = m_A_SUP_statQuo
+# cv_lA = cv_lA_SUP_statQuo
+# df_rL0max
+# l_credit = 0
+N = N_D
+P_rev_per_output = P_rev_per_output_DEM_statQuo
+mu_P_fdstkCost_per_output = Pe00
+mu_P_procCost_per_output = mu_P_procCost_per_output_DEM_statQuo
+cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_DEM_statQuo
+cv_P_procCost_per_output = cv_P_procCost_per_output_DEM_statQuo
+beta = beta_DEM_statQuo
+m_yCeil = m_yCeil_DEM_statQuo
+cv_lyCeil = cv_lyCeil_DEM_statQuo
+m_A = m_A_DEM_statQuo
+cv_lA = cv_lA_DEM_statQuo
+df_rL0max
+l_credit = 0
+#--------------------------------
+s2_yCeil <- (cv_lyCeil * m_yCeil)^2
+s2_A <- (cv_lA * m_A)^2
+#--------------------------------
+# mu_r
+ratio_price <- (mu_P_fdstkCost_per_output + mu_P_procCost_per_output) / P_rev_per_output
+mu_r <- ratio_price * beta * (1 - l_credit)
+#--------------------------------
+# sig2_r
+sig2_fdstkCost_per_output <- (mu_P_fdstkCost_per_output * cv_P_fdstkCost_per_output)^2
+sig2_procCost_per_output <- (mu_P_procCost_per_output * cv_P_procCost_per_output)^2
+sig2_r <- (sig2_fdstkCost_per_output + sig2_procCost_per_output) * (beta / P_rev_per_output)^2
+#--------------------------------
+# s_qStar
+s2_qStar <- s2_A + s2_yCeil + sig2_r
+s_qStar <- sqrt(s2_qStar)
+#--------------------------------
+# mu_qStar
+m_qStar <- m_A + m_yCeil - mu_r
+mu_qStar <- exp(m_qStar + s2_qStar / 2)
+#--------------------------------
+term <- (1 - l_credit) / s_qStar
+rL0 <- df_rL0max$rL0
+rLmax <- df_rL0max$rLmax
+theta_upper <- (-rLmax + mu_r) * term - s_qStar
+theta_lower <- (-rL0 + mu_r) * term - s_qStar
+z <- seq(-3, 3, 0.001)
+df_z <- data.frame(z = z, f = dnorm(z))
+df_z <- df_z %>% mutate(area = ifelse(z > theta_lower & z < theta_upper,
+                                      "Participating", "Not Participating"))
+gg <- ggplot(data = df_z, aes(x = z, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_z[df_z$area == "Participating", ], aes(fill = area))
+gg <- gg + scale_fill_manual(values=c("lightcyan2", "turquoise"), name="fill")
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + theme(axis.title.x = element_blank())
+gg
+#--------------------------------
+# Mkt participation density plot with switch to new tech
+#(have to switch r0_Lmax_SUP0 depending on whether cost change is positive or negative)
+this_chng_DEM <- 1.14 #1.15 #0.9
+this_chng_P <- 1.10 #0.93
+P0 <- P_rev_per_output
+P1 <- P0 * this_chng_P
+df_out <- get_r01_L0max_DEM(P1, P0, interval_r = c(0, 1), this_chng_SUP)
+df_out
+r0_Lmax_SUP0 <- df_out$r0_L0_SUP
+#r0_Lmax_SUP0 <- df_out$r0_Lmax_SUP
+theta_lower0 <- (-r0_Lmax_SUP0 + mu_r) * term - s_qStar
+old_theta_lower <- theta_lower
+z <- seq(-3, 3, 0.001)
+df_z <- data.frame(z = z, f = dnorm(z))
+df_z <- as.data.frame(df_z %>% mutate(area = ifelse(z > theta_lower0 & z < theta_upper,
+                                                    "Participating", "Not Participating")))
+df_z <- as.data.frame(df_z %>% mutate(area = ifelse(z > old_theta_lower & z <= theta_lower0,
+                                                    "Switch", area)))
+gg <- ggplot(data = df_z, aes(x = z, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_z[df_z$area == "Participating", ], aes(fill = area))
+gg <- gg + geom_ribbon(data = df_z[df_z$area == "Switch", ], aes(fill = area))
+gg <- gg + scale_fill_manual(values=c("lightcyan2", "turquoise", "seagreen1"), name="fill")
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + theme(axis.title.x = element_blank())
+gg
+#====================================
+mu_P_fdstkCost_per_output_SUP_new <- mu_P_fdstkCost_per_output_SUP_statQuo * this_chng_SUP
+P0 <- P_eq_00
+#out_df <- get_rL0Lmax_01_DEM(P_rev_per_output_SUP, P0, interval_r, chng_DEM)
+rvec <- seq(0, 1, 0.001)
+interval_r <- c(rvec[1], rvec[length(rvec)])
+df_r01_L0max_SUP <- get_r01_L0max_SUP(P_rev_per_output_SUP, P0, interval_r, this_chng_SUP)
+df_rL0max_SUP0_graph <- df_r01_L0max_SUP[, c(1, 2)]
+colnames(df_rL0max_SUP0_graph) <- c("rL0", "rLmax")
+df_rL0max_SUP1_graph <- df_r01_L0max_SUP[, c(3, 4)]
+colnames(df_rL0max_SUP1_graph) <- c("rL0", "rLmax")
+#---
+df_QS0 <- Q_DorS(N = N_S,
+                 P_rev_per_output = P_rev_per_output_SUP,
+                 mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_statQuo,
+                 mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                 cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                 cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                 beta = beta_SUP_statQuo,
+                 m_yCeil = m_yCeil_SUP_statQuo,
+                 cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                 m_A = m_A_SUP_statQuo,
+                 cv_lA = cv_lA_SUP_statQuo,
+                 df_rL0max = df_rL0max_SUP0_graph,
+                 l_credit = 0)
+colnames(df_QS0) <- c("Supply (MT / day)", "Supply Market Participation")
+df_QS0$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
+#---
+df_QS1 <- Q_DorS(N = N_S,
+                 P_rev_per_output = P_rev_per_output_SUP,
+                 mu_P_fdstkCost_per_output = mu_P_fdstkCost_per_output_SUP_new,
+                 mu_P_procCost_per_output = mu_P_procCost_per_output_SUP_statQuo,
+                 cv_P_fdstkCost_per_output = cv_P_fdstkCost_per_output_SUP_statQuo,
+                 cv_P_procCost_per_output = cv_P_procCost_per_output_SUP_statQuo,
+                 beta = beta_SUP_statQuo,
+                 m_yCeil = m_yCeil_SUP_statQuo,
+                 cv_lyCeil = cv_lyCeil_SUP_statQuo,
+                 m_A = m_A_SUP_statQuo,
+                 cv_lA = cv_lA_SUP_statQuo,
+                 df_rL0max = df_rL0max_SUP1_graph,
+                 l_credit = 0)
+colnames(df_QS1) <- c("Supply (MT / day)", "Supply Market Participation")
+df_QS1$`Root Price (lcu / MT)` <- P_rev_per_output_SUP
+u <- df_QS1$`Supply (MT / day)`
+#---
+df_QS1$Type <- "Alternative"
+df_QS0$Type <- "Baseline"
+df_QS00$Type <- "Before release"
+df_QS01comp <- df_QS1
+df_QS01comp$`Supply (MT / day)` <- df_QS0$`Supply (MT / day)` + df_QS1$`Supply (MT / day)`
+df_QS01comp$`Supply Market Participation` <- df_QS0$`Supply Market Participation` + df_QS1$`Supply Market Participation`
+df_QS01comp$Type <- "Composite\n(alt + base tech)"
+df_plot <- rbind(df_QS1, df_QS0)
+#df_plot <- rbind(df_plot, df_QS00)
+#df_plot <- rbind(df_plot, df_QS01comp)
+gathercols <- colnames(df_plot)[1:2]
+df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
+#--
+df_temp1 <- subset(df_plot, Graph == "Supply (MT / day)")
+u <- df_temp1$Value
+df_temp1$Value[which(u < 1)] <- NA
+ind_na <- which(is.na(df_temp1$Value))
+df_temp2 <- subset(df_plot, Graph == "Supply Market Participation")
+df_temp2$Value[ind_na] <- NA
+df_plot <- rbind(df_temp1, df_temp2)
+#--
+AdoptRate <- df_QS1$`Supply Market Participation` / (df_QS1$`Supply Market Participation` + df_QS0$`Supply Market Participation`)
+n_bins <- length(P_rev_per_output_SUP)
+df_plotAR <- data.frame(xmin = P_rev_per_output_SUP[-n_bins], xmax = P_rev_per_output_SUP[-1])
+df_plotAR$`Adoption\nRate` <- AdoptRate[-1]
+u <- df_QS1$`Supply (MT / day)`
+P_adoptRange_start <- df_QS1$`Root Price (lcu / MT)`[which(u > 0)][1]
+u <- df_QS0$`Supply (MT / day)`
+ind <- which(u > 1)
+P_adoptRange_stop <- df_QS0$`Root Price (lcu / MT)`[ind[length(ind)]]
+P_adoptRange <- c(P_adoptRange_start, P_adoptRange_stop)
+#---
+# Baseline and alt tech supply curves alone without mkt participation plot
+df_plot1 <- subset(df_plot, Graph == "Supply (MT / day)")
+colnames(df_plot1)[4] <- "Supply (MT / day)"
+gg <- ggplot()
+gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
+                                           ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.8)
+gg <- gg + scale_fill_gradient2(low = "orange", mid = "white", high = "#9999CC",
+                                midpoint = 0.5)
+gg <- gg + geom_line(data = df_plot1, aes(x = `Root Price (lcu / MT)`, y = `Supply (MT / day)`,
+                                          group = Type, color = Type), lwd = 2)
+gg <- gg + scale_color_manual(values=c("lightsalmon", "lightsalmon4"))
+gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
+gg <- gg + theme_bw()
+gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.98, P_adoptRange_stop * 1.02))
+gg
+# Baseline and alt tech supply mkt participation curves alone without supply curve plot
+df_plot2 <- subset(df_plot, Graph == "Supply Market Participation")
+colnames(df_plot2)[4] <- "Supply Market Participation"
+gg <- ggplot()
+gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
+                                           ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.8)
+gg <- gg + scale_fill_gradient2(low = "orange", mid = "white", high = "#9999CC",
+                                midpoint = 0.5)
+gg <- gg + geom_line(data = df_plot2, aes(x = `Root Price (lcu / MT)`, y = `Supply Market Participation`,
+                                          group = Type, color = Type), lwd = 2)
+gg <- gg + scale_color_manual(values=c("lightsalmon", "lightsalmon4"))
+gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
+gg <- gg + theme_bw()
+gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.98, P_adoptRange_stop * 1.02))
+gg
+# Supply curves AND mkt particip curves together using facet_wrap
+gg <- ggplot()
+gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
+                                           ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.8)
+gg <- gg + scale_fill_gradient2(low = "orange", mid = "white", high = "#9999CC",
+                                midpoint = 0.5)
+gg <- gg + geom_line(data = df_plot, aes(x = `Root Price (lcu / MT)`, y = Value,
+                                         group = Type, color = Type), lwd = 2)
+gg <- gg + scale_color_manual(values=c("lightsalmon", "lightsalmon4"))
+gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
+gg <- gg + facet_wrap(~Graph, ncol = 1, scales = "free",
+                      strip.position = "left")
+gg <- gg + ylab(NULL)
+#gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme_bw()
+gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.98, P_adoptRange_stop * 1.02))
+gg
+#---
+# Supply composite curve vs. before release curve
+unique(df_QS00$Type)
+colnames(df_QS00)
+colnames(df_QS01comp)
+unique(df_QS01comp$Type)
+df_plot <- rbind(df_QS01comp, df_QS00)
+unique(df_plot$Type)
+# df_plot <- df_plot %>% gather_("Graph", "Value", gathercols)
+u <- df_plot$Value
+df_plot$Value[which(u == 0)] <- NA
+unique(df_plot$Type)
+gg <- ggplot()
+gg <- gg + geom_rect(data = df_plotAR, aes(xmin = xmin, xmax = xmax,
+                                           ymin = -Inf, ymax = Inf, fill = `Adoption\nRate`), alpha = 0.4)
+gg <- gg + scale_fill_gradient2(low = "orange", mid = "white", high = "#9999CC",
+                                midpoint = 0.5)
+gg <- gg + geom_line(data = df_plot, aes(x = `Root Price (lcu / MT)`, y = `Supply (MT / day)`,
+                                         group = Type, color = Type), lwd = 2)
+gg <- gg + scale_color_manual(values=c("orange", "#9999CC"))
+gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
+gg <- gg + theme_bw()
+#gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.85, P_adoptRange_stop * 1.15))
+gg
+#---
+# Mkt participation vs. adoption rate
+df_plot1 <- data.frame(df_QS01comp$`Root Price (lcu / MT)`, df_QS01comp$`Supply Market Participation`, AdoptRate)
+colnames(df_plot1) <- c("Root Price\n(lcu / MT)", "Supply Mkt\nParticipation", "Adoption\nRate")
+df_plot <- subset(df_plot1, `Root Price\n(lcu / MT)` > P_adoptRange[1] & `Root Price\n(lcu / MT)` < P_adoptRange[2])
+gg <- ggplot(df_plot, aes(x = `Adoption\nRate`, y = `Supply Mkt\nParticipation`, color = `Root Price\n(lcu / MT)`))
+gg <- gg + geom_line(lwd = 2)
+gg <- gg + theme_bw()
+gg
+df_plot <- df_plot1 %>% gather(Type, Value, `Supply Mkt\nParticipation`:`Adoption\nRate`)
+gg <- ggplot(df_plot, aes(x = `Root Price\n(lcu / MT)`, y = Value,
+                          group = Type, color = Type))
+gg <- gg + scale_color_manual(values = c("magenta", "blue"))
+gg <- gg + geom_line(lwd = 2)
+gg <- gg + geom_vline(xintercept = P_adoptRange, linetype = "dashed")
+gg <- gg + ylab(NULL)
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + coord_cartesian(xlim = c(P_adoptRange_start * 0.99, P_adoptRange_stop * 1.01))
+gg
 
 
 
