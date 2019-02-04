@@ -1789,7 +1789,7 @@ decay_rate <- 1 / 500
 # quantile(chng_decay)
 # Prod1 <- Prod0 * (1 + prod_chng * (1 - exp(-decay_rate / Prod0)))
 # quantile(1000 * (Prod1 - Prod0))
-price_chng <- -0.095
+price_chng <- -0.11
 P1 <- P0 * (1 + price_chng)
 yCeil0 <- 45
 yCeil1 <- yCeil0 * (1 + yCeil_chng)
