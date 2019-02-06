@@ -1,0 +1,422 @@
+setwd("//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/USAIDForGFSF/CSVfiles")
+options(warn = -1); options(scipen = 999)
+library(plyr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+wdir <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/USAIDForGFSF/CSVfiles/"
+#-----------------------
+# QDXAgg
+# QFXAgg
+# QINTXAgg
+# QLXAgg
+# QNXAgg
+# QOTHRXAgg
+# QSupXAgg
+
+#commodity_vec <- c("R&T-Cassava", "CER-Maize", "CER-Wheat", "CER-Rice", "R&T-Sweet Potato", "R&T-Potato", "R&T-Yams", "AOT-Dairy", "AMT-Poultry", "CER", "R&T")
+base_scenario <- "SSP2-HGEM2"
+res_scenario <- c("SSP2-HGEM-Pangloss2", "SSP2-HGEM-RegYld2", "SSP2-HGEM-HiNARS2", "SSP2-HGEM-MMEFF2") 
+scenario_vec <- c(base_scenario, res_scenario)
+#scenario_vec <- c("SSP2-HGEM-Pangloss2","SSP2-HGEM-HiYld2","SSP2-HGEM2","SSP2-HGEM-HiREFF2","SSP2-HGEM-HiNARS2","SSP2-HGEM-MMEFF2")
+#filename_vec <- c("QDXAgg", "QFXAgg","QNXAgg", "QOTHRXAgg", "QSupXAgg")
+area_vec <- c("NAM", "EUR", "LAC", "SSA", "EAP", "SAS", "MEN", "FSU")
+commodity_vec <- c("CER", "R&T", "PUL", "F&V", "AllA")
+filename_vec <- c("QSupXAgg", "QFXAgg", "PerCapKCalCXAgg")
+n_files <- length(filename_vec)
+df_list <- list()
+for(i in 1:n_files){
+  filename <- filename_vec[i]
+  open_this <- paste0(wdir, filename, ".csv")
+  df_raw <- read.csv(open_this, stringsAsFactors = F)
+  df_raw <- as.data.frame(df_raw)
+  print(head(df_raw))
+  for(c in 1:ncol(df_raw)){u <- df_raw[, c];df_raw[, c] <- gsub("'","",u)};rm(u)
+  colnames(df_raw) <- c("Scenario","Commodity","Area","Year","Value")
+  df_raw$Value <- as.numeric(df_raw$Value)
+  #unique(df_raw$Commodity)
+  #unique(df_raw$Scenario)
+  df <- subset(df_raw, Scenario %in% scenario_vec)
+  df <- subset(df, Area %in% area_vec)
+  df <- subset(df, Commodity %in% commodity_vec)
+  df <- subset(df, Year %in% c("2010", "2050"))
+  df <- df %>% spread(Year, Value)
+  df$`Pct Change` <- 100 * (df$`2050` - df$`2010`) / df$`2010`
+  df <- df[, c("Scenario","Area", "Commodity", "Pct Change")]
+  u <- df$Scenario
+  df$Scenario[grep("SSP2-HGEM-HiNARS2", u)] <- "HIGH + NARS"
+  df$Scenario[grep("SSP2-HGEM-MMEFF2", u)] <- "RMM"
+  df$Scenario[grep("SSP2-HGEM-Pangloss2", u)] <- "COMP"
+  df$Scenario[grep("SSP2-HGEM-RegYld2", u)] <- "REGION"
+  df <- df %>% spread(Scenario, `Pct Change`)
+  diff_list <- list()
+  t <- 0
+  for(j in 3:6)
+  {
+    t <- t + 1
+    diff_list[[t]] <- df[, j] - df$`SSP2-HGEM2`
+  }
+  df_add <- as.data.frame(do.call(cbind, diff_list))
+  df_wide <- cbind(df, df_add)
+  df_wide[,3:7] <- NULL
+  colnames(df_wide)[3:ncol(df_wide)] <- colnames(df)[3:6]
+  df_wide$Parameter <- filename
+  print(colnames(df_wide))
+  
+  #print(head(df))
+  df_list[[i]] <- df_wide
+  
+}
+
+#head(df_list[[1]])
+#df <- join_all(df_list)
+df <- do.call(rbind, df_list)
+df_long <- df %>% gather(Scenario, Value, COMP:RMM)
+colnames(df_long)[ncol(df_long)] <- "PP Diff"
+# df_QSupXAgg <- df_list[[1]]
+# df_FXAgg <- df_list[[2]]
+#unique(df_FXAgg$Commodity)
+# df_PerCapKCalCXAgg <- df_list[[3]]
+
+#df <- merge(df_QDXAgg, df_QFXAgg, by = c("Scenario", "Commodity", "Area", "Year"))
+#df <- merge(df, df_QNXAgg, by = c("Scenario", "Commodity", "Area", "Year"))
+#colnames(df)[5:7] <- c("Tot. demand", "Domestic food demand", "Trade")
+#colnames(df)[5:6] <- c("Tot. domestic demand", "Domestic food demand")
+
+
+#df <- df_QSupXAgg
+#df <- df_PPXAgg
+#df <- df_PerCapKCalCXAgg
+#unique(df$Commodity)
+
+# u <- df$Commodity
+# df$x <- 0
+# df$x[grep("-", u)] <- 1
+# df <- subset(df_raw, x == 1)
+# 
+# u <- df$Area
+# df$x <- 0
+# df$x[grep("SAS-", u)] <- 1
+# df <- subset(df, x == 1)
+# df <- subset(df, Area != "South-Eastern Asia")
+# df$x <- NULL
+
+
+
+# df$`Domestic non-food demand` <- df$`Tot. domestic demand` - df$`Domestic food demand`
+# df$`Domestic non-food demand share` <-  df$`Domestic non-food demand` / df$`Tot. domestic demand`
+
+#df <- df[, c("Scenario", "Area", "Commodity", "Year", "Domestic non-food demand share")]
+#df <- df[, c("Scenario", "Area", "Commodity", "Year", "Domestic non-food demand share", "Tot. domestic demand")]
+#df <- df %>% gather(Var, Value, `Domestic non-food demand share`:`Tot. domestic demand`)
+
+#df_wide <- df %>% spread(Scenario, Value)
+#df_yr_wide <- df %>% spread(Year, PPXAgg)
+#df_plot <- df_wide %>% gather_("Scenario", "PP Diff.", colnames_df_wide)
+
+
+df_long$Parameter[grep("PerCapKCalCXAgg", df_long$Parameter)] <- "Kcal/capita"
+df_long$Parameter[grep("QFXAgg", df_long$Parameter)] <- "Food Demand"
+df_long$Parameter[grep("QSupXAgg", df_long$Parameter)] <- "Supply"
+df_plot <- df_long
+gg <- ggplot(df_plot, aes(x = Area, y = Commodity))
+gg <- gg + geom_tile(aes(fill = `PP Diff`))
+gg <- gg + facet_grid(Scenario ~ Parameter)
+gg <- gg + scale_fill_gradient(low = "magenta", high = "cyan")
+gg <- gg + coord_equal()
+gg
+#=============================
+df_plot <- subset(df_long, Parameter == "Kcal/capita")
+gg <- ggplot(df_plot, aes(x = Area, y = Commodity, fill = `PP Diff`))
+gg <- gg + geom_tile()
+gg <- gg + geom_text(aes(label = round(df_plot$`PP Diff`, 1)), size = 2)
+gg <- gg + facet_wrap(~Scenario, ncol = 1)
+gg <- gg + scale_fill_gradient(low = "magenta", high = "cyan")
+gg <- gg + coord_fixed(ratio = 3 / 5)
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#gg <- gg + coord_equal()
+gg
+df_plot <- subset(df_long, Parameter == "Food Demand")
+gg <- ggplot(df_plot, aes(x = Area, y = Commodity, fill = `PP Diff`))
+gg <- gg + geom_tile()
+gg <- gg + geom_text(aes(label = round(df_plot$`PP Diff`, 1)), size = 2)
+gg <- gg + facet_wrap(~Scenario, ncol = 1)
+gg <- gg + scale_fill_gradient(low = "magenta", high = "cyan")
+gg <- gg + coord_fixed(ratio = 3 / 5)
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#gg <- gg + coord_equal()
+gg
+df_plot <- subset(df_long, Parameter == "Supply")
+gg <- ggplot(df_plot, aes(x = Area, y = Commodity, fill = `PP Diff`))
+gg <- gg + geom_tile()
+gg <- gg + geom_text(aes(label = round(df_plot$`PP Diff`, 1)), size = 2)
+gg <- gg + facet_wrap(~Scenario, ncol = 1)
+gg <- gg + scale_fill_gradient(low = "magenta", high = "cyan")
+gg <- gg + coord_fixed(ratio = 3 / 5)
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#gg <- gg + coord_equal()
+gg
+#=============================
+
+
+setwd("//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/USAIDForGFSF")
+#ggsave("food supply.pdf")
+ggsave("producer price.pdf")
+ggsave("producer price.png")
+#==========================================
+
+filename <- "QNXAgg"
+open_this <- paste0(wdir, filename, ".csv")
+df_raw <- read.csv(open_this, stringsAsFactors = F)
+df_raw <- as.data.frame(df_raw)
+print(head(df_raw))
+for(c in 1:ncol(df_raw)){u <- df_raw[, c];df_raw[, c] <- gsub("'","",u)};rm(u)
+colnames(df_raw) <- c("Scenario","Commodity","Area","Year","Value")
+df_raw$Value <- as.numeric(df_raw$Value)
+#unique(df_raw$Commodity)
+#unique(df_raw$Scenario)
+df <- subset(df_raw, Scenario %in% scenario_vec)
+df <- subset(df, Area %in% area_vec)
+df <- subset(df, Commodity %in% commodity_vec)
+u <- df$Scenario
+df$Scenario[grep("SSP2-HGEM-HiNARS2", u)] <- "HIGH + NARS"
+df$Scenario[grep("SSP2-HGEM-MMEFF2", u)] <- "RMM"
+df$Scenario[grep("SSP2-HGEM-Pangloss2", u)] <- "COMP"
+df$Scenario[grep("SSP2-HGEM-RegYld2", u)] <- "REGION"
+df <- subset(df, Scenario != "SSP2-HGEM2")
+df$Year <- as.integer(df$Year)
+df_plot <- df
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Commodity, color = Commodity))
+gg <- gg + geom_line()
+gg <- gg + facet_grid(Area ~ Scenario, scales = "free")
+#gg <- gg + coord_fixed(ratio = 5 / 3)
+#gg <- gg + coord_equal()
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg
+
+unique(df$Scenario)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+df <- merge(df_QDXAgg, df_QFXAgg, by = c("Scenario", "Commodity", "Area", "Year"))
+colnames(df)[5:6] <- c("Tot. domestic demand", "Domestic food demand")
+u <- df$Commodity
+df$x <- 0
+df$x[grep("R&T-", u)] <- 1
+df <- subset(df, x == 1)
+df$x <- NULL
+#unique(df$Commodity)
+u <- df$Area
+df$x <- 0
+df$x[grep("LAC-", u)] <- 1
+df <- subset(df, x == 1)
+df$x <- NULL
+df$`Domestic non-food demand` <- df$`Tot. domestic demand` - df$`Domestic food demand`
+df$`Domestic non-food demand share` <-  df$`Domestic non-food demand` / df$`Tot. domestic demand`
+df <- df[, c("Scenario", "Area", "Commodity", "Year", "Domestic non-food demand share")]
+df_yr_wide <- df %>% spread(Year, `Domestic non-food demand share`)
+df_yr_wide$`PP Change` <- 100 * (df_yr_wide$`2050` - df_yr_wide$`2015`)
+df_yr_wide <- df_yr_wide[, c("Scenario","Area", "Commodity", "PP Change")]
+df_wide <- df_yr_wide %>% spread(Scenario, `PP Change`)
+df_wide$`PP Diff.` <- df_wide$`SSP2-HGEM-Pangloss2` - df_wide$`SSP2-HGEM2`
+df_wide <- df_wide[order(df_wide[, "PP Diff."]),]
+df_wide <- df_wide[, c("Area", "Commodity", "PP Diff.")]
+
+gg <- ggplot(df_wide, aes(x = Commodity, y = Area))
+gg <- gg + geom_tile(aes(fill = `PP Diff.`), color = "white")
+gg <- gg + scale_fill_gradient2(low = "orange", high = "green")
+#gg <- gg + ggtitle("Non-food demand share, difference in 2050-2015 change (pp), CC & research vs. CC & no research")
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=========================================
+
+filename_vec <- c("QDXAgg", "QNXAgg", "QSupXAgg")
+n_files <- length(filename_vec)
+df_list <- list()
+for(i in 1:n_files){
+  filename <- filename_vec[i]
+  open_this <- paste0(wdir, filename, ".csv")
+  df_raw <- read.csv(open_this, stringsAsFactors = F)
+  df_raw <- as.data.frame(df_raw)
+  print(head(df_raw))
+  for(c in 1:ncol(df_raw)){u <- df_raw[, c];df_raw[, c] <- gsub("'","",u)};rm(u)
+  colnames(df_raw) <- c("Scenario","Commodity","Area","Year","Value")
+  df_raw$Value <- as.numeric(df_raw$Value)
+  #unique(df_raw$Commodity)
+  #unique(df_raw$Scenario)
+  df_raw <- subset(df_raw, Scenario %in% scenario_vec)
+  
+  df <- subset(df_raw, Year %in% c("2015", "2050"))
+  
+  #print(head(df))
+  colnames(df)[5] <- filename
+  df_list[[i]] <- df
+  
+}
+
+#head(df_list[[1]])
+
+df_QDXAgg <- df_list[[1]]
+df_QNXAgg <- df_list[[2]]
+df_QSupXAgg <- df_list[[3]]
+
+df <- merge(df_QDXAgg, df_QNXAgg, by = c("Scenario", "Commodity", "Area", "Year"))
+df <- merge(df, df_QSupXAgg, by = c("Scenario", "Commodity", "Area", "Year"))
+colnames(df)[5:7] <- c("Tot. domestic demand", "Trade", "Supply")
+
+area_vec <- c("NAM", "EUR", "LAC", "SSA", "EAP", "SAS", "MEN", "FSU")
+commodity_vec <- c("CER", "R&T", "AMT", "AOT", "PUL", "F&V", "SGC", "SGR", "OIL", "OLS")
+df <- subset(df, Area %in% area_vec)
+df <- subset(df, Commodity %in% commodity_vec)
+
+df$`Export demand` <- 0 
+ind <- which(df$Trade > 0)
+df$`Export demand`[ind] <- df$Trade[ind]
+df$`Tot. demand` <- df$`Tot. domestic demand` + df$`Export demand`
+df$`Export demand share` <-  df$`Export demand` / df$`Tot. demand`
+df$`Imported supply` <- 0
+ind <- which(df$Trade < 0)
+df$`Imported supply`[ind] <- df$Trade[ind]
+df$`Imported supply share` <- df$`Imported supply` / df$Supply
+
+df <- df[, c("Scenario", "Area", "Commodity", "Year", "Export demand share", "Imported supply share")]
+df <- df %>% gather(Var, Value, `Export demand share`:`Imported supply share`)
+
+df_yr_wide <- df %>% spread(Year, Value)
+
+df_yr_wide$`PP Change` <- 100 * (df_yr_wide$`2050` - df_yr_wide$`2015`)
+df_yr_wide <- df_yr_wide[, c("Scenario","Area", "Commodity", "Var","PP Change")]
+
+df_wide <- df_yr_wide %>% spread(Scenario, `PP Change`)
+df_wide$`PP Diff.` <- df_wide$`SSP2-HGEM-Pangloss2` - df_wide$`SSP2-HGEM2`
+df_wide <- df_wide[order(df_wide[, "PP Diff."]),]
+df_wide <- df_wide[, c("Area", "Commodity", "Var","PP Diff.")]
+df_plot <- df_wide %>% spread(Var, `PP Diff.`)
+
+
+gg <- ggplot(df_plot, aes(x = Commodity, y = Area))
+gg <- gg + geom_tile(aes(fill = `Export demand share`))
+#gg <- gg + ggtitle("Non-food demand share, difference in 2050-2015 change (pp), CC & research vs. CC & no research")
+gg
+
+gg <- ggplot(df_plot, aes(x = Commodity, y = Area))
+gg <- gg + geom_tile(aes(fill = `Imported supply share`))
+#gg <- gg + ggtitle("Non-food demand share, difference in 2050-2015 change (pp), CC & research vs. CC & no research")
+gg
+
+
+gg <- ggplot(df_plot, aes(x = `Export demand share`, y = `Imported supply share`))
+gg <- gg + geom_point()
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#unique(df$Commodity)
+#unique(df$Area)
+# df$`Tot. demand` <- df$`Tot. demand` + df$`Export`
+# df$`Domestic non-food demand` <- df$`Tot. demand` - df$`Domestic food demand` - df$`Export demand`
+# df$`Domestic food demand share` <- df$`Domestic food demand` / df$`Tot. demand`
+# df$`Domestic non-food demand share` <-  df$`Domestic non-food demand` / df$`Tot. demand`
+# df$`Export demand share` <- df$`Export demand` / df$`Tot. demand`
+# df$sumshares <- df$`Export demand share` + df$`Domestic non-food demand share` + df$`Domestic food demand share`
+# #unique(df$sumshares)
+# df$Imported <- u
+# df$Imported[which(u > 0)] <- NA
+# df$Imported <- -df$Imported / df$`Tot. demand`
+# 
+# df <- df[, c("Scenario", "Area", "Commodity", "Year", "Domestic food demand share", 
+#              "Domestic non-food demand share", "Export demand share", "Imported")]
+# 
+# 
+# df <- df %>% gather(Var, Value, `Domestic food demand share`:`Export demand share`)
+# 
+# df_yr <- df %>% spread(Year, Value)
+# 
+# 
+# 
+# # df$order_by <- 3
+# # u <- df$Var
+# # df$order_by[which(u == "Export demand share")] <- 1
+# # df$order_by[which(u == "Domestic food demand share")] <- 2
+# 
+# df_plot <- df
+# #df_plot$order_by <- factor(df_plot$order_by, levels = rev(levels(df_plot$order_by)))
+# #df_plot <- df[order(df$order_by, df$Value, decreasing = F), ]
+# df_plot$Year <- as.integer(df_plot$Year)
