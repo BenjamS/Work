@@ -5,9 +5,9 @@ library(tidyr)
 library(fields)
 #-------------
 # Thai Cassava farm survey
-#setwd("D:/OneDrive - CGIAR/Documents")
-#df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
-df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+setwd("D:/OneDrive - CGIAR/Documents")
+df <- read.csv("Cassava work/tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+#df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
 colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
@@ -45,6 +45,20 @@ mu_yield_sample <- mean(df$`Yield (ton/ha)`, na.rm = T)
 sig_yield_sample <- sd(df$`Yield (ton/ha)`, na.rm = T)
 mode_yield <- exp(m_lyield - s2_lyield)
 cv_yield_sample <- sig_yield_sample / mu_yield_sample
+#-------------------------
+df$`l(Yield (ton/rai))` <- log(df$`Yield (ton/rai) 1 ha = 6.25 rai`)
+df$N_inv <- 1 / df$`N (kg/rai)`
+df$P_inv <- 1 / df$`P (kg/rai)`
+df$K_inv <- 1 / df$`K (kg/rai)`
+df$OrgFert_inv <- 1 / df$`Chicken manure (ton/rai)`
+df$fert_inv <- 1 / (df$`N (kg/rai)` + df$`P (kg/rai)` + df$`Chicken manure (ton/rai)`)
+df$fuel_inv <- 1 / (df$`Land Prep Diesel fuel used (L/rai)` + df$`Harvest Diesel fuel used  (L/rai)`)
+df$Nbranch_inv <- 1 / df$`Amount of branchs (1 branch can give 4-5 stems) (branch/rai)`
+is.na(df) <- sapply(df, is.infinite)
+mod <- lm(`l(Yield (ton/rai))` ~ fert_inv, df)
+summod <- summary(mod)
+summod
+#-------------------------
 #--
 # df$`pct. cass cult` <- df$`Surface occupied by cassava (rai)` / df$`Farm size (rai)`
 # hist(df$`pct. cass cult`)
@@ -75,12 +89,31 @@ cv_yield_sample <- sig_yield_sample / mu_yield_sample
 Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
                      P_alt = 0, pctChng_costPerOutput = 0, l_credit = 0,
                      plot_particip = F){
+  #--
   if(P_alt != 0){oppCost <- T}else{oppCost <- F}
   #--
-  r_Lmax <- 0
+  if(oppCost == T){
+    pctChng <- pctChng_costPerOutput
+    r_L0 <- (1 - P_alt / P) / (1 - 1 / pctChng)
+    #mu_r <- (mu_Cq * (1 - 1 / pctChng) + P_alt) / P
+    r_L0_alt <- 1
+    mu_Cq_alt <- mu_Cq / pctChng
+    mu_r_alt <- mu_Cq_alt / P_alt
+    #--
+    sig2_r_alt <- (mu_Cq_alt * cv_Cq)^2 / P^2
+    s2_yStar_implied_alt <- sig2_r_alt
+    s2_qStar_alt <- s2_A + s2_yStar_implied_alt
+    s_qStar_alt <- sqrt(s2_qStar_alt)
+    #--
+    v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+  }else{
+    r_L0 <- 1
+    #mu_r <- mu_Cq / P
+  }
   mu_r <- mu_Cq / P
+  r_Lmax <- 0
   #--
-  sig2_r <- (mu_r * cv_Cq)^2
+  sig2_r <- (mu_Cq * cv_Cq)^2 / P^2
   s2_yStar_implied <- sig2_r
   m_yStar_implied <- log(yCeil) - mu_r
   mu_yStar_implied <- exp(m_yStar_implied + s2_yStar_implied / 2)
@@ -90,151 +123,32 @@ Q_supply <- function(P, N0, m_A, s2_A, yCeil, mu_Cq, cv_Cq,
   s_qStar <- sqrt(s2_qStar)
   #--
   v_rLmax <- (r_Lmax - mu_r + s2_qStar) / s_qStar
-  Nv_rLmax <- pnorm(v_rLmax)
+  v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
   #--
-  if(oppCost == F){
-    r_L0 <- 1
-    v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
-    Nv_rL0 <- pnorm(v_rL0)
-    mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
-    QS <- N0 * mu_A * mu_yStar_implied / s_qStar * mkt_participation
-    df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
-    #------------------
-    if(plot_particip == T){
-      #------------------
-      # Participation plot
-      xlims <- c(-3, 3)
-      x <- seq(xlims[1], xlims[2], 0.01)
-      df_x <- data.frame(x = x, y = dnorm(x))
-      df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax & x < v_rL0,
-                                            "Participating", "Not Participating"))
-      p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y))
-      p1 <- p1 + geom_ribbon(aes(fill = factor("Not participating")))
-      p1 <- p1 + geom_ribbon(data = df_x[df_x$area == "Participating", ], aes(fill = area))
-      p1 <- p1 + theme(legend.title = element_blank())
-      #p1 <- p1 + theme(legend.position = "none")
-      p1
-      print(p1)
-      #------------------
-      #Yield participation plot
-      s_yStar_implied <- sqrt(s2_yStar_implied)
-      y <- seq(0, yCeil, 0.1)
-      df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
-                                           sdlog = s_yStar_implied))
-      yStar_min <- yCeil * exp(-r_L0)
-      yStar_max <- yCeil * exp(-0)
-      df_y <- df_y %>% mutate(area = ifelse(y >= yStar_min & y < yStar_max,
-                                            "Participating", "Not Participating"))
-      gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
-      gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
-      gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
-      gg <- gg + theme(legend.title = element_blank())
-      gg
-      print(gg)
+  Nv_rLmax <- pnorm(v_rLmax)
+  Nv_rL0 <- pnorm(v_rL0)
+  #--
+  mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
+  #--
+  # m_qStar <- m_A - mu_r
+  # mu_qStar <- yCeil * exp(m_qStar + s2_qStar / 2)
+  # QS <- N0 * mu_qStar * mkt_participation
+  QS <- N0 * mu_A * mu_yStar_implied * mkt_participation
+  df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
+  #--
+  if(plot_particip == T | length(P) > 1){
+    p1 <- ggplot(data = data.frame(x = c(-3, 3)), aes(x))
+    p1 <- p1 + stat_function(fun = dnorm, n = 101, 
+                             args = list(mean = 0, sd = 1))
+    p1 <- p1 + ylab("")
+    p1 <- p1 + scale_y_continuous(breaks = NULL)
+    p1 <- p1 + geom_vline(xintercept = c(v_rL0, v_rLmax), color = "green")
+    if(oppCost == T){
+      p1 <- p1 + geom_vline(xintercept = v_rL0_alt, color = "orange")
     }
-    #------------------  
-  }else{
-    r_L0_base <- 1
-    v_rL0_base <- (r_L0_base - mu_r + s2_qStar) / s_qStar
-    Nv_rL0_base <- pnorm(v_rL0_base)
-    Nv_rLmax_base <- Nv_rLmax
-    mkt_participation_base <- 1 - Nv_rL0_base + Nv_rLmax_base
-    #--
-    pctChng <- pctChng_costPerOutput
-    #--
-    r_L0_stay <- (1 - P_alt / P) / (1 - pctChng)
-    v_rL0_stay <- (r_L0 - mu_r + s2_qStar) / s_qStar
-    Nv_rL0_stay <- pnorm(v_rL0)
-    Nv_rLmax_stay <- Nv_rLmax
-    mkt_participation_stay <- 1 - Nv_rL0_stay + Nv_rLmax_stay
-    QS_stay <- N0 * mu_A * mu_yStar_implied / s_qStar * mkt_participation_stay
-    #--
-    mu_Cq_alt <- mu_Cq * pctChng
-    mu_r_alt <- mu_Cq_alt / P_alt
-    #--
-    sig2_r_alt <- (mu_r_alt * cv_Cq)^2
-    s2_yStar_implied_alt <- sig2_r_alt
-    s2_qStar_alt <- s2_A + s2_yStar_implied_alt
-    s_qStar_alt <- sqrt(s2_qStar_alt)
-    m_yStar_implied_alt <- log(yCeil) - mu_r_alt
-    mu_yStar_implied_alt <- exp(m_yStar_implied_alt + s2_yStar_implied_alt / 2)
-    r_L0_alt <- (1 - P / P_alt) / (1 - 1 / pctChng)
-    r_L0_alt_base <- 1
-    v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
-    v_rL0_alt_base <- (r_L0_alt_base - mu_r_alt + s2_qStar_alt) / s_qStar_alt
-    r_Lmax_alt <- r_Lmax
-    v_rLmax_alt <- (r_Lmax_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
-    Nv_rL0_alt <- pnorm(v_rL0_alt)
-    Nv_rLmax_alt <- pnorm(v_rLmax_alt)
-    mkt_participation_alt <- 1 - Nv_rL0_alt + Nv_rLmax_alt
-    QS_alt <- N0 * mu_A * mu_yStar_implied_alt / s_qStar_alt * mkt_participation_alt
-    #------------------
-    mkt_participation_stay
-    mkt_participation_alt
-    mkt_participation_stay + mkt_participation_alt
-    #------------------
-    df_out <- data.frame(QS_stay, QS_alt,
-                         P, P_alt,
-                         mkt_participation_stay, mkt_participation_alt,
-                         mu_yStar_implied, mu_yStar_implied_alt)
-    #------------------
-    if(plot_particip == T){
-      #------------------
-      # Participation plot
-      xlims <- c(-3, 3)
-      x <- seq(xlims[1], xlims[2], 0.01)
-      df_x <- data.frame(x = x, y = dnorm(x))
-      df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax & x < v_rL0,
-                                            "Participating", "Not Participating"))
-      df_x <- df_x %>% mutate(area = ifelse(x >= v_rL0 & x < v_rL0_base, 
-                                            "Switch", area))
-      p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y))
-      p1 <- p1 + geom_ribbon(aes(fill = factor("Not participating")))
-      p1 <- p1 + geom_ribbon(data = df_x[df_x$area == "Participating", ], aes(fill = area))
-      p1 <- p1 + geom_ribbon(data = df_x[df_x$area == "Switch", ], aes(fill = area))
-      p1 <- p1 + theme(legend.title = element_blank())
-      #p1 <- p1 + theme(legend.position = "none")
-      p1
-      print(p1)
-      #------------------
-      df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax_alt & x < v_rL0_alt,
-                                            "Participating", "Not Participating"))
-      xmin <- min(v_rL0_alt, v_rL0_alt_base)
-      xmax <- max(v_rL0_alt, v_rL0_alt_base)
-      df_x <- df_x %>% mutate(area = ifelse(x >= xmin & x < xmax, 
-                                            "Stay", area))
-      p2 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y))
-      p2 <- p2 + geom_ribbon(aes(fill = factor("Not participating")))
-      p2 <- p2 + geom_ribbon(data = df_x[df_x$area == "Participating", ], aes(fill = area))
-      p2 <- p2 + geom_ribbon(data = df_x[df_x$area == "Stay", ], aes(fill = area))
-      p2 <- p2 + theme(legend.title = element_blank())
-      #p2 <- p2 + theme(legend.position = "none")
-      p2
-      print(p2)
-      
-      #------------------
-      #Yield participation plot
-      s_yStar_implied <- sqrt(s2_yStar_implied)
-      y <- seq(0, yCeil, 0.1)
-      df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
-                                           sdlog = s_yStar_implied))
-      yStar_min <- yCeil * exp(-r_L0)
-      yStar_max <- yCeil * exp(-0)
-      df_y <- df_y %>% mutate(area = ifelse(y >= yStar_min & y < yStar_max,
-                                            "Participating", "Not Participating"))
-      yStar_min_base <- yCeil * exp(-r_L0_base)
-      df_y <- df_y %>% mutate(area = ifelse(y >= yStar_min_base & y < yStar_min,
-                                            "Switch", area))
-      gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
-      gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
-      gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
-      gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
-      gg <- gg + theme(legend.title = element_blank())
-      gg
-      print(gg)
-    }
-    #------------------
+    print(p1)
   }
+  #--
   return(df_out)
 }
 
@@ -304,197 +218,43 @@ N0 <- N0_statQuo
 m_A <- m_A_statQuo
 s2_A <- s2_A_statQuo
 yCeil <- yCeil_statQuo
-mu_Cq <- mu_Cq_statQuo
+mu_Cq <- 3000
 cv_Cq <- cv_Cq_statQuo
-P_alt <- P * 0.97
-pctChng_costPerOutput <- 1
+P_alt <- P * 1.05
+pctChng_costPerOutput <- .95
 l_credit <- 0
 plot_particip <- T
 #--
-#=====================================
-library(rootSolve)
-
-farm_NR0_minus_NR1 <- function(r0, P0, P1, eta){
-  r1 <- r0 * P0 / P1 * eta
-  Baseline <- P0 * exp(-r0) * (1 - r0)
-  Alternative <- P1 * exp(-r1) * (1 - r1)
-  NR0_minus_NR1 <- Baseline - Alternative
-  return(NR0_minus_NR1)
-}
-
-r0 <- seq(-3, 3, 0.001)
-eta <- 0.5
-P_alt <- P0 * 0.53
-P1 <- P_alt
-r1 <- r0 * P0 / P1 * eta
-Baseline <- P0 * exp(-r0) * (1 - r0)
-Alternative <- P1 * exp(-r1) * (1 - r1)
-d <- Baseline - Alternative
-interval <- c(r0[1], r0[length(r0)])
-roots <- uniroot.all(farm_NR0_minus_NR1, interval,
-                     lower = min(interval), upper = max(interval),
-                     P0 = P0, P1 = P1, eta = eta)
-roots
-r0_cutoff <- roots
-#--
-df_plot <- data.frame(r0, Baseline, Alternative)
-df_plot <- df_plot %>% gather(Tech, Value, Baseline:Alternative)
-#---------------------
-gg <- ggplot(df_plot, aes(x = r0, y = Value, group = Tech, color = Tech))
-gg <- gg + geom_line()
-gg <- gg + geom_vline(xintercept = r0_cutoff)
-gg <- gg + ggtitle("Farm Net Revenue per Hectare")
-gg <- gg + coord_cartesian(xlim = c(-1.25, 1.25), ylim = c(-100, 7000))
-gg
-#---------------------
-df_plot <- data.frame(r0, d)
-#---------------------
-gg <- ggplot(df_plot, aes(x = r0, y = d))
-gg <- gg + geom_line()
-gg <- gg + geom_vline(xintercept = r0_cutoff)
-gg <- gg + ggtitle("Difference (baseline - alternative)")
-gg <- gg + coord_cartesian(xlim = c(-1.25, 1.25), ylim = c(-100, 7000))
-gg
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-P0 <- P
-r0 <- seq(-3, 3, 0.001)
-len_r0 <- length(r0)
-pctChngvec <- seq(0.7, 1, 0.1)
-n <- length(pctChngvec)
-r0_cutoff_mat <- matrix(NA, n, n)
-for(i in 1:n){
-  pctChng_costPerOutput <- pctChngvec[i]
-  eta <- pctChng_costPerOutput
-  for(j in 1:n){
-    P_alt <- P0 * pctChngvec[j]
-    if(P0 == P_alt & eta == 1){r0_cutoff <- NA}else{
-      P1 <- P_alt
-      interval <- c(r0[1], r0[len_r0])
-      roots <- uniroot.all(farm_NR0_minus_NR1, interval,
-                           lower = min(interval), upper = max(interval),
-                           P0 = P0, P1 = P1, eta = eta)
-      print(roots)
-      if(length(roots) > 1){
-        ind_root <- which(roots >= 0 & roots <= 1)
-        if(length(ind_root) == 0){
-          ind_root <- which(roots >= 0)
-        }
-      }else{
-          ind_root <- 1
-        }
-      r0_cutoff <- roots[ind_root]
-      print(r0_cutoff)
-      
-      #---------------------------
-      #---------------------------
-      r1 <- r0 * P0 / P1 * eta
-      Baseline <- P0 * exp(-r0) * (1 - r0)
-      Alternative <- P1 * exp(-r1) * (1 - r1)
-      df_plot <- data.frame(r0, Baseline, Alternative)
-      df_plot <- df_plot %>% gather(Tech, Value, Baseline:Alternative)
-      gg <- ggplot(df_plot, aes(x = r0, y = Value, group = Tech, color = Tech))
-      gg <- gg + geom_line()
-      gg <- gg + geom_vline(xintercept = r0_cutoff)
-      gg <- gg + ggtitle("Farm Net Revenue per Hectare")
-      gg <- gg + coord_cartesian(xlim = c(-1.25, 1.25), ylim = c(-100, 7000))
-      gg
-      print(gg)
-      Sys.sleep(2)
-      
-      #---------------------------
-      #---------------------------
-      
-    }
-}
-
-}
-
-
-
-
-
-
-image(r0_cutoff_mat)
-#-----------------
-xtick_labs <- pctChngvec * 100
-ytick_labs <- pctChngvec * 100
-#-----------------
-inMat <- r0_cutoff_mat
-surface <- list(x = xtick_labs,
-                y = ytick_labs,
-                z = inMat)
-plot.surface(surface, type = "C",
-             xlab = "Pct chng cost per ha",
-             ylab = "Pct chng price", col = cm.colors(25))
-title(main = "r0 cutoff", cex.main = 1)
-#-----------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 if(P_alt != 0){oppCost <- T}else{oppCost <- F}
 #--
+if(oppCost == T){
+  r_L0_base <- 1
+  v_rL0_base <- (r_L0_base - mu_r + s2_qStar) / s_qStar
+  #--
+  pctChng <- pctChng_costPerOutput
+  #--
+  r_L0 <- (1 - P_alt / P) / (1 - pctChng)
+  r_L0_base <- 1
+  #--
+  mu_Cq_alt <- mu_Cq * pctChng
+  mu_r_alt <- mu_Cq_alt / P_alt
+  #--
+  sig2_r_alt <- (mu_r_alt * cv_Cq)^2
+  s2_yStar_implied_alt <- sig2_r_alt
+  s2_qStar_alt <- s2_A + s2_yStar_implied_alt
+  s_qStar_alt <- sqrt(s2_qStar_alt)
+  #--
+  r_L0_alt <- 1
+  r_Lmax_alt <- 0
+  v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+  v_rLmax_alt <- (r_Lmax_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
+  Nv_rLmax_alt <- pnorm(v_rLmax_alt)
+  Nv_rL0_alt <- pnorm(v_rL0_alt)
+  mkt_participation_alt <- 1 - Nv_rL0_alt + Nv_rLmax_alt
+  mkt_participation_alt
+}else{
+  r_L0 <- 1
+}
 r_Lmax <- 0
 mu_r <- mu_Cq / P
 #--
@@ -508,168 +268,87 @@ s2_qStar <- s2_A + s2_yStar_implied
 s_qStar <- sqrt(s2_qStar)
 #--
 v_rLmax <- (r_Lmax - mu_r + s2_qStar) / s_qStar
+v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
+#--
 Nv_rLmax <- pnorm(v_rLmax)
+Nv_rL0 <- pnorm(v_rL0)
 #--
-if(oppCost == F){
-  r_L0 <- 1
-  v_rL0 <- (r_L0 - mu_r + s2_qStar) / s_qStar
-  Nv_rL0 <- pnorm(v_rL0)
-  mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
-  QS <- N0 * mu_A * mu_yStar_implied / s_qStar * mkt_participation
-  df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
-  #------------------
-  if(plot_particip == T){
-    #------------------
-    # Participation plot
-    xlims <- c(-3, 3)
-    x <- seq(xlims[1], xlims[2], 0.01)
-    df_x <- data.frame(x = x, y = dnorm(x))
-    df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax & x < v_rL0,
-                                          "Participating", "Not Participating"))
-    p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y))
-    p1 <- p1 + geom_ribbon(aes(fill = factor("Not participating")))
-    p1 <- p1 + geom_ribbon(data = df_x[df_x$area == "Participating", ], aes(fill = area))
-    p1 <- p1 + theme(legend.title = element_blank())
-    #p1 <- p1 + theme(legend.position = "none")
-    p1
-    print(p1)
-    #------------------
-    #Yield participation plot
-    s_yStar_implied <- sqrt(s2_yStar_implied)
-    y <- seq(0, yCeil, 0.1)
-    df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
-                                         sdlog = s_yStar_implied))
-    yStar_min <- yCeil * exp(-r_L0)
-    yStar_max <- yCeil * exp(-0)
-    df_y <- df_y %>% mutate(area = ifelse(y >= yStar_min & y < yStar_max,
-                                          "Participating", "Not Participating"))
-    gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
-    gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
-    gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
-    gg <- gg + theme(legend.title = element_blank())
-    gg
-    print(gg)
-  }
-  #------------------  
-}else{
-  r_L0_base <- 1
-  v_rL0_base <- (r_L0_base - mu_r + s2_qStar) / s_qStar
-  Nv_rL0_base <- pnorm(v_rL0_base)
-  Nv_rLmax_base <- Nv_rLmax
-  mkt_participation_base <- 1 - Nv_rL0_base + Nv_rLmax_base
-  #--
-  pctChng <- pctChng_costPerOutput
-  #--
-  r_L0_stay <- (1 - P_alt / P) / (1 - pctChng)
-  v_rL0_stay <- (r_L0 - mu_r + s2_qStar) / s_qStar
-  Nv_rL0_stay <- pnorm(v_rL0)
-  Nv_rLmax_stay <- Nv_rLmax
-  mkt_participation_stay <- 1 - Nv_rL0_stay + Nv_rLmax_stay
-  QS_stay <- N0 * mu_A * mu_yStar_implied / s_qStar * mkt_participation_stay
-  #--
-  mu_Cq_alt <- mu_Cq * pctChng
-  mu_r_alt <- mu_Cq_alt / P_alt
-  #--
-  sig2_r_alt <- (mu_r_alt * cv_Cq)^2
-  s2_yStar_implied_alt <- sig2_r_alt
-  s2_qStar_alt <- s2_A + s2_yStar_implied_alt
-  s_qStar_alt <- sqrt(s2_qStar_alt)
-  m_yStar_implied_alt <- log(yCeil) - mu_r_alt
-  mu_yStar_implied_alt <- exp(m_yStar_implied_alt + s2_yStar_implied_alt / 2)
-  r_L0_alt <- (1 - P / P_alt) / (1 - 1 / pctChng)
-  r_L0_alt_base <- 1
-  v_rL0_alt <- (r_L0_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
-  v_rL0_alt_base <- (r_L0_alt_base - mu_r_alt + s2_qStar_alt) / s_qStar_alt
-  r_Lmax_alt <- r_Lmax
-  v_rLmax_alt <- (r_Lmax_alt - mu_r_alt + s2_qStar_alt) / s_qStar_alt
-  Nv_rL0_alt <- pnorm(v_rL0_alt)
-  Nv_rLmax_alt <- pnorm(v_rLmax_alt)
-  mkt_participation_alt <- 1 - Nv_rL0_alt + Nv_rLmax_alt
-  QS_alt <- N0 * mu_A * mu_yStar_implied_alt / s_qStar_alt * mkt_participation_alt
-  #------------------
-  mkt_participation_stay
-  mkt_participation_alt
-  mkt_participation_stay + mkt_participation_alt
-  #------------------
-  df_out <- data.frame(QS_stay, QS_alt,
-                       P, P_alt,
-                       mkt_participation_stay, mkt_participation_alt,
-                       mu_yStar_implied, mu_yStar_implied_alt)
-  #------------------
-  if(plot_particip == T){
-    #------------------
-    # Participation plot
-    xlims <- c(-3, 3)
-    x <- seq(xlims[1], xlims[2], 0.01)
-    df_x <- data.frame(x = x, y = dnorm(x))
-    df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax & x < v_rL0,
-                                          "Participating", "Not Participating"))
-    df_x <- df_x %>% mutate(area = ifelse(x >= v_rL0 & x < v_rL0_base, 
+mkt_participation <- 1 - Nv_rL0 + Nv_rLmax
+#mkt_participation <- Nv_rL0 - Nv_rLmax
+mkt_participation
+Nv_rL0 - Nv_rLmax
+#--
+QS <- N0 * mu_A * mu_yStar_implied * mkt_participation
+df_out <- data.frame(QS, P, mkt_participation, Nv_rL0, Nv_rLmax, mu_yStar_implied)
+#--
+if(plot_particip == T){
+  xlims <- c(-3, 3)
+  x <- seq(xlims[1], xlims[2], 0.01)
+  df_x <- data.frame(x = x, y = dnorm(x))
+  df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax & x < v_rL0,
+                                        "Participating", "Not Participating"))
+  if(oppCost == T){
+    df_x <- df_x %>% mutate(area = ifelse(x >= v_rL0 & x < v_rL0_base,
                                           "Switch", area))
-    p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y))
-    p1 <- p1 + geom_ribbon(aes(fill = factor("Not participating")))
-    p1 <- p1 + geom_ribbon(data = df_x[df_x$area == "Participating", ], aes(fill = area))
-    p1 <- p1 + geom_ribbon(data = df_x[df_x$area == "Switch", ], aes(fill = area))
-    p1 <- p1 + theme(legend.title = element_blank())
-    #p1 <- p1 + theme(legend.position = "none")
-    p1
-    print(p1)
-    #------------------
-    df_x <- df_x %>% mutate(area = ifelse(x >= v_rLmax_alt & x < v_rL0_alt,
+    Nv_rL0_base <- pnorm(v_rL0_base)
+    mkt_participation_base <- 1 - Nv_rL0_base + Nv_rLmax
+    #mkt_participation_base <- Nv_rL0_base - Nv_rLmax
+    adopt_rate <- mkt_participation - mkt_participation_base
+    adopt_rate
+    #--
+    df_x <- df_x %>% mutate(area_alt = ifelse(x >= v_rLmax_alt & x < v_rL0_alt,
                                           "Participating", "Not Participating"))
-    xmin <- min(v_rL0_alt, v_rL0_alt_base)
-    xmax <- max(v_rL0_alt, v_rL0_alt_base)
-    df_x <- df_x %>% mutate(area = ifelse(x >= xmin & x < xmax, 
-                                          "Stay", area))
-    p2 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y))
-    p2 <- p2 + geom_ribbon(aes(fill = factor("Not participating")))
-    p2 <- p2 + geom_ribbon(data = df_x[df_x$area == "Participating", ], aes(fill = area))
-    p2 <- p2 + geom_ribbon(data = df_x[df_x$area == "Stay", ], aes(fill = area))
-    p2 <- p2 + theme(legend.title = element_blank())
-    #p2 <- p2 + theme(legend.position = "none")
-    p2
-    print(p2)
     
-    #------------------
-    #Yield participation plot
-    s_yStar_implied <- sqrt(s2_yStar_implied)
-    y <- seq(0, yCeil, 0.1)
-    df_y <- data.frame(y = y, f = dlnorm(y, meanlog = m_yStar_implied,
-                                         sdlog = s_yStar_implied))
-    yStar_min <- yCeil * exp(-r_L0)
-    yStar_max <- yCeil * exp(-0)
-    df_y <- df_y %>% mutate(area = ifelse(y >= yStar_min & y < yStar_max,
-                                          "Participating", "Not Participating"))
-    yStar_min_base <- yCeil * exp(-r_L0_base)
-    df_y <- df_y %>% mutate(area = ifelse(y >= yStar_min_base & y < yStar_min,
-                                          "Switch", area))
-    gg <- ggplot(data = df_y, aes(x = y, ymin = 0, ymax = f))
-    gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
-    gg <- gg + geom_ribbon(data = df_y[df_y$area == "Participating", ], aes(fill = area))
-    gg <- gg + geom_ribbon(data = df_y[df_y$area == "Switch", ], aes(fill = area))
-    gg <- gg + theme(legend.title = element_blank())
-    gg
-    print(gg)
+    p2 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area_alt))
+    p2 <- p2 + geom_ribbon()
+    p2 <- p2 + theme(legend.title = element_blank())
+    p2
+    
+    df_x <- df_x %>% mutate(area_base = ifelse(x >= v_rLmax & x < v_rL0_base,
+                                           "Participating", "Not Participating"))
+    
+    p3 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area_base))
+    p3 <- p3 + geom_ribbon()
+    p3 <- p3 + theme(legend.title = element_blank())
+    p3
+    
+    
   }
-  #------------------
+  p1 <- ggplot(data = df_x, aes(x = x, ymin = 0, ymax = y, fill = area))
+  p1 <- p1 + geom_ribbon()
+  p1 <- p1 + theme(legend.title = element_blank())
+  p1
+  print(p1)
+  
+  #----
+  #Yield particip
+  sig_r <- sqrt(sig2_r)
+  x <- seq(0, 50, 0.1)
+  df_y <- data.frame(x = x, y = dlnorm(x, meanlog = log(yCeil) - mu_r, sdlog = sig_r))
+  yStar_min <- yCeil * exp(-1)
+  yStar_max <- yCeil * exp(-0)
+  df_y <- df_y %>% mutate(area = ifelse(x >= yStar_min,
+                                        "Participating", "Not Participating"))
+  p1 <- ggplot(data = df_y, aes(x = x, ymin = 0, ymax = y, fill = area))
+  p1 <- p1 + geom_ribbon()
+  p1 <- p1 + theme(legend.title = element_blank())
+  p1
+  
+  #----
+  
 }
-#--
+#=====================================
 
 
 
 
 
-x <- seq(0, 43, 0.1)
-x_min <- 16
-x_max <- 22
-df <- data.frame(x = x, f = dlnorm(x, meanlog = 2.5,
-                                   sdlog = 0.24))
-df <- df %>% mutate(area = ifelse(x >= x_min & x < x_max,
-                                  "Participating", "Not Participating"))
-gg <- ggplot(data = df, aes(x = x, ymin = 0, ymax = f, fill = area))
-gg <- gg + geom_ribbon()
-gg <- gg + theme(legend.title = element_blank())
-gg
+
+
+
+
+
+
 
 
 
@@ -754,7 +433,6 @@ Pvec <- seq(100, 10000, 100)
 mu_r_vec <- c(0.5, 1, 1.5)
 last_i <- length(mu_r_vec)
 Qvec_list <- list()
-Particip_list <- list()
 for(i in 1:last_i){
   this_mu_r <- mu_r_vec[i]
   this_mu_Cq <- P * this_mu_r
@@ -770,19 +448,14 @@ for(i in 1:last_i){
                    l_credit = l_credit_statQuo,
                    plot_particip = F)
   Qvec_list[[i]] <- df_Q$Q
-  Particip_list[[i]] <- df_Q$mkt_participation
 }
 df <- as.data.frame(do.call(cbind, Qvec_list))
-df2 <- as.data.frame(do.call(cbind, Particip_list))
 colnames(df) <- as.character(mu_r_vec)
-colnames(df2) <- as.character(mu_r_vec)
 gathercols <- colnames(df)
 df$P <- Pvec
-df2$P <- Pvec
-df_S <- df %>% gather_("Mean cost to\nprice ratio", "Q", gathercols)
-df_particip <- df2 %>% gather_("Mean cost to\nprice ratio", "mkt_participation", gathercols)
+df <- df %>% gather_("Mean cost to\nprice ratio", "Q", gathercols)
 #------------
-df_plot <- df_S
+df_plot <- df
 gg <- ggplot(df_plot, aes(x = P, y = Q,
                           group = `Mean cost to\nprice ratio`,
                           color = `Mean cost to\nprice ratio`)) + geom_point()
@@ -790,10 +463,8 @@ gg <- gg + coord_cartesian(ylim = c(0, 5000))
 gg <- gg + xlab("Price (lcu/MT)") + ylab("Quantity (MT)")
 gg
 
-# df_plot <- df_particip
-# gg <- ggplot(df_plot, aes(x = P, y = `Mean cost to\nprice ratio`, fill = mkt_participation))
-# gg <- gg + geom_area()
-# gg
+
+
 
 #===============================
 Pvec <- seq(100, 10000, 100)
