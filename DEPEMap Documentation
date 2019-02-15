@@ -1835,20 +1835,41 @@ gg
 
 
 #=================================
-# Objective function (per unit area) supply side
-ObjFn_per_area_SUP <- function(P, C, yCeil, Budget, lambda){
-  y_star <- yCeil * exp(-C / P * (1 + lambda))
-  ObjFn_perArea <- y_star * (P - C * (1 + lambda)) - lambda * Budget
-  return(ObjFn_perArea)
+# Yield and net benefit enevelopes supply and demand side
+#=================================
+# Function definition
+YieldFn <- function(P, C, yCeil, lambda){
+  yStar <- yCeil * exp(-C / P * (1 + lambda))
+  return(yStar)
 }
+ObjFn <- function(P, C, yCeil, Budget, lambda){
+  y_star <- YieldFn(P, C, yCeil, lambda)
+  ObjFn_out <- y_star * (P - C * (1 + lambda)) - lambda * Budget
+  return(ObjFn_out)
+}
+#=================================
+# Supply side
+in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 6000)]
+yCeil_SUP <- exp(m_yCeil_SUP_statQuo)
+Yield_SUP <- YieldFn(P = in_P,
+                     C = mu_P_fdstkCost_per_output_SUP_statQuo,
+                     yCeil = yCeil_SUP,
+                     lambda = 0)
+df_plot <- data.frame(in_P, Yield_SUP)
+colnames(df_plot) <- c("Price (lcu / MT)", "Farm yield envelope (MT / ha)")
+gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Farm yield envelope (MT / ha)`))
+gg <- gg + geom_hline(yintercept = yCeil_SUP, lwd = 1.5, linetype = "dashed")
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + theme_bw()
+gg
 
 
 in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 3000)]
-ObjFn_SUP <- ObjFn_per_area_SUP(P = in_P,
-                                C = mu_P_fdstkCost_per_output_SUP_statQuo,
-                                yCeil = m_yCeil_SUP_statQuo,
-                                Budget = 0.95 * mu_P_fdstkCost_per_output_SUP_statQuo,
-                                lambda = 0)
+ObjFn_SUP <- ObjFn(P = in_P,
+                   C =mu_P_fdstkCost_per_output_SUP_statQuo,
+                   yCeil = yCeil_SUP,
+                   Budget = 0.95 * mu_P_fdstkCost_per_output_SUP_statQuo,
+                   lambda = 0)
 df_plot <- data.frame(in_P, ObjFn_SUP)
 colnames(df_plot) <- c("Price (lcu / MT)", "Farm net benefit envelope (lcu / ha)")
 gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Farm net benefit envelope (lcu / ha)`))
@@ -1856,3 +1877,49 @@ gg <- gg + geom_hline(yintercept = 0, lwd = 1.5, color = "red")
 gg <- gg + geom_line(lwd = 1.5)
 gg <- gg + theme_bw()
 gg
+
+#=================================
+# Yield function (demand side)
+yCeil_DEM <- exp(m_yCeil_DEM_statQuo)
+in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 6000)]
+fdstk_cost_DEM <- beta_DEM_statQuo * in_P
+cost_per_output_DEM <- fdstk_cost_DEM + mu_P_procCost_per_output_DEM_statQuo
+Yield_DEM <- YieldFn(P = P_rev_per_output_DEM_statQuo,
+                     C = cost_per_output_DEM,
+                     yCeil = yCeil_DEM,
+                     lambda = 0)
+df_plot <- data.frame(in_P, Yield_DEM)
+colnames(df_plot) <- c("Price (lcu / MT)", "Demand side yield envelope ((kL / day) / factory)")
+gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Demand side yield envelope ((kL / day) / factory)`))
+#gg <- gg + geom_hline(yintercept = 0, lwd = 1.5, color = "red")
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + theme_bw()
+gg
+# Objective function (per factory) demand side
+ObjFn_DEM <- ObjFn(P = P_rev_per_output_DEM_statQuo,
+                   C = cost_per_output_DEM,
+                   yCeil = yCeil_DEM,
+                   Budget = 0.95 * cost_per_output_DEM,
+                   lambda = 0)
+df_plot <- data.frame(in_P, ObjFn_DEM)
+colnames(df_plot) <- c("Price (lcu / MT)", "Demand side net benefit envelope (lcu / ha)")
+gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Demand side net benefit envelope (lcu / ha)`))
+gg <- gg + geom_hline(yintercept = 0, lwd = 1.5, color = "red")
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + theme_bw()
+gg
+
+#=================================
+# Simple illustration of basic yield function
+x <- seq(0, 4, 0.01)
+y <- exp(-1 / x)
+df_plot <- data.frame(x, y)
+gg <- ggplot(df_plot, aes(x, y))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + theme_bw()
+gg <- gg + theme(axis.text = element_blank(),
+                 axis.ticks = element_blank())
+gg <- gg + xlab("Input")
+gg <- gg + ylab("Yield")
+gg
+#=================================
