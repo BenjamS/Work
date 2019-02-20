@@ -4,7 +4,7 @@ library(plyr)
 library(dplyr)
 library(tidyr)
 library(fields)
-
+library(lamW)
 
 Q_DorS <- function(N, P_rev_per_output,
                    mu_P_fdstkCost_per_output,
@@ -1838,27 +1838,47 @@ gg
 # Yield and net benefit enevelopes supply and demand side
 #=================================
 # Function definition
-YieldFn <- function(P, C, yCeil, lambda){
-  yStar <- yCeil * exp(-C / P * (1 + lambda))
+YieldFn <- function(P, dotProd_techPrice, yCeil, lambda){
+  #yStar <- yCeil * exp(-C / P * (1 + lambda))
+  Cstar <- sqrt((P * yCeil) / (1 + lambda) * dotProd_techPrice)
+  a <- -Cstar / (P * yCeil) * (1 + lambda)
+  yStar <- yCeil * exp(lambertW0(a))
+  #yStar <- yCeil * exp(lambertWm1(a))
   return(yStar)
 }
-ObjFn <- function(P, C, yCeil, Budget, lambda){
-  y_star <- YieldFn(P, C, yCeil, lambda)
-  ObjFn_out <- y_star * (P - C * (1 + lambda)) - lambda * Budget
+ObjFn <- function(P, dotProd_techPrice, yCeil, Budget, lambda){
+  yStar <- YieldFn(P, dotProd_techPrice, yCeil, lambda)
+  #ObjFn_out <- y_star * (P - C * (1 + lambda)) - lambda * Budget
+  Cstar <- sqrt((P * yCeil) / (1 + lambda) * dotProd_techPrice)
+  ObjFn_out <- P * yStar - Cstar - lambda * (Cstar - Budget)
   return(ObjFn_out)
 }
 #=================================
 # Supply side
-in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 6000)]
+#in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 2000)]
+in_P <- seq(1, 14000, 10)
 yCeil_SUP <- exp(m_yCeil_SUP_statQuo)
+lambda <- 0
+#--
+C_tilda <- mu_P_fdstkCost_per_output_SUP_statQuo
+C_tilda <- 800
+u <- C_tilda / P_eq_00 * (1 + lambda)
+dotProd_techPrice <- yCeil_SUP * C_tilda * u * exp(-2 * u)
+dotProd_techPrice
+P_threshold <- exp(2) / (yCeil_SUP * (1 + lambda) * dotProd_techPrice)
+#P_threshold <- exp(1) * C_star * (1 + lambda) / (yCeil_SUP)
+#--
+yStar_max <- yCeil_SUP
+yStar_min <- exp(-1) * yCeil_SUP
 Yield_SUP <- YieldFn(P = in_P,
-                     C = mu_P_fdstkCost_per_output_SUP_statQuo,
+                     dotProd_techPrice = dotProd_techPrice,
                      yCeil = yCeil_SUP,
                      lambda = 0)
 df_plot <- data.frame(in_P, Yield_SUP)
 colnames(df_plot) <- c("Price (lcu / MT)", "Farm yield envelope (MT / ha)")
 gg <- ggplot(df_plot, aes(x = `Price (lcu / MT)`, y = `Farm yield envelope (MT / ha)`))
-gg <- gg + geom_hline(yintercept = yCeil_SUP, lwd = 1.5, linetype = "dashed")
+gg <- gg + geom_hline(yintercept = yStar_max, lwd = 1.5, linetype = "dashed")
+gg <- gg + geom_hline(yintercept = yStar_min, lwd = 1.5, linetype = "dashed")
 gg <- gg + geom_line(lwd = 1.5)
 gg <- gg + theme_bw()
 gg
@@ -1866,7 +1886,7 @@ gg
 
 in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 3000)]
 ObjFn_SUP <- ObjFn(P = in_P,
-                   C =mu_P_fdstkCost_per_output_SUP_statQuo,
+                   dotProd_techPrice = dotProd_techPrice,
                    yCeil = yCeil_SUP,
                    Budget = 0.95 * mu_P_fdstkCost_per_output_SUP_statQuo,
                    lambda = 0)
