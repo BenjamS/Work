@@ -1834,6 +1834,22 @@ gg
 
 
 
+
+
+a <- 10^-2
+b <- 10^3
+
+x <- seq(-exp(-1), 0, l = 50)
+y <- -b * x * lambertW0(-x * a)
+plot(x, y)
+
+
+x <- seq(-exp(-1) / a, 0, l = 50)
+y <- lambertW0(-x * a) + b / x
+plot(x, y)
+
+
+
 #=================================
 # Yield and net benefit enevelopes supply and demand side
 #=================================
