@@ -1834,22 +1834,6 @@ gg
 
 
 
-
-
-a <- 10^-2
-b <- 10^3
-
-x <- seq(-exp(-1), 0, l = 50)
-y <- -b * x * lambertW0(-x * a)
-plot(x, y)
-
-
-x <- seq(-exp(-1) / a, 0, l = 50)
-y <- lambertW0(-x * a) + b / x
-plot(x, y)
-
-
-
 #=================================
 # Yield and net benefit enevelopes supply and demand side
 #=================================
@@ -1872,15 +1856,104 @@ ObjFn <- function(P, dotProd_techPrice, yCeil, Budget, lambda){
 #=================================
 # Supply side
 #in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 2000)]
-in_P <- seq(1, 14000, 10)
 yCeil_SUP <- exp(m_yCeil_SUP_statQuo)
 lambda <- 0
 #--
-C_tilda <- mu_P_fdstkCost_per_output_SUP_statQuo
-C_tilda <- 800
-u <- C_tilda / P_eq_00 * (1 + lambda)
-dotProd_techPrice <- yCeil_SUP * C_tilda * u * exp(-2 * u)
-dotProd_techPrice
+# C_tilda_statQuo <- mu_P_fdstkCost_per_output_SUP_statQuo
+# C_tilda_statQuo <- 800
+# C_star_statQuo <- C_tilda_statQuo * y_star_statQuo
+rCeil_SUP <- yCeil_SUP * P_eq_00
+C_star_statQuo <- 0.3 * rCeil_SUP
+beta <- -C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+beta
+y_star_statQuo <- yCeil_SUP * exp(-beta / C_star_statQuo)
+y_star_statQuo
+yCeil_SUP * exp(lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda)))
+
+
+-beta / C_star_statQuo - lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+
+-C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+beta
+
+c_star_tilda <- -1 / y_star_statQuo *  beta / log(y_star_statQuo / yCeil_SUP)
+c_star_tilda
+
+
+
+rootfn_cstar <- function(C_star, beta, rCeil_SUP, lambda){
+  slack <- beta + C_star * lambertW0(-C_star / rCeil_SUP * (1 + lambda))
+  return(slack)
+}
+
+
+
+supply_farmLevel <- function(P, beta, yCeil_SUP, lambda){
+  c_star <- c()
+  y_star <- c()
+  last_i <- length(P)
+  for(i in 1:last_i){
+    rCeil_SUP <- yCeil_SUP * P[i]
+    interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
+    this_c_star <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                          beta = beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+    this_y_star <- yCeil_SUP * exp(-beta / this_c_star)
+    c_star[i] <- this_c_star
+    y_star[i] <- this_y_star
+  }
+  df_out <- data.frame(P, y_star, c_star)
+  return(df_out)
+}
+
+
+yStar_lobound <- yCeil_SUP * exp(-1)
+yStar_upbound <- yCeil_SUP
+P_lobound <- beta / yCeil_SUP * (1 + lambda) * exp(1)
+in_P <- seq(1, 3000, 10)
+df_out <- supply_farmLevel(in_P, beta, yCeil_SUP, lambda)
+gg <- ggplot(df_out, aes(x = P, y = y_star))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + geom_hline(yintercept = yStar_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_hline(yintercept = yStar_upbound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+cStar_lobound <- beta
+gg <- ggplot(df_out, aes(x = P, y = c_star))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + geom_hline(yintercept = cStar_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+df_out$c_star_tilda <- df_out$c_star / df_out$y_star
+cStar_tilda_lobound <- cStar_lobound / yStar_lobound
+gg <- ggplot(df_out, aes(x = P, y = c_star_tilda))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+df_out$TFP <- 1 / df_out$c_star_tilda
+gg <- ggplot(df_out, aes(x = P, y = TFP))
+gg <- gg + geom_line(lwd = 1.7)
+#gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 P_threshold <- exp(2) / (yCeil_SUP * (1 + lambda) * dotProd_techPrice)
 #P_threshold <- exp(1) * C_star * (1 + lambda) / (yCeil_SUP)
 #--
