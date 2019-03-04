@@ -1862,7 +1862,7 @@ lambda <- 0
 # C_tilda_statQuo <- mu_P_fdstkCost_per_output_SUP_statQuo
 # C_tilda_statQuo <- 800
 # C_star_statQuo <- C_tilda_statQuo * y_star_statQuo
-rCeil_SUP <- yCeil_SUP * P_eq_00
+rCeil_SUP <- yCeil_SUP * 2200  #* P_eq_00
 C_star_statQuo <- 0.3 * rCeil_SUP
 beta <- -C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
 beta
@@ -1896,7 +1896,7 @@ supply_farmLevel <- function(P, beta, yCeil_SUP, lambda){
     rCeil_SUP <- yCeil_SUP * P[i]
     interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
     this_c_star <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                          beta = beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+                               beta = beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
     this_y_star <- yCeil_SUP * exp(-beta / this_c_star)
     c_star[i] <- this_c_star
     y_star[i] <- this_y_star
@@ -1933,12 +1933,39 @@ gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "d
 gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
 gg
 
-df_out$TFP <- 1 / df_out$c_star_tilda
-gg <- ggplot(df_out, aes(x = P, y = TFP))
+df_out$drdc <- df_out$P / df_out$c_star_tilda
+gg <- ggplot(df_out, aes(x = P, y = drdc))
 gg <- gg + geom_line(lwd = 1.7)
 #gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
 gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
 gg
+
+
+df_out$NR <- df_out$y_star * df_out$P - df_out$c_star
+gg <- ggplot(df_out, aes(x = P, y = NR))
+gg <- gg + geom_line(lwd = 1.7)
+#gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2032,3 +2059,101 @@ gg <- gg + xlab("Input")
 gg <- gg + ylab("Yield")
 gg
 #=================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Q_DorS <- function(N, P_rev_per_output,
+                   mu_P_fdstkCost_per_output,
+                   mu_P_procCost_per_output = 0,
+                   cv_P_fdstkCost_per_output,
+                   cv_P_procCost_per_output = 0,
+                   beta,
+                   m_yCeil, cv_lyCeil,
+                   m_A, cv_lA,
+                   df_rL0max = data.frame(rL0 = 1, rLmax = 0),
+                   l_credit = 0){
+  #--------------------------------
+  s2_yCeil <- (cv_lyCeil * m_yCeil)^2
+  s2_A <- (cv_lA * m_A)^2
+  #--------------------------------
+  # mu_r
+  ratio_price <- (mu_P_fdstkCost_per_output + mu_P_procCost_per_output) / P_rev_per_output
+  mu_r <- ratio_price * beta * (1 - l_credit)
+  #--------------------------------
+  # sig2_r
+  sig2_fdstkCost_per_output <- (mu_P_fdstkCost_per_output * cv_P_fdstkCost_per_output)^2
+  sig2_procCost_per_output <- (mu_P_procCost_per_output * cv_P_procCost_per_output)^2
+  sig2_r <- (sig2_fdstkCost_per_output + sig2_procCost_per_output) * (beta / P_rev_per_output)^2
+  #--------------------------------
+  # s_qStar
+  s2_qStar <- s2_A + s2_yCeil + sig2_r
+  s_qStar <- sqrt(s2_qStar)
+  #--------------------------------
+  # mu_qStar
+  m_qStar <- m_A + m_yCeil - mu_r
+  mu_qStar <- exp(m_qStar + s2_qStar / 2)
+  #--------------------------------
+  # Nvr0, Nvr1
+  # Note: if sig2_beta = 0 then so should s2_yCeil, and N_D should = 1
+  if(cv_P_fdstkCost_per_output != 0 | cv_P_procCost_per_output != 0){
+    term <- (1 - l_credit) / s_qStar
+    rL0 <- df_rL0max$rL0
+    rLmax <- df_rL0max$rLmax
+    theta_upper <- (-rLmax + mu_r) * term - s_qStar
+    theta_lower <- (-rL0 + mu_r) * term - s_qStar
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    # vrLmax <- (-rLmax + mu_r - s2_qStar) / s_qStar
+    # vrL0 <- (-rL0 + mu_r - s2_qStar) / s_qStar
+    # NvrLmax <- pnorm(vrLmax)
+    # NvrL0 <- pnorm(vrL0)
+    #--------------------------------
+    # QD or QS
+    mkt_participation <- N_upper - N_lower
+    #mkt_participation <- (1 + NvrLmax - NvrL0) / 2
+    #mkt_participation <- NvrLmax - NvrL0
+    Q_D_or_S <- N * mu_qStar * mkt_participation
+  }else{
+    Q_D_or_S <- mu_qStar
+  }
+  #--------------------------------
+  if(nrow(df_rL0max) > 1){
+    # ind1 <- which(df_rL0max$rL0 == 0)
+    # ind2 <- which(df_rL0max$rLmax == 0)
+    # ind0 <- intersect(ind1, ind2)
+    # Q_D_or_S[ind0] <- 0
+    # mkt_participation[ind0] <- NA
+  }else{
+    if(rL0 == 0 & rLmax == 0){
+      Q_D_or_S <- 0
+      mkt_participation <- NA
+    }
+  }
+  #--------------------------------
+  df_out <- data.frame(Q_D_or_S, mkt_participation)
+  #--------------------------------
+  return(df_out)
+}
