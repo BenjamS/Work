@@ -1,0 +1,183 @@
+library(ggplot2)
+library(rootSolve)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(fields)
+library(lamW)
+
+
+#=================================
+# Supply side
+#in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 2000)]
+P_sq <- 2200
+yCeil_SUP <- 45
+lambda <- 0
+rCeil_sq_SUP <- yCeil_SUP * P_sq
+cStar_sq <- 0.33 * rCeil_sq_SUP # max is exp(-1) * rCeil_sq_SUP
+cStar_sq
+mu_beta <- -mu_cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda))
+mu_beta
+m_yStar_norm <- -mu_beta / cStar_sq
+m_yStar_norm
+yCeil_SUP * exp(m_yStar_norm)
+m_yStar <- m_yStar_norm + log(yCeil_SUP)
+m_yStar
+cv_yStar <- 0.55
+s2_yStar <- m_yStar^2 * cv_yStar^2
+mu_yStar <- exp(m_yStar + s2_yStar / 2)
+mu_yStar
+#---------------------------------
+rootfn_cstar <- function(C_star, beta, rCeil_SUP, lambda){
+  slack <- beta + C_star * lambertW0(-C_star / rCeil_SUP * (1 + lambda))
+  return(slack)
+}
+P_new <- P_sq * 1.10
+rCeil_SUP <- yCeil_SUP * P_new
+interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
+cStar <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                           beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+cStar
+m_yStar_norm <- -mu_beta / mu_cStar
+m_yStar_norm
+yCeil_SUP * exp(m_yStar_norm)
+m_yStar <- m_yStar_norm + log(yCeil_SUP)
+m_yStar
+s2_yStar <- m_yStar^2 * cv_yStar^2
+mu_yStar <- exp(m_yStar + s2_yStar / 2)
+mu_yStar
+
+theta_upper <- -m_yStar / s2_yStar - sqrt(s2_yStar)
+theta_lower <- (-1 - m_yStar) / s2_yStar - sqrt(s2_yStar)
+N_upper <- pnorm(theta_upper)
+N_lower <- pnorm(theta_lower)
+mkt_particip <- N_upper - N_lower
+
+
+
+# C_tilda_statQuo <- mu_P_fdstkCost_per_output_SUP_statQuo
+# C_tilda_statQuo <- 800
+# C_star_statQuo <- C_tilda_statQuo * y_star_statQuo
+beta <- -C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+beta
+y_star_statQuo <- yCeil_SUP * exp(-beta / C_star_statQuo)
+y_star_statQuo
+yCeil_SUP * exp(lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda)))
+
+-beta / C_star_statQuo - lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+
+-C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+beta
+
+c_star_tilda <- -1 / y_star_statQuo *  beta / log(y_star_statQuo / yCeil_SUP)
+c_star_tilda
+
+
+supply_farmLevel <- function(P, beta, yCeil_SUP, lambda){
+  c_star <- c()
+  y_star <- c()
+  last_i <- length(P)
+  for(i in 1:last_i){
+    rCeil_SUP <- yCeil_SUP * P[i]
+    interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
+    this_c_star <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                               beta = beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+    this_y_star <- yCeil_SUP * exp(-beta / this_c_star)
+    c_star[i] <- this_c_star
+    y_star[i] <- this_y_star
+  }
+  df_out <- data.frame(P, y_star, c_star)
+  return(df_out)
+}
+
+
+yStar_lobound <- yCeil_SUP * exp(-1)
+yStar_upbound <- yCeil_SUP
+P_lobound <- beta / yCeil_SUP * (1 + lambda) * exp(1)
+in_P <- seq(1, 3000, 10)
+df_out <- supply_farmLevel(in_P, beta, yCeil_SUP, lambda)
+gg <- ggplot(df_out, aes(x = P, y = y_star))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + geom_hline(yintercept = yStar_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_hline(yintercept = yStar_upbound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+cStar_lobound <- beta
+gg <- ggplot(df_out, aes(x = P, y = c_star))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + geom_hline(yintercept = cStar_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+df_out$c_star_tilda <- df_out$c_star / df_out$y_star
+cStar_tilda_lobound <- cStar_lobound / yStar_lobound
+gg <- ggplot(df_out, aes(x = P, y = c_star_tilda))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+df_out$drdc <- df_out$P / df_out$c_star_tilda
+gg <- ggplot(df_out, aes(x = P, y = drdc))
+gg <- gg + geom_line(lwd = 1.7)
+#gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+
+df_out$NR <- df_out$y_star * df_out$P - df_out$c_star
+gg <- ggplot(df_out, aes(x = P, y = NR))
+gg <- gg + geom_line(lwd = 1.7)
+#gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
+gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
+gg
+
+
+#===============================
+# Demand - firm level
+demand_firmLevel <- function(P_SUP, P_DEM, y_DEM, alpha_DEM, lambda){
+  y_demanded <- sqrt((y_DEM * P_DEM) / (1 + lambda) * alpha_DEM / P_SUP)
+  return(y_demanded)
+}
+P_DEM <- 23400
+y_DEM <- 130
+# rCeil_DEM <- yCeil_DEM * P_DEM  #* P_eq_00
+alpha_DEM <- P_SUP * 0.3
+yStar_DEM <- sqrt((y_DEM * P_DEM) / (1 + lambda) * alpha_DEM / P_SUP)
+
+in_P_SUP <- seq(0, 3000, 10)
+yStar_DEM <- demand_firmLevel(in_P_SUP, P_DEM, y_DEM, alpha_DEM, lambda)
+
+df_plot <- data.frame(P = in_P_SUP, yStar_DEM)
+gg <- ggplot(df_plot, aes(x = P, y = yStar_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+
+
+
+
+
+
+
+
+
+
+#===============================
+#===============================
+#===============================
+#===============================
+#===============================
+# Supply - population level
+
+yStar_min_SUP <- yCeil_SUP * exp(-1)
+yStar_max_SUP <- yCeil_SUP
+
+midval <- log(yStar_min_SUP / yCeil_SUP) + 1 / 2 * (log(yStar_max_SUP / yCeil_SUP) - log(yStar_min_SUP / yCeil_SUP))
+
+beta
+
+exp(-1) * rCeil_SUP / (1 + lambda)
+
+mu_x <- 
