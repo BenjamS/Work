@@ -16,57 +16,194 @@ lambda <- 0
 rCeil_sq_SUP <- yCeil_SUP * P_sq
 cStar_sq <- 0.33 * rCeil_sq_SUP # max is exp(-1) * rCeil_sq_SUP
 cStar_sq
-mu_beta <- -mu_cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda))
+mu_beta <- -cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda))
 mu_beta
 m_yStar_norm <- -mu_beta / cStar_sq
 m_yStar_norm
 yCeil_SUP * exp(m_yStar_norm)
 m_yStar <- m_yStar_norm + log(yCeil_SUP)
 m_yStar
-cv_yStar <- 0.55
+cv_yStar <- 0.07
 s2_yStar <- m_yStar^2 * cv_yStar^2
 mu_yStar <- exp(m_yStar + s2_yStar / 2)
 mu_yStar
 #---------------------------------
-rootfn_cstar <- function(C_star, beta, rCeil_SUP, lambda){
-  slack <- beta + C_star * lambertW0(-C_star / rCeil_SUP * (1 + lambda))
+rootfn_cstar <- function(C_star, beta, rCeil, lambda){
+  slack <- beta + C_star * lambertW0(-C_star / rCeil * (1 + lambda))
   return(slack)
 }
-P_new <- P_sq * 1.10
+
+N <- 80
+P_new <- P_sq
 rCeil_SUP <- yCeil_SUP * P_new
 interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
 cStar <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
                            beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
 cStar
-m_yStar_norm <- -mu_beta / mu_cStar
+m_yStar_norm <- -mu_beta / cStar
 m_yStar_norm
-yCeil_SUP * exp(m_yStar_norm)
 m_yStar <- m_yStar_norm + log(yCeil_SUP)
 m_yStar
-s2_yStar <- m_yStar^2 * cv_yStar^2
-mu_yStar <- exp(m_yStar + s2_yStar / 2)
+exp(m_yStar)
+s_yStar <- m_yStar * cv_yStar
+mu_yStar <- exp(m_yStar + s_yStar^2 / 2)
 mu_yStar
 
-theta_upper <- -m_yStar / s2_yStar - sqrt(s2_yStar)
-theta_lower <- (-1 - m_yStar) / s2_yStar - sqrt(s2_yStar)
+theta_upper <- (-m_yStar_norm) / s_yStar - s_yStar
+theta_lower <- (- 1 - m_yStar_norm) / s_yStar - s_yStar
 N_upper <- pnorm(theta_upper)
 N_lower <- pnorm(theta_lower)
 mkt_particip <- N_upper - N_lower
+mkt_particip
+
+Q_S <- N * mu_yStar * mkt_particip
+
+z <- seq(-3, 3, 0.001)
+df_z <- data.frame(z = z, f = dnorm(z))
+df_z <- df_z %>% mutate(area = ifelse(z > theta_lower & z < theta_upper,
+                                      "Participating", "Not Participating"))
+gg <- ggplot(data = df_z, aes(x = z, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_z[df_z$area == "Participating", ], aes(fill = area))
+gg <- gg + scale_fill_manual(values=c("lightcyan2", "turquoise"), name="fill")
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + theme(axis.title.x = element_blank())
+gg
+
+
+QS <- function(P, N_area, yCeil_SUP, mu_beta, lambda){
+  QS_vec <- c()
+  mktParticip_vec <- c()
+  for(i in 1:length(P)){
+    rCeil_SUP <- yCeil_SUP * P[i]
+    print(rCeil_SUP)
+    interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
+    cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                         beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+    m_yStar_norm <- -mu_beta / cStar_atMu
+    #m_yStar_norm
+    m_yStar <- m_yStar_norm + log(yCeil_SUP)
+    s_yStar <- m_yStar * cv_yStar
+    mu_yStar <- exp(m_yStar + s_yStar^2 / 2)
+    theta_upper <- (-m_yStar_norm) / s_yStar - s_yStar
+    theta_lower <- (- 1 - m_yStar_norm) / s_yStar - s_yStar
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    mkt_particip <- N_upper - N_lower
+    QS_vec[i] <- N_area * mu_yStar * mkt_particip
+    mktParticip_vec[i] <- mkt_particip
+  }
+  df_out <- data.frame(P, QS = QS_vec, mkt_particip = mktParticip_vec)
+}
+
+
+P <- seq(10, 8000, 10)
+N_area <- 80
+yCeil_SUP <- 45
+lambda <- 0
+rCeil_sq_SUP <- yCeil_SUP * P_sq
+cStar_sq <- 0.33 * rCeil_sq_SUP # max is exp(-1) * rCeil_sq_SUP
+#cStar_sq
+mu_beta <- -cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda))
+#mu_beta
+cv_yStar <- 0.07
+df_QS <- QS(P, N_area, yCeil_SUP, mu_beta, cv_yStar)
+
+
+df_plot <- df_out
+gg <- ggplot(df_plot, aes(x = P, y = mkt_particip))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+gg <- ggplot(df_plot, aes(x = P, y = QS))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+
+
+
+
+
+
+
+
+
+# Demand
+#function(P_SUP, P_DEM, y_DEM, alpha_DEM, lambda){
+#y_demanded <- sqrt((y_DEM * P_DEM) / (1 + lambda) * alpha_DEM / P_SUP)
+ 
+P_sq_DEM <- 23400
+yCeil_DEM <- 150
+lambda_DEM <- 0
+cv_lyStar_DEM <- 0.05
+rCeil_sq_DEM <- yCeil_DEM * P_sq_DEM
+cStar_sq_DEM <- 0.33 * rCeil_sq_DEM # max is exp(-1) * rCeil_sq_DEM
+cStar_sq_DEM
+mu_beta_DEM <- -cStar_sq_DEM * lambertW0(-cStar_sq_DEM / rCeil_sq_DEM * (1 + lambda_DEM))
+mu_beta_DEM
+
+
+interval_cstar <- c(0, exp(-1) * rCeil_sq_DEM / (1 + lambda_DEM))
+cStar_atMu_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                          beta = mu_beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+m_yStar_norm_DEM <- -mu_beta_DEM / cStar_atMu_DEM
+m_yStar_DEM <- m_yStar_norm_DEM + log(yCeil_DEM)
+s_yStar_DEM <- cv_lyStar_DEM * m_yStar_DEM
+mu_yStar_DEM <- exp(m_yStar_DEM + s_yStar_DEM^2 / 2)
+mu_yStar_DEM
+
+mu_alphaDEM <- xStar_DEM^2 * (1 + lambda) / (mu_yStar_DEM * P_sq_DEM)
+cv_xStar_DEM <- 0.1
+
+
+
+
+m_rDEM <- P_DEM * yStar_DEM
+m_xStar_DEM <- 1 / 2 * log((m_rDEM * mu_alphaDEM) / ((1 + lambda) * P))
+s_xStar_DEM <- cv_yStar_DEM * m_yStar_DEM
+mu_xStar_DEM <- exp(m_yStar_DEM + s_yStar_DEM^2 / 2)
+#mu_yStar_DEM
+theta_upper <- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 # C_tilda_statQuo <- mu_P_fdstkCost_per_output_SUP_statQuo
 # C_tilda_statQuo <- 800
 # C_star_statQuo <- C_tilda_statQuo * y_star_statQuo
-beta <- -C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+beta <- -cStar_sq * lambertW0(-cStar_sq / rCeil_SUP * (1 + lambda))
 beta
-y_star_statQuo <- yCeil_SUP * exp(-beta / C_star_statQuo)
+y_star_statQuo <- yCeil_SUP * exp(-beta / cStar_sq)
 y_star_statQuo
-yCeil_SUP * exp(lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda)))
+yCeil_SUP * exp(lambertW0(-cStar_sq / rCeil_SUP * (1 + lambda)))
 
--beta / C_star_statQuo - lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+-beta / cStar_sq - lambertW0(-cStar_sq / rCeil_SUP * (1 + lambda))
 
--C_star_statQuo * lambertW0(-C_star_statQuo / rCeil_SUP * (1 + lambda))
+-cStar_sq * lambertW0(-cStar_sq / rCeil_SUP * (1 + lambda))
 beta
 
 c_star_tilda <- -1 / y_star_statQuo *  beta / log(y_star_statQuo / yCeil_SUP)
@@ -110,6 +247,7 @@ gg <- gg + geom_hline(yintercept = cStar_lobound, lwd = 1.7, linetype = "dashed"
 gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
 gg
 
+
 df_out$c_star_tilda <- df_out$c_star / df_out$y_star
 cStar_tilda_lobound <- cStar_lobound / yStar_lobound
 gg <- ggplot(df_out, aes(x = P, y = c_star_tilda))
@@ -118,12 +256,20 @@ gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "d
 gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
 gg
 
+
 df_out$drdc <- df_out$P / df_out$c_star_tilda
 gg <- ggplot(df_out, aes(x = P, y = drdc))
 gg <- gg + geom_line(lwd = 1.7)
 #gg <- gg + geom_hline(yintercept = cStar_tilda_lobound, lwd = 1.7, linetype = "dashed")
 gg <- gg + geom_vline(xintercept = P_lobound, lwd = 1.7, linetype = "dashed")
 gg
+
+
+gg <- ggplot(df_out, aes(x = c_star, y = drdc))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+
 
 
 df_out$NR <- df_out$y_star * df_out$P - df_out$c_star
