@@ -133,18 +133,95 @@ gg
 # Demand
 #function(P_SUP, P_DEM, y_DEM, alpha_DEM, lambda){
 #y_demanded <- sqrt((y_DEM * P_DEM) / (1 + lambda) * alpha_DEM / P_SUP)
- 
-P_sq_DEM <- 23400
-yCeil_DEM <- 150
+
+P_sq_DEM <- 24000
+yCeil_DEM <- 300
 lambda_DEM <- 0
-cv_lyStar_DEM <- 0.05
 rCeil_sq_DEM <- yCeil_DEM * P_sq_DEM
-cStar_sq_DEM <- 0.33 * rCeil_sq_DEM # max is exp(-1) * rCeil_sq_DEM
+cStar_sq_DEM <- 0.35 * rCeil_sq_DEM # max is exp(-1) * rCeil_sq_DEM
 cStar_sq_DEM
+beta_DEM <- -cStar_sq_DEM * lambertW0(-cStar_sq_DEM / rCeil_sq_DEM * (1 + lambda_DEM))
+yStar_sq_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_sq_DEM)
+yStar_sq_DEM
+P <- 2500
+# alpha_x <- 150
+# xStar_sq_DEM <- sqrt(P_sq_DEM * yStar_sq_DEM / (1 + lambda_DEM) * alpha_x / P)
+# xStar_sq_DEM / yStar_sq_DEM
+roots_per_kL <- 5
+xStar_sq_DEM <- roots_per_kL * yStar_sq_DEM
+xStar_sq_DEM
+(xStar_sq_DEM * P) / cStar_sq_DEM
+alpha_x_derived <- xStar_sq_DEM^2 * P * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_DEM)
+(alpha_x_derived * P) / beta_DEM
+alpha_x_derived
+
+aw_x <- P * alpha_x
+aw_other <- beta_DEM - aw_x
+aw_other
+
+
+interval_cstar <- c(0, exp(-1) * rCeil_sq_DEM / (1 + lambda_DEM))
+P_new <- P * 0.9
+beta_DEM <- alpha_x * P_new + aw_x
+cStar_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                              beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+cStar_DEM
+yStar_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_DEM)
+yStar_DEM
+xStar_DEM <- sqrt(P_sq_DEM * yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / P_new)
+xStar_DEM / yStar_DEM
+(xStar_DEM * P_new) / cStar_DEM
+
+
+
+
+
+
+
+
+x_sq_DEM <- yStar_sq_DEM * 3
+P <- 2000
+
+cStar_sq_DEM / (x_sq_DEM * P)
+#9000 / 13500
+
+cost_feedstk_sq
+
+
+alpha_DEM <- P * x_sq_DEM^2 * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_DEM)
+
+NR_DEM <- P_sq_DEM * yStar_sq_DEM - cStar_sq_DEM
+NR_DEM
+
+cost_feedstk <- yStar_sq_DEM * 6 * P
+cost_other <- cStar_sq_DEM - cost_feedstk
+aw_other <- cost_other^2 * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_DEM)
+aw_feedstk <- mu_beta_DEM - aw_other
+alpha_DEM <- aw_feedstk / P
+alpha_DEM
+
+
+
+
+
+alpha_DEM <- 230
+yStar_sq_DEM <- 140
+cost_feedstk <- x_DEM * P
+cStar_sq_DEM <- cost_feedstk * 1.15
+NR_DEM <- P_sq_DEM * yStar_sq_DEM - cStar_sq_DEM
+NR_DEM
+cStar_sq_DEM / rCeil_sq_DEM
 mu_beta_DEM <- -cStar_sq_DEM * lambertW0(-cStar_sq_DEM / rCeil_sq_DEM * (1 + lambda_DEM))
 mu_beta_DEM
+yStar_sq_DEM - yCeil_DEM * exp(-mu_beta_DEM / cStar_sq_DEM)
 
 
+
+log(yStar_sq_DEM / yCeil_DEM) + mu_beta_DEM / cStar_sq_DEM = 0
+
+cv_lyStar_DEM <- 0.05
+
+yStar_sq_DEM * 6
 interval_cstar <- c(0, exp(-1) * rCeil_sq_DEM / (1 + lambda_DEM))
 cStar_atMu_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
                           beta = mu_beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
