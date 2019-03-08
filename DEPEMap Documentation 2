@@ -38,7 +38,7 @@ P_new <- P_sq
 rCeil_SUP <- yCeil_SUP * P_new
 interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
 cStar <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                           beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+                     beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
 cStar
 m_yStar_norm <- -mu_beta / cStar
 m_yStar_norm
@@ -82,7 +82,7 @@ QS <- function(P, N_area, yCeil_SUP, mu_beta, lambda){
     print(rCeil_SUP)
     interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
     cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                         beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+                              beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
     m_yStar_norm <- -mu_beta / cStar_atMu
     #m_yStar_norm
     m_yStar <- m_yStar_norm + log(yCeil_SUP)
@@ -155,22 +155,90 @@ alpha_x_derived <- xStar_sq_DEM^2 * P * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_
 (alpha_x_derived * P) / beta_DEM
 alpha_x_derived
 
-aw_x <- P * alpha_x
+aw_x <- P * alpha_x_derived
 aw_other <- beta_DEM - aw_x
 aw_other
 
 
 interval_cstar <- c(0, exp(-1) * rCeil_sq_DEM / (1 + lambda_DEM))
-P_new <- P * 0.9
-beta_DEM <- alpha_x * P_new + aw_x
-cStar_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                              beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
-cStar_DEM
-yStar_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_DEM)
-yStar_DEM
-xStar_DEM <- sqrt(P_sq_DEM * yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / P_new)
-xStar_DEM / yStar_DEM
-(xStar_DEM * P_new) / cStar_DEM
+#P_new <- P * 0.9
+xStarvec_DEM <- c()
+yStarvec_DEM <- c()
+cStarvec_DEM <- c()
+cxSharevec_DEM <- c()
+awSharevec_DEM <- c()
+effvec_DEM <- c()
+NRvec_DEM <- c()
+P <- seq(10, 3000, 10)
+for(i in 1:length(P)){
+  this_P <- P[i]
+  beta_DEM <- alpha_x_derived * this_P + aw_x
+  cStar_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                           beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+  cStar_DEM
+  yStar_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_DEM)
+  yStar_DEM
+  xStar_DEM <- sqrt(P_sq_DEM * yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
+  efficiency <- xStar_DEM / yStar_DEM
+  cxShare_DEM <- (xStar_DEM * this_P) / cStar_DEM
+  awShare_DEM <- (alpha_x_derived * this_P) / beta_DEM
+  NR_DEM <- P_sq_DEM * yStar_DEM - cStar_DEM
+  
+  xStarvec_DEM[i] <- xStar_DEM
+  yStarvec_DEM[i] <- yStar_DEM
+  cStarvec_DEM[i] <- cStar_DEM
+  cxSharevec_DEM[i] <- cxShare_DEM
+  awSharevec_DEM[i] <- awShare_DEM
+  effvec_DEM[i] <- efficiency
+  NRvec_DEM[i] <- NR_DEM
+}
+
+df <- data.frame(P, xStar_DEM = xStarvec_DEM, yStar_DEM = yStarvec_DEM,
+                 cStar_DEM = cStarvec_DEM, cxShare_DEM = cxSharevec_DEM,
+                 awShare_DEM = awSharevec_DEM,
+                 efficiency_DEM = effvec_DEM, NR_DEM = NRvec_DEM)
+df$cTilda <- df$cStar_DEM / df$yStar_DEM
+gg <- ggplot(df, aes(x = P, y = xStar_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + coord_cartesian(xlim = c(0, 3000), ylim = c(0, 2000))
+gg
+
+gg <- ggplot(df, aes(x = P, y = yStar_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+gg <- ggplot(df, aes(x = P, y = cStar_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+gg <- ggplot(df, aes(x = P, y = cTilda))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+gg <- ggplot(df, aes(x = P, y = cxShare_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+gg <- ggplot(df, aes(x = P, y = awShare_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+gg <- ggplot(df, aes(x = P, y = NR_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg
+
+gg <- ggplot(df, aes(x = P, y = efficiency_DEM))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + coord_cartesian(xlim = c(0, 3000), ylim = c(0, 20))
+gg
+
+
+
+
+
+
+
+
 
 
 
@@ -224,7 +292,7 @@ cv_lyStar_DEM <- 0.05
 yStar_sq_DEM * 6
 interval_cstar <- c(0, exp(-1) * rCeil_sq_DEM / (1 + lambda_DEM))
 cStar_atMu_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                          beta = mu_beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+                              beta = mu_beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
 m_yStar_norm_DEM <- -mu_beta_DEM / cStar_atMu_DEM
 m_yStar_DEM <- m_yStar_norm_DEM + log(yCeil_DEM)
 s_yStar_DEM <- cv_lyStar_DEM * m_yStar_DEM
@@ -243,17 +311,17 @@ s_xStar_DEM <- cv_yStar_DEM * m_yStar_DEM
 mu_xStar_DEM <- exp(m_yStar_DEM + s_yStar_DEM^2 / 2)
 #mu_yStar_DEM
 theta_upper <- 
-
-
-
-
-
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
 
 
@@ -404,3 +472,4 @@ beta
 exp(-1) * rCeil_SUP / (1 + lambda)
 
 mu_x <- 
+  
