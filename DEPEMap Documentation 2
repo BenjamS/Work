@@ -5,6 +5,11 @@ library(dplyr)
 library(tidyr)
 library(fields)
 library(lamW)
+rootfn_cstar <- function(C_star, beta, rCeil, lambda){
+  slack <- beta / C_star + lambertW0(-C_star / rCeil * (1 + lambda))
+  return(slack)
+}
+
 
 
 #=================================
@@ -28,10 +33,6 @@ s2_yStar <- m_yStar^2 * cv_yStar^2
 mu_yStar <- exp(m_yStar + s2_yStar / 2)
 mu_yStar
 #---------------------------------
-rootfn_cstar <- function(C_star, beta, rCeil, lambda){
-  slack <- beta + C_star * lambertW0(-C_star / rCeil * (1 + lambda))
-  return(slack)
-}
 
 N <- 80
 P_new <- P_sq
@@ -234,10 +235,58 @@ gg
 
 
 
+#--------------------
+# Aggregate demand
+
+P_sq_DEM <- 24000
+yCeil_DEM <- 300
+lambda_DEM <- 0
+rCeil_sq_DEM <- yCeil_DEM * P_sq_DEM
+mu_c_DEM <- 0.35 * rCeil_sq_DEM # max is exp(-1) * rCeil_sq_DEM
+mu_c_DEM
+beta_DEM <- -mu_c_DEM * lambertW0(-mu_c_DEM / rCeil_sq_DEM * (1 + lambda_DEM))
+mu_yStar_sq_DEM <- yCeil_DEM * exp(-beta_DEM / mu_c_DEM)
+mu_yStar_sq_DEM
+log(mu_yStar_sq_DEM / yCeil_DEM)
+roots_per_kL_sq <- 5.5
+mu_xStar_sq_DEM <- roots_per_kL_sq * mu_yStar_sq_DEM
+mu_xStar_sq_DEM
+
+P <- 2500
+(mu_xStar_sq_DEM * P) / mu_c_DEM
+alpha_x_derived <- mu_xStar_sq_DEM^2 * P * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_DEM)
+(alpha_x_derived * P) / beta_DEM
+alpha_x_derived
+
+P_DEM <- P_sq_DEM
+x_min <- sqrt(P_DEM * yCeil_DEM * exp(-1) / (1 + lambda_DEM) * alpha_x_derived / P)
+x_min
+x_max <- sqrt(P_DEM * yCeil_DEM / (1 + lambda_DEM) * alpha_x_derived / P)
+x_max
 
 
+this_P <- P
+beta_DEM <- alpha_x_derived * this_P + aw_x
+cStar_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                         beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+cStar_DEM
+yStar_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_DEM)
+yStar_DEM
+xStar_DEM <- sqrt(P_sq_DEM * yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
+efficiency <- xStar_DEM / yStar_DEM
+cxShare_DEM <- (xStar_DEM * this_P) / cStar_DEM
+awShare_DEM <- (alpha_x_derived * this_P) / beta_DEM
+NR_DEM <- P_sq_DEM * yStar_DEM - cStar_DEM
 
 
+cv_c_DEM <- 0.15
+sig_c_DEM <- mu_c_DEM * cv_c_DEM
+theta_upper <- 1 / 2 * sig_c_DEM / mu_c_DEM - beta_DEM / sig_c_DEM
+theta_lower <- 1 / 2 * (-sig_c_DEM / beta_DEM + sig_c_DEM / mu_c_DEM) - beta_DEM / sig_c_DEM
+N_hi <- pnorm(theta_upper)
+N_lo <- pnorm(theta_lower)
+mkt_particip <- N_hi - N_lo
+mkt_particip
 
 
 
@@ -472,4 +521,5 @@ beta
 exp(-1) * rCeil_SUP / (1 + lambda)
 
 mu_x <- 
+  
   
