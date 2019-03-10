@@ -148,7 +148,7 @@ P <- 2500
 # alpha_x <- 150
 # xStar_sq_DEM <- sqrt(P_sq_DEM * yStar_sq_DEM / (1 + lambda_DEM) * alpha_x / P)
 # xStar_sq_DEM / yStar_sq_DEM
-roots_per_kL <- 5
+roots_per_kL <- 5.5
 xStar_sq_DEM <- roots_per_kL * yStar_sq_DEM
 xStar_sq_DEM
 (xStar_sq_DEM * P) / cStar_sq_DEM
@@ -254,7 +254,7 @@ mu_xStar_sq_DEM
 
 P <- 2500
 (mu_xStar_sq_DEM * P) / mu_c_DEM
-alpha_x_derived <- mu_xStar_sq_DEM^2 * P * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_DEM)
+mu_alpha_x_derived <- mu_xStar_sq_DEM^2 * P * (1 + lambda_DEM) / (P_sq_DEM * yStar_sq_DEM)
 (alpha_x_derived * P) / beta_DEM
 alpha_x_derived
 
@@ -265,12 +265,187 @@ x_max <- sqrt(P_DEM * yCeil_DEM / (1 + lambda_DEM) * alpha_x_derived / P)
 x_max
 
 
-this_P <- P
-beta_DEM <- alpha_x_derived * this_P + aw_x
-cStar_DEM <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+
+P_sq_DEM <- 24000
+yCeil_DEM <- 300
+lambda_DEM <- 0
+cStar_sq_DEM
+beta_DEM <- -cStar_sq_DEM * lambertW0(-cStar_sq_DEM / rCeil_sq_DEM * (1 + lambda_DEM))
+yStar_sq_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_sq_DEM)
+
+P_sq_SUP <- 2500
+# cv_ly <- 0.03
+# m_y <- log(150)
+# s_y <- cv_ly * m_y
+# mode_yStar_sq_DEM <- exp(m_y - s_y)
+# mode_yStar_sq_DEM
+# mu_yStar_sq_DEM <- exp(m_y + s_y^2 / 2)
+# mu_yStar_sq_DEM
+mode_cStar_sq_DEM <- 14000 * 160 #surmise cost/(kL/day) * kL/day output
+mode_cStar_sq_DEM
+yCeil_DEM <- mode_cStar_sq_DEM / P_sq_DEM * exp(1.05) #min is exp(1)
+yCeil_DEM
+rCeil_sq_DEM <- P_sq_DEM * yCeil_DEM
+#mode_beta_sq_DEM <- -mode_cStar_sq_DEM * log(mode_yStar_sq_DEM / yCeil_DEM)
+mode_beta_sq_DEM <- -mode_cStar_sq_DEM * lambertW0(-mode_cStar_sq_DEM / rCeil_sq_DEM * (1 + lambda_DEM))
+mode_beta_sq_DEM
+mode_yStar_sq_DEM <- yCeil_DEM * exp(-mode_beta_sq_DEM / mode_cStar_sq_DEM)
+mode_yStar_sq_DEM
+a <- -cv_ly^2
+b <- 1
+c <- -log(mode_yStar_sq_DEM)
+m_yStar_sq_DEM <- (-b + sqrt(b^2 - 4 * a * c)) / (2 * a)
+s_yStar_sq_DEM <- cv_ly * m_yStar_sq_DEM
+mu_yStar_sq_DEM <- exp(m_yStar_sq_DEM + s_yStar_sq_DEM^2 / 2)
+#yCeil_DEM <- 170
+#rCeil_sq_DEM <- yCeil_DEM * P_sq_DEM
+#(mode_cStar_sq_DEM <- exp(-1.05) * rCeil_sq_DEM # max is exp(-1) * rCeil_sq_DEM)
+
+roots_per_kL_sq <- 5.5
+mu_xStar_sq_DEM <- roots_per_kL_sq * mu_yStar_sq_DEM
+mu_xStar_sq_DEM
+(mu_xStar_sq_DEM * P_sq_SUP) / mode_cStar_sq_DEM
+mu_alpha_x <- mu_xStar_sq_DEM^2 * P_sq_SUP * (1 + lambda_DEM) / (P_sq_DEM * mu_yStar_sq_DEM)
+mu_aw_x <- P_sq_SUP * mu_alpha_x
+mu_aw_x / mode_beta_sq_DEM
+mu_aw_other <- mode_beta_sq_DEM - mu_aw_x
+mu_aw_other
+
+cv_lyStar_DEM <- cv_ly
+cv_xStar <- cv_lyStar_DEM
+P_DEM <- P_sq_DEM
+N <- 11
+for(i in 1:length(P)){
+  
+}
+this_P <- P[i]
+mu_beta_DEM <- alpha_x_derived * this_P + aw_x
+cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
                          beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
-cStar_DEM
-yStar_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_DEM)
+m_yStar_norm_DEM <- -mu_beta_DEM / cStar_atMu
+m_yStar_DEM <- m_yStar_norm_DEM + log(yCeil_DEM)
+s_yStar_DEM <- cv_lyStar_DEM * m_yStar_DEM
+mu_yStar_DEM <- exp(m_yStar_DEM + s_yStar_DEM^2 / 2)
+#m_xStar <- 1 / 2 * ((log(P_sq_DEM) - mu_beta_DEM / cStar_atMu) / (1 + lambda_DEM) + log(alpha_x_derived) - log(this_P))
+mu_xStar <- sqrt(P_DEM * mu_yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
+sig_xStar <- cv_xStar * mu_xStar
+x_max <- sqrt(P_DEM * yCeil_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
+x_min <- exp(-1 / 2) * x_max
+
+theta_upper <- (x_max - mu_xStar) / sig_xStar
+theta_lower <- (x_min - mu_xStar) / sig_xStar
+mkt_particip <- pnorm(theta_upper) - pnorm(theta_lower)
+mkt_particip
+Q_D <- N * (mu_xStar + sig_xStar * (dnorm(theta_lower) - dnorm(theta_upper)) / mkt_particip)
+Q_D
+
+
+
+z <- seq(-3, 3, 0.001)
+df_z <- data.frame(z = z, f = dnorm(z))
+df_z <- df_z %>% mutate(area = ifelse(z > theta_lower & z < theta_upper,
+                                      "Participating", "Not Participating"))
+gg <- ggplot(data = df_z, aes(x = z, ymin = 0, ymax = f))
+gg <- gg + geom_ribbon(aes(fill = factor("Not participating")))
+gg <- gg + geom_ribbon(data = df_z[df_z$area == "Participating", ], aes(fill = area))
+gg <- gg + scale_fill_manual(values=c("lightcyan2", "turquoise"), name="fill")
+gg <- gg + theme_bw()
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(axis.text.y = element_blank())
+gg <- gg + theme(axis.ticks.y = element_blank())
+gg <- gg + theme(axis.title.x = element_blank())
+gg
+
+
+#---------
+Q_D <- c()
+for(i in 1:length(P)){
+  this_P <- P[i]
+  mu_beta_DEM <- alpha_x_derived * this_P + aw_x
+  cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                            beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+  m_yStar_norm_DEM <- -mu_beta_DEM / cStar_atMu
+  m_yStar_DEM <- m_yStar_norm_DEM + log(yCeil_DEM)
+  s_yStar_DEM <- cv_lyStar_DEM * m_yStar_DEM
+  mu_yStar_DEM <- exp(m_yStar_DEM + s_yStar_DEM^2 / 2)
+  #m_xStar <- 1 / 2 * ((log(P_sq_DEM) - mu_beta_DEM / cStar_atMu) / (1 + lambda_DEM) + log(alpha_x_derived) - log(this_P))
+  mu_xStar <- sqrt(P_DEM * mu_yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
+  sig_xStar <- cv_xStar * mu_xStar
+  x_max <- sqrt(P_DEM * yCeil_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
+  x_min <- exp(-1 / 2) * x_max
+  
+  theta_upper <- (x_max - mu_xStar) / sig_xStar
+  theta_lower <- (x_min - mu_xStar) / sig_xStar
+  mkt_particip <- pnorm(theta_upper) - pnorm(theta_lower)
+  mkt_particip
+  Q_D[i] <- N * (mu_xStar + sig_xStar * (dnorm(theta_lower) - dnorm(theta_upper)) / mkt_particip)
+
+}
+
+df_plot <- data.frame(P, QD = Q_D)
+gg <- ggplot(df_plot, aes(x = P, y = QD))
+gg <- gg + geom_line(lwd = 1.7)
+gg <- gg + theme_bw()
+gg <- gg + coord_cartesian(ylim = c(0, 10000))
+gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+yStar_DEM <- yCeil_DEM * exp(-mu_beta_DEM / cStar_atMu)
 yStar_DEM
 xStar_DEM <- sqrt(P_sq_DEM * yStar_DEM / (1 + lambda_DEM) * alpha_x_derived / this_P)
 efficiency <- xStar_DEM / yStar_DEM
@@ -521,5 +696,6 @@ beta
 exp(-1) * rCeil_SUP / (1 + lambda)
 
 mu_x <- 
+  
   
   
