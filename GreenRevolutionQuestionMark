@@ -1,0 +1,121 @@
+setwd("D:/OneDrive - CGIAR/Documents")
+library(ggplot2)
+library(pracma)
+library(tidyverse)
+#======================================
+FoodBal_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+#unique(FoodBal_raw[which(FoodBal_raw$Item.Code == 2928),"Item"])
+FoodBal_raw <- subset(FoodBal_raw, Item.Code != 2928) #Miscellaneous
+FoodBal_raw <- subset(FoodBal_raw, !(Item.Code %in% c(2949, 2948))) #Eggs and Milk are repeated for some reason
+FoodBal_raw$Area.Code <- NULL
+FoodBal_raw$Item.Code <- NULL
+FoodBal_raw$Element.Code <-NULL
+FoodBal_raw$Unit <-NULL
+FoodBal_raw$Item <- as.character(FoodBal_raw$Item)
+FoodBal_raw$Element <- as.character(FoodBal_raw$Element)
+FoodBal_raw$Area <- as.character(FoodBal_raw$Area)
+u <- colnames(FoodBal_raw)
+FoodBal_raw <- FoodBal_raw[, -grep("F", u)]
+colnames(FoodBal_raw)[6:ncol(FoodBal_raw)] <- as.character(c(1961:2013))
+FoodBal_raw <- gather(FoodBal_raw,Year,Value,`1961`:`2013`)
+#colnames(FoodBal_raw)
+#======================================
+area_vec <- c("India", "Philippines", "Indonesia", "Malaysia", "Brazil")
+item_vec <- "Rice (Milled Equivalent)"
+element_vec <- c("Production", "Import Quantity", "Export Quantity", "Food supply (kcal/capita/day)")
+df_FoodBal <- subset(FoodBal_raw, Area %in% area_vec)
+df_FoodBal <- subset(df_FoodBal, Item %in% item_vec)
+df_FoodBal <- subset(df_FoodBal, Element %in% element_vec)
+df_FoodBal <- df_FoodBal %>% spread(Element, Value)
+df_FoodBal$SSR <- df_FoodBal$Production / (df_FoodBal$Production + df_FoodBal$`Import Quantity` - df_FoodBal$`Export Quantity`)
+df_plot <- df_FoodBal[, c("Area", "Year", "SSR", "Food supply (kcal/capita/day)")]
+df_plot <- df_plot %>% gather(Element, Value, SSR:`Food supply (kcal/capita/day)`)
+df_plot$Year <- as.integer(df_plot$Year)
+gg <- ggplot(df_plot, aes(x = Year, y = Value))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + facet_grid(Area ~ Element, scales = "free")
+gg
+#======================================
+
+
+df_crops <- read.csv("Production_Crops_E_All_Data.csv", stringsAsFactors = F)
+
+#======================================
+
+
+df_trade <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+df_rice <- read.csv("FAOSTAT_philippines_rice.csv", stringsAsFactors = F)
+df_pop <- read.csv("FAOSTAT_philippines_pop.csv", stringsAsFactors = F)
+
+df_rice <- df_rice[, c("Element", "Year", "Value")]
+df_pop <- df_pop[, c("Year", "Value")]
+colnames(df_pop)[2] <- "Population"
+df_rice <- subset(df_rice, Element == "Production")
+
+df <- merge(df_rice, df_pop, by = "Year")
+df$Prod_perCap <- df$Value / df$Population
+df$Year <- as.integer(df$Year)
+out <- polyfit(c(1:nrow(df)), df$Prod_perCap)
+ind_GRstart <- which(df$Year == 1966)
+x_GRstart <- df$Year[ind_GRstart]
+y_GRstart <- df$Prod_perCap[ind_GRstart]
+ind_GR89pct <- which(df$Year == 1980)
+x_GR89pct <- df$Year[ind_GR89pct]
+y_GR89pct <- df$Prod_perCap[ind_GR89pct]
+slope <- round(out[1], 2)
+yint <- round(out[2], 2)
+gg <- ggplot(df, aes(x = Year, y = Prod_perCap))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + geom_point(size = 3, color = "blue")
+#gg <- gg + geom_point(aes(x_GRstart, y_GRstart), color = "green")
+gg <- gg + geom_vline(xintercept = 1966, color = "green", linetype = "dashed", lwd = 1.5)
+gg <- gg + annotate("text", x = x_GRstart, y = y_GRstart, label = "Release of IR8", vjust = -1, hjust = -1, angle = 90)
+gg <- gg + geom_vline(xintercept = 1980, color = "green", linetype = "dashed", lwd = 1.5)
+gg <- gg + annotate("text", x = x_GR89pct, y = y_GR89pct, label = "89% / 77% adoption on irrigated / rainfed fields",
+                    vjust = -1, hjust = 0.75, angle = 90)
+gg <- gg + stat_smooth(method = "lm", se = FALSE)
+gg <- gg + scale_x_continuous(breaks = df$Year)
+gg <- gg + ylab("Rice production (MT / capita)")
+gg <- gg + ggtitle("Green revolution (?) in the Philippines", subtitle = paste("Slope =", slope, " Y intercept =", yint))
+gg <- gg + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+gg
