@@ -1,0 +1,166 @@
+library(ggplot2)
+library(tidyverse)
+source('~/FAOdat_createRegionGroups.R', echo = F)
+df_raw <- read.csv("FAO_DetailedTradeMatrix_4-6-2019.csv", stringsAsFactors = F)
+df_raw <- df_raw[, c("Reporter.Countries", "Partner.Countries", "Year", "Element", "Value")]
+u <- df_raw$Reporter.Countries
+df_raw$Reporter.Countries[grep("Tanzania", u)] <- "Tanzania"
+u <- df_raw$Partner.Countries
+df_raw$Partner.Countries[grep("Tanzania", u)] <- "Tanzania"
+df_raw$Partner.Countries[which(u == "Eswatini")] <- "Swaziland"
+df_raw$Partner.Countries[which(u == "Belgium-Luxembourg")] <- "Belgium"
+df_raw <- FAOdat_createRegionGroups(df_raw, exclude_these = NULL, keep_FAOregions = F, df_is_trade_matrix = T)
+u <- df_raw$Region
+df_raw$Region[grep("Europe", u)] <- "Europe"
+df_raw$Region[u == "Western Asia"] <- "Middle East"
+df_raw$Region[u == "Eastern Africa"] <- "Broader E. Africa"
+df_raw$Region[u %in% c("South America", "Central America", "Caribbean")] <- "Lat. America/Caribb."
+df_raw$Region[u %in% c("Eastern Asia", "South-Eastern Asia")] <- "E. & S.E. Asia"
+unique(df_raw$Partner.Countries[is.na(u)])
+#unique(df_raw$Region)
+u <- df_raw$Partner.Countries
+df_raw$Region[u == "Mayotte"] <- "Broader E. Africa"
+df_raw$Region[u == "Pitcairn Islands"] <- "Pacific Islands"
+df_raw$Region[which(u == "Unspecified Area")] <- "Unspecified Area"
+df_raw$Region[which(u == "Ethiopia")] <- "Ethiopia"
+df_raw$Region[which(u == "Kenya")] <- "Kenya"
+df_raw$Region[which(u == "Tanzania")] <- "Tanzania"
+df_raw$Region[which(u == "Uganda")] <- "Uganda"
+#--
+df_raw$Year <- as.integer(df_raw$Year)
+ts_start_yr <- 2000
+df <- subset(df_raw, Year >= ts_start_yr)
+
+df <- as.data.frame(df %>% group_by(Reporter.Countries, Year, Element, Region) %>% 
+  summarise(Value = sum(Value)))
+
+# df_ethiop <- subset(df, Reporter.Countries == "Ethiopia")
+# unique(df_ethiop$Region)
+
+
+# df_ethiop <- subset(df, Reporter.Countries == "Ethiopia")
+# unique(df_ethiop$Region)
+# df_ethiop <- df_ethiop %>% spread(Element, Value)
+# length(df_ethiop$Region[df_ethiop$Region == "Australia & New Zealand"])
+# length(df_ethiop$Region[df_ethiop$Region == "Unspecified Area"])
+# df_check <- subset(df, Reporter.Countries == "Kenya")
+# unique(df_check$Region)
+# df_check <- df_check %>% spread(Element, Value)
+# length(df_check$Region[df_check$Region == "Middle East"])
+# length(df_check$Region[df_check$Region == "Unspecified Area"])
+
+#--
+df <- df %>% spread(Element, Value)
+df <- as.data.frame(df %>% group_by(Reporter.Countries, Year) %>% mutate(totval_yr = sum(`Export Value`)))
+df$ValueShare <- df$`Export Value` / df$totval_yr
+df$Region[df$ValueShare < 0.1 | df$`Export Quantity` < 100] <- "Residual"
+df$Region[df$Region == "Unspecified Area"] <- "Residual"
+#df$Partner.Countries <- ifelse(df$`Export Quantity` < 100, "Residual", df$Partner.Countries)
+df <- as.data.frame(df %>% group_by(Reporter.Countries, Region, Year) %>% summarise_all(funs(sum)))
+#--
+df <- as.data.frame(df %>% group_by(Reporter.Countries, Region) %>%
+                      mutate(one_off = ifelse(sum(`Export Quantity` > 0) <= 2, 1, 0)))
+df$Region[df$one_off == 1] <- "Sporadic"
+df$one_off <- NULL
+df <- as.data.frame(df %>% group_by(Reporter.Countries, Year, Region) %>%
+                      summarise_all(funs(sum)))
+#--
+u <- df$Region
+df$Region[grep("Sporadic", u)] <- "Residual/Sporadic"
+df$Region[grep("Residual", u)] <- "Residual/Sporadic"
+df <- as.data.frame(df %>% group_by(Reporter.Countries, Year, Region) %>%
+                      summarise_all(funs(sum)))
+#--
+df_look <- df %>% group_by(Reporter.Countries) %>%
+  mutate(mu = mean(`Export Quantity`, na.rm = T))
+df_look <- as.data.frame(df_look)
+df_look <- df_look %>% group_by(Reporter.Countries) %>%
+  mutate(cv = sd(`Export Quantity`, na.rm = T) / mu)
+df_look <- as.data.frame(df_look)
+df_look <- df_look %>% group_by(Reporter.Countries) %>%
+  mutate(n_yrs = length(unique(Year)))
+df_look <- as.data.frame(df_look)
+
+df_look <- df_look[, c("Reporter.Countries", "mu", "cv", "n_yrs")]
+ind_rm <- which(duplicated(df_look$Reporter.Countries))
+df_look <- df_look[-ind_rm, ]
+#--
+
+#countries_keep <- df_look$Reporter.Countries[which(df_look$mu > 100)]
+countries_keep <- c("Uganda", "Kenya", "Tanzania", "Ethiopia")
+df <- subset(df, Reporter.Countries %in% countries_keep)
+
+#unique(df$Partner.Countries[which(df$Reporter.Countries == "Kenya")])
+#min(df$Year)
+list_df <- list()
+for(i in 1:length(countries_keep)){
+  this_reporterCountry <- countries_keep[i]
+  this_df <- subset(df, Reporter.Countries == this_reporterCountry)
+  this_df <- this_df[, c(1:5)]
+  gathercols <- colnames(this_df)[4:5]
+  this_df <- this_df %>% gather_("Element", "Value", gathercols)
+  this_df <- this_df %>% spread(Region, Value)
+  these_partners <- colnames(this_df)[4:ncol(this_df)]
+  n_partners <- length(these_partners)
+  this_min_yr <- min(this_df$Year)
+  n_yrs_pad <- this_min_yr - ts_start_yr
+  if(n_yrs_pad > 0){
+    df_pad <- as.data.frame(matrix(NA, ncol = n_partners, nrow = n_yrs_pad))
+    colnames(df_pad) <- these_partners
+    df_pad$Year <- as.integer(ts_start_yr:(this_min_yr - 1))
+    df_pad$Reporter.Countries <- this_reporterCountry
+    df_pad$Element <- "Export Quantity"
+    df_pad_ExpQuant <- df_pad[, c("Reporter.Countries", "Year", "Element", these_partners)]
+    df_pad_ExpValue <- df_pad[, c("Reporter.Countries", "Year", "Element", these_partners)]
+    df_pad_ExpValue$Element <- "Export Value"
+    df_pad <- rbind(df_pad_ExpQuant, df_pad_ExpValue)
+    this_df <- rbind(df_pad, this_df)
+  }
+  gathercols <- colnames(this_df)[4:ncol(this_df)]
+  #<- this_df %>% gather_("Region", "Value", gathercols)
+  this_df <- this_df %>% gather_("Region", "Value", gathercols)
+  
+  #---------------
+  plot_this <- this_df %>% spread(Element, Value)
+  plot_this$Price <- plot_this$`Export Value` / plot_this$`Export Quantity`
+  plot_this[is.na(plot_this)] <- 0
+  plot_this <- as.data.frame(plot_this %>% group_by(Region) %>% 
+                               mutate(mu = mean(`Export Quantity`, na.rm = T)))
+  plot_this$Region <- as.factor(plot_this$Region)
+  plot_this$Region <- factor(plot_this$Region,
+                             levels = unique(plot_this$Region[order(plot_this$mu, plot_this$Region, decreasing = T)]),
+                             ordered = T)
+  gg <- ggplot(plot_this, aes(x = Year, y = `Export Quantity`, fill = Region))
+  gg <- gg + geom_area(position = "stack")
+  gg <- gg + ggtitle(this_reporterCountry)
+#  blues <- colorRampPalette(c('lightblue', 'darkblue'))
+#  gg <- gg + scale_fill_manual(values = blues(n_partners))
+  gg
+  
+  list_df[[i]] <- this_df
+}
+
+
+
+
+df_plot <- do.call(rbind, list_df)
+df_plot$Value[is.na(df_plot$Value)] <- 0
+#df_plot$Partner.Countries <- NULL
+# df_plot <- df_plot %>% group_by(Reporter.Countries, Year, Element, Region) %>%
+#   summarise(Value = sum(Value))
+df_plot <- df_plot %>% spread(Element, Value)
+df_plot$Price <- df_plot$`Export Value` / df_plot$`Export Quantity`
+df_plot$Price[is.nan(df_plot$Price)] <- 0
+# u <- df_plot$`Export Quantity`
+# df_plot$Region[which(u == 0)] <- NA
+
+gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Region))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Reporter.Countries, ncol = 2, scales = "free")
+gg
+
+# df_plot <- subset(df, Reporter.Countries == "Kenya")
+# gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Partner.Countries))
+# gg <- gg + geom_area(position = "stack")
+# gg
+
