@@ -1,0 +1,161 @@
+setwd("D:/OneDrive - CGIAR/Documents")
+library(ggplot2)
+library(tidyverse)
+source('./FAOdat_createRegionGroups.R', echo = F)
+#------------------------------
+#Prep food balance data
+df_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+df_raw <- subset(df_raw, Item.Code != 2928)
+df_raw$Area.Code <- NULL
+df_raw$Item.Code <- NULL
+df_raw$Element.Code <-NULL
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+colnames(df_raw)[5:ncol(df_raw)] <- as.character(c(1961:2013))
+df_raw <- gather(df_raw,Year,Value,`1961`:`2013`)
+df_raw$Year <- as.integer(df_raw$Year)
+df_raw$Area[grep("Tanzania", df_raw$Area)] <- "Tanzania"
+#------------------------------
+#unique(df_raw$Item)
+#unique(df_raw$Element)
+area_vec <- c("Kenya", "Uganda", "Ethiopia", "Tanzania")
+item_vec <- c("Beans", "Population")
+element_use_vec <- c("Food", "Seed", "Feed", "Processing", "Other uses", "Losses", "Export Quantity", "Total Population - Both sexes")
+element_ssr_vec <- c("Production", "Import Quantity", "Export Quantity", "Total Population - Both sexes")
+df_raw1 <- subset(df_raw, Item %in% item_vec)
+df_raw1 <- subset(df_raw1, Area %in% area_vec)
+#============================================
+# Use profile
+df <- subset(df_raw1, Element %in% element_use_vec)
+df_pop <- subset(df, Item == "Population")
+df_pop <- df_pop[, c("Area", "Year", "Value")]
+df_pop$Value[which(is.na(df_pop$Value))] <- 0
+df_pop$Value <- 1000 * df_pop$Value
+colnames(df_pop)[ncol(df_pop)] <- "Population"
+df <- subset(df, Item != "Population")
+df$Value[which(is.na(df$Value))] <- 0
+df$Value <- 1000 * 1000 * df$Value
+df$Unit <- NULL
+colnames(df)[ncol(df)] <- "Quantity (kg)"
+df <- merge(df, df_pop, by = c("Area", "Year"))
+this_title <- paste(area_vec, collapse = ", ")
+#----Aggregate plot
+df_plot <- subset(df, Year > 1994)
+df_plot$Area <- NULL
+df_plot$Item <- NULL
+df_plot <- df_plot %>% group_by(Element, Year) %>% summarise_all(funs(sum)) %>% as.data.frame(df)
+df_plot$`Quantity (kg / capita)` <- df_plot$`Quantity (kg)` / df_plot$Population
+df_plot <- df_plot %>% group_by(Element) %>% 
+                          mutate(mu = mean(`Quantity (kg)`, na.rm = T)) %>% as.data.frame(df_plot)
+df_plot$Element <- factor(df_plot$Element,
+                        levels = unique(df_plot$Element[order(df_plot$mu, df_plot$Element, decreasing = T)]),
+                        ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + ggtitle(this_title)
+gg
+#----Aggregate plot normalized
+df_plot <- df_plot %>% group_by(Year) %>% mutate(tot = sum(`Quantity (kg)`)) %>% as.data.frame(df_plot)
+df_plot$`Quantity (shares)` <- df_plot$`Quantity (kg)` / df_plot$tot
+gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (shares)`, fill = Element))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + ggtitle(this_title)
+gg
+#----Disaggregated by country plot
+df_plot <- subset(df, Year > 1994)
+df_plot$Item <- NULL
+df_plot <- df_plot %>% group_by(Element, Year) %>% summarise_all(funs(sum)) %>% as.data.frame(df)
+df_plot$`Quantity (kg / capita)` <- df_plot$`Quantity (kg)` / df_plot$Population
+df_plot <- df_plot %>% group_by(Area, Element) %>% 
+  mutate(mu = mean(`Quantity (kg)`, na.rm = T)) %>% as.data.frame(df_plot)
+df_plot$Element <- factor(df_plot$Element,
+                          levels = unique(df_plot$Element[order(df_plot$mu, df_plot$Element, decreasing = T)]),
+                          ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#----Disaggregated by country, normalized
+df_plot <- df_plot %>% group_by(Area, Year) %>% mutate(tot = sum(`Quantity (kg)`)) %>% as.data.frame(df_plot)
+df_plot$`Quantity (shares)` <- df_plot$`Quantity (kg)` / df_plot$tot
+gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (shares)`, fill = Element))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+
+#=========================================
+# Self-sufficiency analysis
+df <- subset(df_raw1, Element %in% element_ssr_vec)
+df_pop <- subset(df, Item == "Population")
+df_pop <- df_pop[, c("Area", "Year", "Value")]
+df_pop$Value[which(is.na(df_pop$Value))] <- 0
+df_pop$Value <- 1000 * df_pop$Value
+colnames(df_pop)[ncol(df_pop)] <- "Population"
+df <- subset(df, Item != "Population")
+df$Value[which(is.na(df$Value))] <- 0
+df$Value <- 1000 * 1000 * df$Value
+df$Unit <- NULL
+df$Value[which(df$Element == "Export Quantity")] <- -df$Value[which(df$Element == "Export Quantity")]
+colnames(df)[ncol(df)] <- "Quantity (kg)"
+df <- merge(df, df_pop, by = c("Area", "Year"))
+this_title <- paste(area_vec, collapse = ", ")
+#----Aggregate plot
+df_plot <- subset(df, Year > 1994)
+df_plot$Area <- NULL
+df_plot$Item <- NULL
+df_plot <- df_plot %>% group_by(Element, Year) %>% summarise_all(funs(sum)) %>% as.data.frame(df)
+df_plot$`Quantity (kg / capita)` <- df_plot$`Quantity (kg)` / df_plot$Population
+df_plot <- df_plot %>% group_by(Element) %>% 
+  mutate(mu = mean(`Quantity (kg)`, na.rm = T)) %>% as.data.frame(df_plot)
+df_plot$Element <- factor(df_plot$Element,
+                          levels = unique(df_plot$Element[order(df_plot$mu, df_plot$Element, decreasing = T)]),
+                          ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + ggtitle(this_title)
+gg
+#----Self-sufficiency ratio
+df_plotSSR <- df_plot
+df_plotSSR$Population <- NULL
+df_plotSSR$`Quantity (kg / capita)` <- NULL
+df_plotSSR$mu <- NULL
+df_plotSSR <- df_plotSSR %>% spread(Element, `Quantity (kg)`)
+df_plotSSR$`Self-Sufficiency Ratio` <- 100 * df_plotSSR$Production / (df_plotSSR$Production + df_plotSSR$`Import Quantity` + df_plotSSR$`Export Quantity`)
+gg <- ggplot(df_plotSSR, aes(x = Year, y = `Self-Sufficiency Ratio`))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + geom_point(size = 3)
+gg <- gg + ggtitle(this_title)
+gg
+#----Disaggregated by country plot
+df_plot <- subset(df, Year > 1994)
+df_plot$Item <- NULL
+df_plot <- df_plot %>% group_by(Area, Element, Year) %>% summarise_all(funs(sum)) %>% as.data.frame(df)
+df_plot$`Quantity (kg / capita)` <- df_plot$`Quantity (kg)` / df_plot$Population
+df_plot <- df_plot %>% group_by(Element) %>% 
+  mutate(mu = mean(`Quantity (kg)`, na.rm = T)) %>% as.data.frame(df_plot)
+df_plot$Element <- factor(df_plot$Element,
+                          levels = unique(df_plot$Element[order(df_plot$mu, df_plot$Element, decreasing = T)]),
+                          ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#----Disaggregated self-sufficiency ratios
+df_plotSSR <- df_plot
+df_plotSSR$Population <- NULL
+df_plotSSR$`Quantity (kg / capita)` <- NULL
+df_plotSSR$mu <- NULL
+df_plotSSR <- df_plotSSR %>% spread(Element, `Quantity (kg)`)
+df_plotSSR$`Self-Sufficiency Ratio` <- 100 * df_plotSSR$Production / (df_plotSSR$Production + df_plotSSR$`Import Quantity` + df_plotSSR$`Export Quantity`)
+df_plotSSR$`Self-Sufficiency Ratio`[which(df_plotSSR$`Self-Sufficiency Ratio` > 300)] <- NA
+gg <- ggplot(df_plotSSR, aes(x = Year, y = `Self-Sufficiency Ratio`, color = Area, group = Area))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + geom_point(size = 3)
+gg
+
+
+#==========================================
+
