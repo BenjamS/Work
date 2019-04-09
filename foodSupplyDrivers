@@ -1,0 +1,118 @@
+#setwd("C:/Users/BSCHIEK.CGIARAD/Documents")
+setwd("D:/OneDrive - CGIAR/Documents")
+options(warn = -1); options(scipen = 999)
+library(ggplot2)
+library(tidyverse)
+source('D:/OneDrive - CGIAR/Documents/FAOdat_createRegionGroups.R')
+source('D:/OneDrive - CGIAR/Documents/CollectiveModes.R')
+#------------------------------
+#Prep food balance data
+df_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+df_raw <- subset(df_raw, Item.Code != 2928)
+df_raw$Area.Code <- NULL
+df_raw$Item.Code <- NULL
+df_raw$Element.Code <-NULL
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+colnames(df_raw)[5:ncol(df_raw)] <- as.character(c(1961:2013))
+df_raw <- gather(df_raw,Year,Value,`1961`:`2013`)
+#------------------------------
+#unique(df_raw$Element)
+#area_vec <- c("Kenya", "Uganda", "Ethiopia", "United Republic of Tanzania")
+item_vec <- c("Cereals - Excluding Beer", "Sugar (Raw Equivalent)", "Starchy Roots",
+              "Animal Products", "Pulses", "Vegetal Products", "Honey",
+              "Sugar cane", "Sugar non-centrifugal", "Sweeteners, Other")
+#element_vec <- c("Stock Variation")
+element_vec <- c("Food supply (kcal/capita/day)")
+df <- subset(df_raw, Item %in% item_vec)
+df <- subset(df, Element %in% element_vec)
+#df_raw <- subset(df, Area %in% area_vec)
+
+u <- df$Item
+df$Item[grep("Cereals", u)] <- "Cereals"
+#df$Item[grep("Fruits", u)] <- "Fruits"
+df$Item[grep("Vegetal", u)] <- "Fruits/Veg."
+unique(df$Item)[unique(df$Item) != "Grand Total"]
+df_wide <- df %>% spread(Item, Value)
+df_wide[is.na(df_wide)] <- 0
+#--
+df_wide$`Fruits/Veg.` <- df_wide$`Fruits/Veg.` - df_wide$Cereals - df_wide$Pulses -
+  df_wide$Honey - df_wide$`Starchy Roots` - df_wide$`Sugar cane` -
+  df_wide$`Sugar non-centrifugal` - df_wide$`Sweeteners, Other` - df_wide$`Sugar (Raw Equivalent)`
+df_wide$Honey <- NULL
+df_wide$`Sugar cane` <- NULL
+df_wide$`Sugar non-centrifugal` <- NULL
+df_wide$`Sweeteners, Other` <- NULL
+df_wide$Unit <- NULL
+ind <- which(colnames(df_wide) == "Sugar (Raw Equivalent)")
+colnames(df_wide)[ind] <- "Sugar"
+#--
+gathercols <- colnames(df_wide)[4:ncol(df_wide)]
+df <- df_wide %>% gather_("Item", "Value", gathercols)
+
+
+exclude_these <- c("Ethiopia PDR", "Brunei Darussalam", "China, Hong Kong SAR",
+                   "China, Macao SAR", "China, Taiwan Province of")
+df <- FAOdat_createRegionGroups(df, exclude_these, keep_FAOregions = F,
+                            df_is_trade_matrix = F)
+
+unique(df$Region)
+unique(df$Area[df$Region == "Eastern Africa"])
+df <- subset(df, Region != "Central Asia")
+df$Region[which(df$Region == "Western Asia")] <- "Middle East"
+  
+  
+df$Area <- NULL
+df$Element <- NULL
+df <- as.data.frame(df %>% group_by(Region, Year, Item) %>% summarise(Value = sum(Value)))
+df$Region_item <- paste(df$Region, df$Item)
+df$Item <- NULL
+df$Region <- NULL
+df <- df %>% spread(Region_item, Value)
+year_vec <- df$Year[-1]
+df$Year <- NULL
+individ_vec <- colnames(df)
+mat_diff <- diff(as.matrix(df))
+
+df_group <- NULL
+
+cormat <- cor(mat_diff)
+image(cormat)
+load_mat <- eigen(cormat)$vectors[, 1:3]
+
+df_plot <- as.data.frame(load_mat)
+colnames(df_plot)[1:ncol(df_plot)] <- paste("Contribution", 1:ncol(df_plot))
+df_plot$Region_item <- individ_vec
+gg <- ggplot(df_plot, aes(x = Region_item, y = `Contribution 2`))
+gg <- gg + geom_bar(stat = "identity")
+#gg <- gg + facet_wrap(~ Mode, nrow = floor(n / 2))
+gg <- gg + theme_economist()
+gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 0),
+                 axis.title.x = element_blank(),
+                 panel.spacing = unit(1.5, "lines"))
+gg
+
+
+ind <- which(df_plot$`Contribution 1` > 0.1)
+df_plot$Region_item[ind]
+ind <- which(df_plot$`Contribution 2` < -0.2)
+df_plot$Region_item[ind]
+
+
+
+
+
+
+
+
+
+
+
+nrow(mat_diff) / ncol(mat_diff)
+out_cm <- collectiveModes(mat_diff, date_vec, df_group,
+                          Contrib_as_ModeSq = F,
+                          AggregateContributions = F,
+                          plot_eigenportfolio_ts = T)
