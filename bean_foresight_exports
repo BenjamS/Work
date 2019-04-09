@@ -1,6 +1,7 @@
+setwd("D:/OneDrive - CGIAR/Documents")
 library(ggplot2)
 library(tidyverse)
-source('~/FAOdat_createRegionGroups.R', echo = F)
+source('./FAOdat_createRegionGroups.R', echo = F)
 df_raw <- read.csv("FAO_DetailedTradeMatrix_4-6-2019.csv", stringsAsFactors = F)
 df_raw <- df_raw[, c("Reporter.Countries", "Partner.Countries", "Year", "Element", "Value")]
 u <- df_raw$Reporter.Countries
@@ -32,7 +33,7 @@ ts_start_yr <- 2000
 df <- subset(df_raw, Year >= ts_start_yr)
 
 df <- as.data.frame(df %>% group_by(Reporter.Countries, Year, Element, Region) %>% 
-  summarise(Value = sum(Value)))
+                      summarise(Value = sum(Value)))
 
 # df_ethiop <- subset(df, Reporter.Countries == "Ethiopia")
 # unique(df_ethiop$Region)
@@ -126,15 +127,14 @@ for(i in 1:length(countries_keep)){
   plot_this[is.na(plot_this)] <- 0
   plot_this <- as.data.frame(plot_this %>% group_by(Region) %>% 
                                mutate(mu = mean(`Export Quantity`, na.rm = T)))
-  plot_this$Region <- as.factor(plot_this$Region)
   plot_this$Region <- factor(plot_this$Region,
                              levels = unique(plot_this$Region[order(plot_this$mu, plot_this$Region, decreasing = T)]),
                              ordered = T)
   gg <- ggplot(plot_this, aes(x = Year, y = `Export Quantity`, fill = Region))
   gg <- gg + geom_area(position = "stack")
   gg <- gg + ggtitle(this_reporterCountry)
-#  blues <- colorRampPalette(c('lightblue', 'darkblue'))
-#  gg <- gg + scale_fill_manual(values = blues(n_partners))
+  #  blues <- colorRampPalette(c('lightblue', 'darkblue'))
+  #  gg <- gg + scale_fill_manual(values = blues(n_partners))
   gg
   
   list_df[[i]] <- this_df
@@ -143,24 +143,51 @@ for(i in 1:length(countries_keep)){
 
 
 
-df_plot <- do.call(rbind, list_df)
-df_plot$Value[is.na(df_plot$Value)] <- 0
-#df_plot$Partner.Countries <- NULL
-# df_plot <- df_plot %>% group_by(Reporter.Countries, Year, Element, Region) %>%
+df_all <- do.call(rbind, list_df)
+df_all$Value[is.na(df_all$Value)] <- 0
+# df_all$Partner.Countries <- NULL
+# df_all <- df_all %>% group_by(Reporter.Countries, Year, Element, Region) %>%
 #   summarise(Value = sum(Value))
-df_plot <- df_plot %>% spread(Element, Value)
-df_plot$Price <- df_plot$`Export Value` / df_plot$`Export Quantity`
-df_plot$Price[is.nan(df_plot$Price)] <- 0
+df_all <- df_all %>% spread(Element, Value)
+df_all$Price <- df_all$`Export Value` / df_all$`Export Quantity`
+df_all$Price[is.nan(df_all$Price)] <- 0
 # u <- df_plot$`Export Quantity`
 # df_plot$Region[which(u == 0)] <- NA
+df_all <- as.data.frame(df_all %>% group_by(Reporter.Countries, Region) %>% 
+                             mutate(mu = mean(`Export Quantity`, na.rm = T)))
+df_all$Region <- factor(df_all$Region,
+                           levels = unique(df_all$Region[order(df_all$mu, df_all$Region, decreasing = T)]),
+                           ordered = T)
 
+df_plot <- df_all
 gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Region))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Reporter.Countries, ncol = 2, scales = "free")
 gg
-
-# df_plot <- subset(df, Reporter.Countries == "Kenya")
-# gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Partner.Countries))
-# gg <- gg + geom_area(position = "stack")
-# gg
-
+#--
+gg <- ggplot(df_plot, aes(x = Year, y = Price, fill = Region))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Reporter.Countries, ncol = 2, scales = "free")
+gg
+#----
+df_plot <- df_all
+df_plot$Reporter.Countries <- NULL
+df_plot$mu <- NULL
+df_plot$Price <- NULL
+df_plot <- df_plot %>% group_by(Region, Year) %>% summarise_all(funs(sum)) %>% as.data.frame(df_all)
+df_plot$Price <- df_plot$`Export Value` / df_plot$`Export Quantity`
+df_plot <- df_plot %>% group_by(Region) %>% mutate(mu = mean(`Export Quantity`, na.rm = T)) %>% as.data.frame(df_plot)
+df_plot$Region <- factor(df_plot$Region,
+                           levels = unique(df_plot$Region[order(df_plot$mu, df_plot$Region, decreasing = T)]),
+                           ordered = T)
+this_title <- paste(countries_keep, collapse = ", ")
+gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Region))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + ggtitle(this_title)
+gg
+#--
+df_plot$Price[which(is.nan(df_plot$Price))] <- 0
+gg <- ggplot(df_plot, aes(x = Year, y = Price, fill = Region))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + ggtitle(this_title)
+gg
