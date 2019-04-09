@@ -1,0 +1,277 @@
+#setwd("C:/Users/BSCHIEK.CGIARAD/Documents")
+setwd("D:/OneDrive - CGIAR/Documents")
+options(warn = -1); options(scipen = 999)
+library(ggplot2)
+library(tidyverse)
+#Read in data -- MAKE SURE to first go into the .csv file and get rid of commas in the numbers! R no like commas in numbers.
+#------------------------------
+#------------------------------
+#Prep food balance data
+#FoodBal <- read.csv("fao food balance.csv")
+FoodBal_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv")
+FoodBal_raw <- subset(FoodBal_raw, Item.Code != 2928)
+FoodBal_raw$Area.Code <- NULL
+FoodBal_raw$Item.Code <- NULL
+FoodBal_raw$Element.Code <-NULL
+FoodBal_raw$Item <- as.character(FoodBal_raw$Item)
+FoodBal_raw$Element <- as.character(FoodBal_raw$Element)
+FoodBal_raw$Area <- as.character(FoodBal_raw$Area)
+u <- colnames(FoodBal_raw)
+FoodBal_raw <- FoodBal_raw[, -grep("F", u)]
+colnames(FoodBal_raw)[5:ncol(FoodBal_raw)] <- as.character(c(1961:2013))
+FoodBal_raw <- gather(FoodBal_raw,Year,Value,`1961`:`2013`)
+#Create region id var
+#Get country lists by region
+# countries_Africa <- as.character(read.csv("Country list - Africa.csv")[,"Country"])
+# countries_NAmer <- as.character(read.csv("Country list - North America.csv")[,"Country"])
+# countries_LAC <- as.character(read.csv("Country list - LAC.csv")[,"Country"])
+# countries_Asia <- as.character(read.csv("Country list - Asia.csv")[,"Country"])
+# countries_Europ <- as.character(read.csv("Country list - Europe.csv")[,"Country"])
+# countries_Ocean <- as.character(read.csv("Country list - Oceania.csv")[,"Country"])
+# 
+# #class(countries_LAC)
+# u <- FoodBal_raw$Area
+# FoodBal_raw$Region <- NA
+# FoodBal_raw$Region[which(u %in% countries_LAC)] <- "LAC"
+# FoodBal_raw$Region[which(u %in% countries_Africa)] <- "Africa"
+# FoodBal_raw$Region[which(u %in% countries_Europ)] <- "Europe"
+# FoodBal_raw$Region[which(u %in% countries_Asia)] <- "Asia"
+# FoodBal_raw$Region[which(u %in% countries_Ocean)] <- "Oceania"
+# FoodBal_raw$Region[which(u %in% countries_NAmer)] <- "North America"
+
+#chosen_year <- "2010"
+
+unique(FoodBal_raw$Item)
+
+item_vec <- c("Cereals - Excluding Beer", "Sugar (Raw Equivalent)", "Starchy Roots",
+              "Animal Products", "Pulses", "Vegetal Products", "Grand Total", "Honey",
+              "Sugar cane", "Sugar non-centrifugal", "Sweeteners, Other")
+
+area_vec <- c("Kenya", "Uganda", "Ethiopia", "United Republic of Tanzania")
+element_vec <- c("Food supply (kcal/capita/day)", "Protein supply quantity (g/capita/day)", "Fat supply quantity (g/capita/day)")
+
+FoodBal <- subset(FoodBal_raw, Item %in% item_vec)
+FoodBal <- subset(FoodBal, Area %in% area_vec)
+FoodBal <- subset(FoodBal, Element %in% element_vec)
+FoodBal <- as.data.frame(FoodBal)
+u <- FoodBal$Item
+FoodBal$Item[grep("Cereals", u)] <- "Cereals"
+#FoodBal$Item[grep("Fruits", u)] <- "Fruits"
+FoodBal$Item[grep("Vegetal", u)] <- "Fruits/Veg."
+#--
+unique(FoodBal$Item)[unique(FoodBal$Item) != "Grand Total"]
+#FoodBal <- subset(FoodBal_raw, Item == "Grand Total")
+#FoodBal <- subset(FoodBal, Year == chosen_year)
+#FoodBal <- subset(FoodBal, Region %in% c("Africa", "LAC", "Asia", "North America", "Europe"))
+#FoodBal$Unit <- NULL
+FoodBal_wide <- FoodBal %>% spread(Item, Value)
+FoodBal_wide[is.na(FoodBal_wide)] <- 0
+#--
+FoodBal_wide$`Fruits/Veg.` <- FoodBal_wide$`Fruits/Veg.` - FoodBal_wide$Cereals - FoodBal_wide$Pulses -
+  FoodBal_wide$Honey - FoodBal_wide$`Starchy Roots` - FoodBal_wide$`Sugar cane` -
+  FoodBal_wide$`Sugar non-centrifugal` - FoodBal_wide$`Sweeteners, Other` - FoodBal_wide$`Sugar (Raw Equivalent)`
+FoodBal_wide$Honey <- NULL
+FoodBal_wide$`Sugar cane` <- NULL
+FoodBal_wide$`Sugar non-centrifugal` <- NULL
+FoodBal_wide$`Sweeteners, Other` <- NULL
+FoodBal_wide$Unit <- NULL
+ind <- which(colnames(FoodBal_wide) == "Sugar (Raw Equivalent)")
+colnames(FoodBal_wide)[ind] <- "Sugar"
+#--
+colnames_items <- colnames(FoodBal_wide)[!(colnames(FoodBal_wide) %in% c("Area", "Element", "Year", "Grand Total"))]
+FoodBal_wide$Other <- FoodBal_wide$`Grand Total` - rowSums(FoodBal_wide[, colnames_items]) 
+FoodBal_wide$`Grand Total` <- NULL
+gathercols <- colnames(FoodBal_wide)[4:ncol(FoodBal_wide)]
+FoodBal <- FoodBal_wide %>% gather_("Item", "Value", gathercols)
+#--
+FoodBal_wide <- FoodBal %>% spread(Element, Value)
+FoodBal_wide$`Fat supply (kcal/capita/day)` <- 9 * FoodBal_wide$`Fat supply quantity (g/capita/day)`
+FoodBal_wide$`Protein supply (kcal/capita/day)` <- 4 * FoodBal_wide$`Protein supply quantity (g/capita/day)`
+FoodBal_wide$`Fat supply quantity (g/capita/day)` <- NULL
+FoodBal_wide$`Protein supply quantity (g/capita/day)` <- NULL
+FoodBal_wide$`Carb supply (kcal/capita/day)` <- FoodBal_wide$`Food supply (kcal/capita/day)` - FoodBal_wide$`Fat supply (kcal/capita/day)` - FoodBal_wide$`Protein supply (kcal/capita/day)`
+df_kcal <- FoodBal_wide
+FoodBal_wide$`Fat share of diet` <- FoodBal_wide$`Fat supply (kcal/capita/day)` / FoodBal_wide$`Food supply (kcal/capita/day)`
+FoodBal_wide$`Protein share of diet` <- FoodBal_wide$`Protein supply (kcal/capita/day)` / FoodBal_wide$`Food supply (kcal/capita/day)`
+FoodBal_wide$`Carb share of diet` <- FoodBal_wide$`Carb supply (kcal/capita/day)` / FoodBal_wide$`Food supply (kcal/capita/day)`
+df_kcalShare <- FoodBal_wide[, -c(4:7)]
+#--
+df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Item) %>% mutate(mu_food_area_item = mean(`Food supply (kcal/capita/day)`, na.rm = T)))
+df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Item) %>% mutate(mu_prot_area_item = mean(`Protein supply (kcal/capita/day)`, na.rm = T)))
+df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Year) %>% mutate(tot_food = sum(`Food supply (kcal/capita/day)`)))
+df_kcal$`Food Supply (share of kcal)` <- df_kcal$`Food supply (kcal/capita/day)` / df_kcal$tot_food
+df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Year) %>% mutate(tot_prot = sum(`Protein supply (kcal/capita/day)`)))
+df_kcal$`Protein Supply (share of kcal)` <- df_kcal$`Protein supply (kcal/capita/day)` / df_kcal$tot_prot
+#==============================================
+#--Food supply breakdown graph
+df_plot <- subset(df_kcal, Year > 1992)
+df_plot$Year <- as.integer(df_plot$Year)
+df_plot$Item <- factor(df_plot$Item,
+                       levels = unique(df_plot$Item[order(df_plot$mu_food_area_item, df_plot$Item, decreasing = T)]),
+                       ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Food supply (kcal/capita/day)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#-
+gg <- ggplot(df_plot, aes(x = Year, y = `Food Supply (share of kcal)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#--Protein supply breakdown graph
+df_plot <- subset(df_kcal, Year > 1992)
+df_plot$Year <- as.integer(df_plot$Year)
+df_plot$Item <- factor(df_plot$Item,
+                       levels = unique(df_plot$Item[order(df_plot$mu_prot_area_item, df_plot$Item, decreasing = T)]),
+                       ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Protein supply (kcal/capita/day)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#-
+gg <- ggplot(df_plot, aes(x = Year, y = `Protein Supply (share of kcal)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#--
+
+
+
+
+
+# gg <- ggplot(df_plot, aes(x = Year, y = `Fat supply (kcal/capita/day)`, fill = Item))
+# gg <- gg + geom_area(position = "stack")
+# gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+# gg
+
+
+
+
+
+#========================================================
+#========================================================
+#========================================================
+
+ExportData_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv")
+ExportData_raw <- subset(ExportData_raw, Item.Code != 2928)
+ExportData_raw$Area.Code <- NULL
+ExportData_raw$Element.Code <-NULL
+ExportData_raw$Item <- as.character(ExportData_raw$Item)
+ExportData_raw$Element <- as.character(ExportData_raw$Element)
+ExportData_raw$Area <- as.character(ExportData_raw$Area)
+u <- colnames(ExportData_raw)
+ExportData_raw <- ExportData_raw[, -grep("F", u)]
+colnames(ExportData_raw)[6:ncol(ExportData_raw)] <- as.character(c(1961:2016))
+ExportData_raw <- gather(ExportData_raw,Year,Value,`1961`:`2016`)
+rm(u)
+#----------------------------------
+#unique(ExportData_raw$Item)
+# which(unique(ExportData_raw$Item) == "Rice")
+# unique(ExportData_raw$Item)[105]
+#unique(ExportData_raw$Item)[grep("Rubber",unique(ExportData_raw$Item))]
+ExportData <- subset(ExportData_raw, Element %in% c("Export Quantity", "Export Value"))
+
+unique(ExportData_raw$Area)
+
+ExportData <-  subset(ExportData, Area %in% c("Eastern Africa"))
+#ExportData <- subset(ExportData, Item %in% c("Sorghum", "Maize", "Wheat", "Cassava Equivalent") | Item.Code %in% c(30))
+# ExportData <- subset(ExportData, Item %in% c("Maize", "Cassava dried",
+#                         "Coffee, green", "Wheat", "Bananas", "Plantains",
+#                         "Potatoes", "Cassava Equivalent", "Cocoa, beans", "Wool, greasy",
+#                         "Beans, dry", "Cotton lint", "Silk", "Apples", "Oil, soybean",
+#                         "Rubber, natural", "Rice"))
+
+ExportData <- subset(ExportData, Item %in% c("Maize", "Cassava dried", "Flour, wheat", "Starch, cassava",
+                                             "Coffee, green", "Coffee, roasted", "Wheat", "Bananas", "Plantains",
+                                             "Potatoes", "Cassava Equivalent", "Cocoa, beans", "Wool, greasy",
+                                             "Beans, dry", "Cotton lint", "Apples", "Soybeans", "Oil, soybean",
+                                             "Rubber, natural", "Rice", "Cocoa, butter"))
+
+unique(ExportData$Item)
+#ExportData <- subset(ExportData, Item %in% c("Barley", "Maize","Cassava dried","Coffee, green","Flour, wheat" ,"Bananas and plantains","Pulses","Coffee, roasted","Millet","Rye","Wheat","Sorghum","Potatoes","Starch, cassava","Cassava Equivalent") | Item.Code %in% c(30,1955))
+#ExportData <-  subset(ExportData, Area %in% c("Thailand","United States of America", "World"))
+#ExportData <- subset(ExportData, Item %in% c("Maize","Cassava Equivalent","Wheat","Sorghum", "Barley") | Item.Code %in% c(30,1955))
+#ExportData <- subset(ExportData, Item %in% c("Wheat","Maize","Millet","Rye","Sorghum") | Item.Code %in% c(30))
+#ExportData <- subset(ExportData, Item %in% c("Wheat","Maize","Barley","Sorghum", "Cassava Equivalent") | Item.Code %in% c(30,1955))
+#ExportData <- subset(ExportData, Item %in% c("Cassava Equivalent","Maize","Sorghum", "Wheat") | Item.Code %in% c(30,1955))
+ExportData$Item.Code <- NULL
+#ExportData <- subset(ExportData_raw, Item %in% c("Cassava Equivalent", "Cereals"))
+#ExportData <- subset(ExportData_raw,Item %in% c("Cassava dried","Flour, maize","Flour, wheat","Sorghum","Starch, cassava"))
+#----------------------------------
+ExportData$Unit <- NULL
+ExportData$Value[which(is.na(ExportData$Value))] <- 0
+ExportData_wide <- spread(ExportData, Element, Value)
+ExportData_wide <- ExportData_wide[order(ExportData_wide$Area, ExportData_wide$Year),]
+ExportData_wide$`Price` <- NA
+ExportData_wide$`Price` <- 1000 * as.numeric(ExportData_wide$`Export Value`) / as.numeric(ExportData_wide$`Export Quantity`)
+#ExportData_wide$`Export Quantity` <- NULL
+#ExportData_wide$`Export Value` <- NULL
+ExportData_wide$Year <- as.integer(ExportData_wide$Year)
+
+u <- ExportData_wide$Item
+ExportData_wide$Item[grep("Rice", u)] <- "Rice"
+ExportData_wide$Item[grep("Sugar", u)] <- "Sugar"
+#ExportData_wide$Item[grep("Maize", u)] <- "Corn"
+ExportData_wide$Item[grep("Beans", u)] <- "Beans"
+ExportData_wide$Item[grep("Oil, soybean", u)] <- "Soybean oil"
+ExportData_wide$Item[grep("Cassava dried", u)] <- "Dried cassava"
+ExportData_wide$Item[grep("Starch, cassava", u)] <- "Cassava starch"
+ExportData_wide$Item[grep("Flour, wheat", u)] <- "Wheat flour"
+ExportData_wide$Item[grep("Wool", u)] <- "Wool"
+
+
+rm(u)
+
+ExportData_wide <- ExportData_wide %>% gather(Var, Value, `Export Quantity`:Price)
+
+FaoPrice_wide_allYrs <- spread(ExportData_wide, Item, Value)
+FaoPrice_wide_allYrs$Area <- NULL
+# u <- colnames(FaoPrice_wide_allYrs)[2:ncol(FaoPrice_wide_allYrs)]
+# colnames(FaoPrice_wide_allYrs)[2:ncol(FaoPrice_wide_allYrs)] <- paste(u,"Price")
+# rm(u)
+#---------------------------------
+FaoPrice_wide <- subset(FaoPrice_wide_allYrs,Year %in% c(1974:2008))
+#FaoPrice_wide$t <- c(1:nrow(FaoPrice_wide))
+#FaoPrice_wide <- FaoPrice_wide[,c(1,ncol(FaoPrice_wide),2:(ncol(FaoPrice_wide)-1))]
+#mod <- lm(log(`Corn Price`) ~ t,FaoPrice_wide)
+#mod <- lm(log(`Wheat Price`) ~ t,FaoPrice_wide)
+#summary(mod)
+#?lm
+gathercols <- colnames(FaoPrice_wide)[c(3:ncol(FaoPrice_wide))]
+FaoPrice_long <- gather_(FaoPrice_wide, "Item", "Value", gathercols)
+FaoPrice_long <- FaoPrice_long %>% spread(Var, Value)
+FaoPrice_long <- FaoPrice_long %>% group_by(Item) %>% mutate(Price = ifelse(is.nan(Price) | is.infinite(Price), NA, Price))
+FaoPrice_long <- as.data.frame(FaoPrice_long)
+
+gg <- ggplot(FaoPrice_long,aes(x = Year, y = Price, group = Item, color = Item)) + geom_line()
+gg
+
+df_mu_sd <- FaoPrice_long %>% group_by(Item) %>% summarise(mu = mean(Price, na.rm = T), 
+                                                           sd = sd(Price, na.rm = T), `Export Qty.` = mean(`Export Quantity`, na.rm = T), 
+                                                           `Export Value (1000 USD)` = mean(`Export Value`, na.rm = T))
+df_mu_sd$lmu <- log(df_mu_sd$mu)
+df_mu_sd$lsd <- log(df_mu_sd$sd)
+df_mu_sd$lQty <- log(df_mu_sd$`Export Qty.`)
+mod <- lm(lmu ~ lsd, df_mu_sd)
+#summary(mod)
+yint <- round(mod$coefficients[1], 2)
+slope <- round(mod$coefficients[2], 2)
+
+library(ggrepel)
+gg <- ggplot(df_mu_sd, aes(x = lsd, y = lmu)) + geom_point(aes(size = `Export Value (1000 USD)`))
+#gg <- gg + geom_text(aes(label = Item), angle = 0, hjust=-0.1, vjust=0, size = 5)
+gg <- gg + geom_text_repel(aes(label = Item), size = 5)
+#gg <- gg + geom_abline(intercept = mod$coefficients[1], slope = mod$coefficients[2])
+gg <- gg + ggtitle(paste0("Slope = ", as.character(slope), "  Y intercept = ", as.character(yint))) + theme(plot.title = element_text(size=12))
+gg <- gg + xlab("Nat. Log(standard deviation of price)") + ylab("Nat. Log(mean price)")
+#gg <- gg + labs(caption = "Source: Authors' creation using Faostat series 1974-2008. 'Price' = World Export Value / World Export Qty.")
+#gg <- gg + stat_smooth(method = lm, se = FALSE)
+gg
+
+
+
+
+#========================================================
+#========================================================
+#========================================================
+df_raw <- read.csv("Trade_DetailedTradeMatrix_E_All_Data.csv", stringsAsFactors = F)
