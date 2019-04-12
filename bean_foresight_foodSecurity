@@ -1,0 +1,112 @@
+
+setwd("D:/OneDrive - CGIAR/Documents")
+options(warn = -1); options(scipen = 999)
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+library(forecast)
+#------------------------------
+#------------------------------
+# FAO food security data
+df_raw <- read.csv("Food_Security_Data_E_All_Data.csv", stringsAsFactors = F)
+df_raw$Area.Code <- NULL
+df_raw$Item.Code <- NULL
+df_raw$Element.Code <-NULL
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+u <- colnames(df_raw)[5:ncol(df_raw)]
+colnames(df_raw)[5:ncol(df_raw)] <- str_replace(u, "Y","")
+df_raw$Area[grep("Tanzania", df_raw$Area)] <- "Tanzania"
+unique(df_raw$Item)
+item_vec <- c("Average dietary energy supply adequacy (percent) (3-year average)",
+              "Average protein supply (g/cap/day) (3-year average)",
+              "Prevalence of undernourishment (percent) (3-year average)",
+              #"Prevalence of severe food insecurity in the total population (percent) (3-year average)",
+              "Per capita food supply variability (kcal/cap/day)",
+              "Prevalence of anemia among women of reproductive age (15-49 years)",
+              "Prevalence of obesity in the adult population (18 years and older)")
+              # "Prevalence of undernourishment (percent) (annual value)",
+              # "Prevalence of severe food insecurity in the total population (percent) (annual value)")
+area_vec <- c("Kenya", "Uganda", "Ethiopia", "Tanzania")
+df_raw <- subset(df_raw, Item %in% item_vec)
+df_raw <- subset(df_raw, Area %in% area_vec)
+
+df1 <- subset(df_raw, Item %in% c("Per capita food supply variability (kcal/cap/day)",
+                                  "Prevalence of anemia among women of reproductive age (15-49 years)",
+                                  "Prevalence of obesity in the adult population (18 years and older)"))
+df2 <- subset(df_raw, !(Item %in% c("Per capita food supply variability (kcal/cap/day)",
+                                 "Prevalence of anemia among women of reproductive age (15-49 years)",
+                                 "Prevalence of obesity in the adult population (18 years and older)")))
+u <- colnames(df1)[5:ncol(df1)]
+uu <- strsplit(u, "")
+uuu <- c()
+for(i in 1:length(uu)){uuu[i] <- length(uu[[i]])}
+ind_rm <- which(uuu == 8) + 4
+df1 <- df1[, -ind_rm]
+ind_rm <- which(uuu == 4) + 4
+df1$`2017` <- NULL
+df2 <- df2[, -ind_rm]
+colnames(df2)[5:ncol(df2)] <- colnames(df1)[5:ncol(df1)]
+df <- rbind(df1, df2)
+df <- df %>% gather(Year, Value,`2000`:`2016`)
+df$Unit <- NULL
+df$Value <- as.numeric(df$Value)
+df <- df %>% spread(Item, Value)
+df$`Average protein supply (kcal/cap/day) (3-year average)` <- 4 * df$`Average protein supply (g/cap/day) (3-year average)`
+df$`Average protein supply (g/cap/day) (3-year average)` <- NULL
+gathercols <- colnames(df)[4:ncol(df)]
+df <- df %>% gather_("Item", "Value", gathercols)
+df$Year <- as.integer(df$Year)
+df$Element <- NULL
+#-----
+gg <- ggplot(df, aes(x = Year, y = Value, group = Area, color = Area))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + geom_point(size = 3)
+gg <- gg + facet_wrap(~Item, ncol = 2, scales = "free")
+gg
+
+
+df_wide <- df %>% spread(Area, Value)
+n_yrs_forecast <- 6
+these_items <- unique(df_wide$Item)
+list_df <- list()
+for(i in 1:length(these_items)){
+  this_item <- these_items[i]
+  this_df_wide <- subset(df_wide, Item == this_item)
+  if(sum(is.na(this_df_wide$Ethiopia)) == 0){
+    last_obs_year <- this_df_wide$Year[nrow(this_df_wide)]
+  }else{
+    ind_max <- min(which(is.na(this_df_wide$Ethiopia))) - 1
+    last_obs_year <- this_df_wide$Year[ind_max]
+    this_df_wide <- this_df_wide[-which(is.na(this_df_wide$Ethiopia)), ]
+  }
+  list_fcast <- list()
+  for(j in 1:length(area_vec)){
+    this_area_ind <- 2 + j
+    fit <- auto.arima(this_df_wide[, this_area_ind], seasonal = FALSE)
+    # tsdisplay(residuals(fit), lag.max = 45)
+    fcast <- forecast(fit, h = n_yrs_forecast)
+    # plot(fcast)
+    list_fcast[[j]] <- as.numeric(fcast$mean)
+  }
+  df_add_this <- as.data.frame(do.call(cbind, list_fcast))
+  colnames(df_add_this) <- colnames(this_df_wide)[3:ncol(this_df_wide)]
+  df_add_this$Item <- this_item
+  df_add_this$Year <- c((last_obs_year + 1):(last_obs_year + n_yrs_forecast))
+  df_add_this <- df_add_this[, c("Year", "Item", colnames(df_add_this[, 1:length(area_vec)]))]
+  list_df[[i]] <- df_add_this
+  
+}
+
+df_Fcast <- do.call(rbind, list_df)
+gathercols <- colnames(df_Fcast)[3:ncol(df_Fcast)]
+df_Fcast <- df_Fcast %>% gather_("Area", "Value", gathercols)
+
+
+gg <- ggplot()
+gg <- gg + geom_line(data = df, aes(x = Year, y = Value, group = Area, color = Area), lwd = 1.5)
+gg <- gg + geom_point(data = df, aes(x = Year, y = Value, group = Area, color = Area), size = 2)
+gg <- gg + geom_line(data = df_Fcast, aes(x = Year, y = Value, group = Area, color = Area), linetype = "dotted", lwd = 1)
+gg <- gg + facet_wrap(~Item, ncol = 2, scales = "free")
+gg
+#ggsave("beans_foodSecurity.png")
