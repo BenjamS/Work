@@ -1,0 +1,339 @@
+library(tidyverse)
+library(ggplot2)
+
+getARIMAforecast <- function(in_df, n_yrs_forecast = 6){
+  required_packages <- c("forecast")
+  lapply(required_packages, FUN = function(x) {
+    if (!require(x, character.only = TRUE)) {
+      install.packages(x, dependencies = TRUE)
+      library(x, character.only = TRUE)
+    }
+  })
+  these_countries <- unique(df_plot$Country)
+  these_indicats <- unique(df_plot$Indicator)
+  list_df <- list()
+  for(i in 1:length(these_indicats)){
+    this_indicat <- these_indicats[i]
+    this_df <- subset(df_plot, Indicator == this_indicat)
+    list_fcast_df <- list()
+    for(j in 1:length(these_countries)){
+      this_country <- these_countries[j]
+      this_df2 <- subset(this_df, Country == this_country)
+      this_df2 <- subset(this_df2, is.na(Value) == F)
+      last_obs_year <- this_df2$Year[nrow(this_df2)]
+      fit <- auto.arima(this_df2$Value, seasonal = FALSE)
+      fcast <- forecast(fit, h = n_yrs_forecast)
+      # plot(fcast)
+      forecast_yrs <- c((last_obs_year + 1):(last_obs_year + n_yrs_forecast))
+      fcast_df <- data.frame(Year = forecast_yrs, Country = this_country,
+                             Indicator = this_indicat, Value = as.numeric(fcast$mean))
+      list_fcast_df[[j]] <- fcast_df
+      print(fcast_df)
+      print(j)
+    }
+    df_fcast <- as.data.frame(do.call(rbind, list_fcast_df))
+    list_df[[i]] <- df_fcast
+  }
+  
+  df_Fcast <- as.data.frame(do.call(rbind, list_df))
+  return(df_Fcast)
+}
+
+
+WDI_raw <- read.csv("WDIData.csv", stringsAsFactors = F)
+WDI_raw$Country.Code <- NULL
+WDI_raw$Indicator.Code <- NULL
+WDI_raw$X <- NULL
+colnames(WDI_raw)[1:2] <- c("Country", "Indicator")
+WDI_raw$Country <- as.character(WDI_raw$Country)
+WDI_raw$Indicator <- as.character(WDI_raw$Indicator)
+#unique(WDI_raw$Indicator)
+colnames(WDI_raw)[3:ncol(WDI_raw)] <- as.character(c(1960:2018))
+WDI_long <- WDI_raw %>% gather(Year, Value, `1960`:`2018`)
+#unique(WDI_long$Country)
+country_vec <- c("Tanzania", "Uganda", "Kenya", "Ethiopia")
+WDI_long <- subset(WDI_long, Country %in% country_vec)
+#unique(WDI_long$Indicator)
+#unique(WDI_raw$Indicator)[grep("Average", unique(WDI_raw$Indicator))]
+
+pop_indicators <- c("Birth rate, crude (per 1,000 people)",
+                    "Death rate, crude (per 1,000 people)",
+                    "Rural population (% of total population)",
+                    "Population ages 15-64 (% of total)",
+                    "Population ages 0-14, total",
+                    "Population ages 15-64, total",
+                    "Population ages 65 and above, total",
+                    "Age dependency ratio, young (% of working-age population)",
+                    "Age dependency ratio, old (% of working-age population)",
+                    "Population growth (annual %)",
+                    "Population, total",
+"Population ages 0-4, female (% of female population)",
+"Population ages 0-4, male (% of male population)",
+"Population ages 5-9, female (% of female population)",
+"Population ages 5-9, male (% of male population)",
+"Population ages 10-14, female (% of female population)",
+"Population ages 10-14, male (% of male population)",
+"Population ages 15-19, female (% of female population)",
+"Population ages 15-19, male (% of male population)",
+"Population ages 20-24, female (% of female population)",
+"Population ages 20-24, male (% of male population)",
+"Population ages 25-29, female (% of female population)",
+"Population ages 25-29, male (% of male population)",
+"Population ages 30-34, female (% of female population)",
+"Population ages 30-34, male (% of male population)",
+"Population ages 35-39, female (% of female population)",
+"Population ages 35-39, male (% of male population)",
+"Population ages 40-44, female (% of female population)",
+"Population ages 40-44, male (% of male population)",
+"Population ages 45-49, female (% of female population)",
+"Population ages 45-49, male (% of male population)",
+"Population ages 50-54, female (% of female population)",
+"Population ages 50-54, male (% of male population)",
+"Population ages 55-59, female (% of female population)",
+"Population ages 55-59, male (% of male population)",
+"Population ages 60-64, female (% of female population)",
+"Population ages 60-64, male (% of male population)",
+"Population ages 65-69, female (% of female population)",
+"Population ages 65-69, male (% of male population)",
+"Population ages 70-74, female (% of female population)",
+"Population ages 70-74, male (% of male population)",
+"Population ages 75-79, female (% of female population)",
+"Population ages 75-79, male (% of male population)",
+"Population ages 80 and above, female (% of female population)",
+"Population ages 80 and above, male (% of male population)"
+)
+economic_indicators <- c("GINI index (World Bank estimate)",
+                         "Research and development expenditure (% of GDP)",
+                         "Total natural resources rents (% of GDP)",
+                         "GDP per capita (current US$)",
+                         "Net ODA received per capita (current US$)",
+                         "Poverty headcount ratio at $1.90 a day (2011 PPP) (% of population)"#,
+                         #"Trade (% of GDP)"
+                         )
+employment_indicators <- c("Employment in agriculture (% of total employment) (modeled ILO estimate)",
+                           "Employment in industry (% of total employment) (modeled ILO estimate)",
+                           "Employment in services (% of total employment) (modeled ILO estimate)",
+                           "Labor force participation rate, total (% of total population ages 15+) (modeled ILO estimate)"
+                           #"Unemployment, total (% of total labor force) (modeled ILO estimate)",
+                           #"Ratio of female to male labor force participation rate (%) (modeled ILO estimate)",
+)
+health_indicators <- c("Mortality rate, under-5 (per 1,000 live births)",
+                       "Incidence of HIV (% of uninfected population ages 15-49)",
+                       "Life expectancy at birth, male (years)",
+                       "Life expectancy at birth, female (years)"
+)
+educ_indicators <- c("Government expenditure on education, total (% of GDP)",
+                     "School enrollment, primary (% gross)",
+                     "School enrollment, secondary (% gross)",
+                     "School enrollment, tertiary (% gross)"
+)
+
+indicator_vec <- c(pop_indicators, educ_indicators, employment_indicators,
+                   health_indicators, economic_indicators)
+WDI_long <- subset(WDI_long, Indicator %in% indicator_vec)
+#WDI_wide <- spread(WDI_long, Indicator, Value)
+
+#========================================
+
+
+# Population
+WDI_pop <- subset(WDI_long, Indicator %in% pop_indicators)
+WDI_pop_wide <- WDI_pop %>% spread(Indicator, Value)
+u <- WDI_pop$Indicator
+#Group 1: children and adolescents
+WDI_pop$Indicator[grep("0-4, male", u)] <- "Population ages 0-19, male (% of male population)"
+WDI_pop$Indicator[grep("5-9, male", u)] <- "Population ages 0-19, male (% of male population)"
+WDI_pop$Indicator[grep("10-14, male", u)] <- "Population ages 0-19, male (% of male population)"
+WDI_pop$Indicator[grep("15-19, male", u)] <- "Population ages 0-19, male (% of male population)"
+WDI_pop$Indicator[grep("0-4, female", u)] <- "Population ages 0-19, female (% of female population)"
+WDI_pop$Indicator[grep("5-9, female", u)] <- "Population ages 0-19, female (% of female population)"
+WDI_pop$Indicator[grep("10-14, female", u)] <- "Population ages 0-19, female (% of female population)"
+WDI_pop$Indicator[grep("15-19, female", u)] <- "Population ages 0-19, female (% of female population)"
+#Group 2: young working age
+WDI_pop$Indicator[grep("20-24, male", u)] <- "Population ages 20-39, male (% of male population)"
+WDI_pop$Indicator[grep("25-29, male", u)] <- "Population ages 20-39, male (% of male population)"
+WDI_pop$Indicator[grep("30-34, male", u)] <- "Population ages 20-39, male (% of male population)"
+WDI_pop$Indicator[grep("35-39, male", u)] <- "Population ages 20-39, male (% of male population)"
+WDI_pop$Indicator[grep("20-24, female", u)] <- "Population ages 20-39, female (% of female population)"
+WDI_pop$Indicator[grep("25-29, female", u)] <- "Population ages 20-39, female (% of female population)"
+WDI_pop$Indicator[grep("30-34, female", u)] <- "Population ages 20-39, female (% of female population)"
+WDI_pop$Indicator[grep("35-39, female", u)] <- "Population ages 20-39, female (% of female population)"
+#Group 3: middle-old working age
+WDI_pop$Indicator[grep("40-44, male", u)] <- "Population ages 40-59, male (% of male population)"
+WDI_pop$Indicator[grep("45-49, male", u)] <- "Population ages 40-59, male (% of male population)"
+WDI_pop$Indicator[grep("50-54, male", u)] <- "Population ages 40-59, male (% of male population)"
+WDI_pop$Indicator[grep("55-59, male", u)] <- "Population ages 40-59, male (% of male population)"
+WDI_pop$Indicator[grep("40-44, female", u)] <- "Population ages 40-59, female (% of female population)"
+WDI_pop$Indicator[grep("45-49, female", u)] <- "Population ages 40-59, female (% of female population)"
+WDI_pop$Indicator[grep("50-54, female", u)] <- "Population ages 40-59, female (% of female population)"
+WDI_pop$Indicator[grep("55-59, female", u)] <- "Population ages 40-59, female (% of female population)"
+#Group 4: retirement age
+WDI_pop$Indicator[grep("60-64, male", u)] <- "Population ages 60-79, male (% of male population)"
+WDI_pop$Indicator[grep("65-69, male", u)] <- "Population ages 60-79, male (% of male population)"
+WDI_pop$Indicator[grep("70-74, male", u)] <- "Population ages 60-79, male (% of male population)"
+WDI_pop$Indicator[grep("75-79, male", u)] <- "Population ages 60-79, male (% of male population)"
+WDI_pop$Indicator[grep("60-64, female", u)] <- "Population ages 60-79, female (% of female population)"
+WDI_pop$Indicator[grep("65-69, female", u)] <- "Population ages 60-79, female (% of female population)"
+WDI_pop$Indicator[grep("70-74, female", u)] <- "Population ages 60-79, female (% of female population)"
+WDI_pop$Indicator[grep("75-79, female", u)] <- "Population ages 60-79, female (% of female population)"
+
+WDI_pop <- WDI_pop %>% group_by(Country, Year, Indicator) %>%
+  summarise(Value = sum(Value)) %>% as.data.frame(WDI_pop)
+
+pop_age_shares <- c("Population ages 0-19, female (% of female population)",
+                       "Population ages 0-19, male (% of male population)",
+                       "Population ages 20-39, female (% of female population)",
+                       "Population ages 20-39, male (% of male population)",
+                       "Population ages 40-59, female (% of female population)",
+                       "Population ages 40-59, male (% of male population)",
+                       "Population ages 60-79, female (% of female population)",
+                       "Population ages 60-79, male (% of male population)",
+                       "Population ages 80 and above, female (% of female population)",
+                       "Population ages 80 and above, male (% of male population)")
+df_plot <- subset(WDI_pop, Indicator %in% pop_age_shares)
+u <- df_plot$Indicator
+df_plot$Gender <- "Male"
+df_plot$Gender[grep("female", u)] <- "Female"
+df_plot$Indicator <- gsub(" female", "", u)
+u <- df_plot$Indicator
+df_plot$Indicator <- gsub(" male", "", u)
+u <- df_plot$Indicator
+df_plot$Indicator <- gsub(", (% of population)", "", u, fixed = T)
+colnames(df_plot)[4] <- "Percent"
+df_plot$Year <- as.integer(df_plot$Year)
+gg <- ggplot(df_plot, aes(x = Year, y = Percent, fill = Indicator))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_grid(Gender ~ Country)
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year), max(df_plot$Year), by = 5),1))
+gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+unique(WDI_pop$Indicator)
+pop_age_absolute <- c("Population ages 0-14, total", 
+                      "Population ages 15-64, total",
+                      "Population ages 65 and above, total")
+df_plot <- subset(WDI_pop, Indicator %in% pop_age_absolute)
+df_plot$Year <- as.integer(df_plot$Year)
+u <- df_plot$Indicator
+df_plot$Indicator <- gsub(", total", "", u, fixed = T)
+colnames(df_plot)[4] <- "Total"
+gg <- ggplot(df_plot, aes(x = Year, y = Total, fill = Indicator))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~ Country, ncol = 2, scales = "free")
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year), max(df_plot$Year), by = 5),1))
+gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+unique(WDI_pop$Indicator)
+these_indicators <- c("Rural population (% of total population)",
+                      "Age dependency ratio, young (% of working-age population)",
+                      "Population growth (annual %)"
+                      )
+df_plot <- subset(WDI_pop, Indicator %in% these_indicators)
+df_plot$Year <- as.integer(df_plot$Year)
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Country, color = Country))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + geom_point(size = 2)
+gg <- gg + facet_wrap(~ Indicator, ncol = 1, scales = "free")
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year), max(df_plot$Year), by = 5),1))
+gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+
+
+#==================================
+# Employment
+WDI_employ <- subset(WDI_long, Indicator %in% employment_indicators)
+unique(WDI_employ$Indicator)
+df_plot <- subset(WDI_employ, Indicator == "Labor force participation rate, total (% of total population ages 15+) (modeled ILO estimate)")
+df_plot$Year <- as.integer(df_plot$Year)
+df_plot <- subset(df_plot, Year >= 1990)
+colnames(df_plot)[4] <- "Percent"
+gg <- ggplot(df_plot, aes(x = Year, y = Percent, group = Country, color = Country))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + geom_point(size = 2)
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year[which(!is.na(df_plot$Percent))]), max(df_plot$Year), by = 5),1))
+gg <- gg + labs(title = "Labor force participation rate",
+                subtitle = "(% of total population ages 15+, modeled ILO estimate)",
+                caption = "Source: World Development Indicators, World Bank")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+df_plot <- subset(WDI_employ, Indicator != "Labor force participation rate, total (% of total population ages 15+) (modeled ILO estimate)")
+u <- df_plot$Indicator
+df_plot$Indicator <- gsub("(% of total employment) (modeled ILO estimate)", "", u, fixed = T)
+df_plot$Year <- as.integer(df_plot$Year)
+#df_plot <- subset(df_plot, Year >= 1990)
+colnames(df_plot)[4] <- "Percent"
+gg <- ggplot(df_plot, aes(x = Year, y = Percent, fill = Indicator))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~ Country, ncol = 2, scales = "free")
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year), max(df_plot$Year), by = 5),1))
+gg <- gg + labs(title = "Distribution of employment across sectors",
+                subtitle = "(modeled ILO estimate)",
+                caption = "Source: World Development Indicators, World Bank")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+
+#==================================
+# Economics
+
+WDI_econ <- subset(WDI_long, Indicator %in% economic_indicators)
+economic_indicators
+df_plot <- subset(WDI_econ, Indicator %in% c("GDP per capita (current US$)",
+                                             "Net ODA received per capita (current US$)",
+                                             "Poverty headcount ratio at $1.90 a day (2011 PPP) (% of population)"))
+df_plot$Year <- as.integer(df_plot$Year)
+df_look <- df_plot %>% spread(Indicator, Value)
+
+df_Fcast <- getARIMAforecast(df_plot, n_yrs_forecast = 6)
+u <- df_plot$Indicator
+df_plot$Indicator <- gsub(" (current US$)", "", u, fixed = T)
+colnames(df_plot)[4] <- "Current US$"
+u <- df_Fcast$Indicator
+df_Fcast$Indicator <- gsub(" (current US$)", "", u, fixed = T)
+colnames(df_Fcast)[4] <- "Current US$"
+
+gg <- ggplot()
+gg <- gg + geom_line(data = df_plot, aes(x = Year, y = `Current US$`, group = Country, color = Country), lwd = 1.5)
+gg <- gg + geom_point(data = df_plot, aes(x = Year, y = `Current US$`, group = Country, color = Country), size = 2)
+gg <- gg + geom_line(data = df_Fcast, aes(x = Year, y = `Current US$`, group = Country, color = Country), linetype = "dotted", lwd = 1.2)
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year[which(!is.na(df_plot$Percent))]), max(df_plot$Year), by = 5),1))
+gg <- gg + facet_wrap(~ Indicator, ncol = 1, scales = "free")
+gg <- gg + labs(caption = "Source: World Development Indicators, World Bank\nThe dotted portion of the trajectory is an ARIMA forecast 6 years into the future")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1)
+                 )
+gg
+
+
+#==================================
+# Education
+WDI_educ <- subset(WDI_long, Indicator %in% educ_indicators)
+educ_indicators
+df_look <- WDI_educ %>% spread(Indicator, Value)
+df_plot <- subset(WDI_educ, Indicator %in% c("School enrollment, primary (% gross)",
+                                             "School enrollment, tertiary (% gross)"))
+df_plot$Year <- as.integer(df_plot$Year)
+df_plot <- subset(df_plot, Year >= 2000)
+df_plot$Indicator <- gsub(" (% gross)", "", df_plot$Indicator, fixed = T)
+colnames(df_plot)[4] <- "% gross"
+gg <- ggplot(df_plot, aes(x = Year, y = `% gross`, group = Country, color = Country))
+gg <- gg + geom_line(lwd = 1.5)
+gg <- gg + geom_point(size = 2)
+gg <- gg + facet_wrap(~Indicator, ncol = 1, scales = "free")
+gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year[which(!is.na(df_plot$Percent))]), max(df_plot$Year), by = 5),1))
+gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
+gg <- gg + theme(legend.title = element_blank()#,
+                 #axis.text.x = element_text(angle = 60, hjust = 1)
+)
+gg
