@@ -1,20 +1,22 @@
 library(plyr)
 library(dplyr)
+library(tidyr)
+library(ggplot2)
 #dir <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/BID2version/"
 setwd("//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/ResultsIMPACT/AggregationBID")
-
+#\\dapadfs\workspace_cluster_6\Socioeconomia\GF_and_SF\BID_2\ResultsIMPACT\AggregationBID
 ################################ Cargando datos ######################################
 
 #Cargar marco de datos principal
 md <- read.csv("Phase2/V2_allRegions.csv", header = T, stringsAsFactors = F)
-
 
 #Hacer un subconjunto que sólo contenga las variables de mi interés
 mdsub<-subset(md,md$impactparameter=="QSXAgg -- Total Production" | 
                 md$impactparameter=="TAreaXAgg -- Total Area" |
                 md$impactparameter== "QNXAgg -- Net Trade" | 
                 md$impactparameter== "QDXAgg -- Total Demand" |
-                md$impactparameter=="TYldXAgg -- Total Yield")
+                md$impactparameter=="TYldXAgg -- Total Yield" | 
+                md$impactparameter == "PCXAgg -- Consumer Prices")
 
 mdsub$impactparameter<- as.character(mdsub$impactparameter)
 mdsub$scenario<- as.character(mdsub$scenario)
@@ -57,6 +59,50 @@ mdwide<-data.frame(mdwide,"Cat"=ifelse(mdwide$scenario=="NoCC","NoCC","CC"))
 rend_all<- mdwide[,-c(6:20)]
 rend_all$Percentage_Change<-((rend_all$X2050-rend_all$X2020)/rend_all$X2020)*100
 #write.csv(rend_all,paste(grd, "Data.csv", sep = ""))
+
+#================================================
+# Trade graphic
+# tiff(filename=paste(grd,"Test_",pots[i],"_net_tradeNew.tiff",sep=""), 
+#      width = 10, height = 7, units = 'in', res = 100)
+df_plotNT <- rend_all
+df_plotNT$productiontype <- NULL
+df_plotNT$Cat <- NULL
+df_plotNT$Percentage_Change <- NULL
+df_plotNT <- subset(df_plotNT, impactparameter == "Net Trade")
+for(i in 1:length(country_vec)){
+  this_country <- country_vec[i]
+  this_df_plotNT <- subset(df_plotNT, region == this_country)
+  u <- colnames(this_df_plotNT)
+  colnames(this_df_plotNT) <- gsub("X", "", u)
+  gathercols <- colnames(this_df_plotNT)[5:ncol(this_df_plotNT)]
+  this_df_plotNT <- this_df_plotNT %>% gather("Year", "Value", gathercols)
+  this_df_plotNT$Year <- as.integer(this_df_plotNT$Year)
+  this_df_plotNT_NoCC <- subset(this_df_plotNT, scenario == "NoCC")
+  this_df_plotNT_CC <- subset(this_df_plotNT, scenario != "NoCC")
+  this_df_plotNT_CC <- this_df_plotNT_CC %>% group_by(Year, commodity) %>% mutate(datmin = min(Value)) %>% as.data.frame(this_df_plotNT_CC)
+  this_df_plotNT_CC <- this_df_plotNT_CC %>% group_by(Year, commodity) %>% mutate(datmax = max(Value)) %>% as.data.frame(this_df_plotNT_CC)
+  this_df_plotNT_CC <- this_df_plotNT_CC[, c("Year", "commodity", "datmin", "datmax")]
+  this_df_plotNT_CC <- this_df_plotNT_CC %>% group_by(Year, commodity) %>% summarise_all(funs(mean)) %>% as.data.frame(this_df_plotNT_CC)
+  #--
+  gg <- ggplot()
+  gg <- gg + geom_ribbon(data = this_df_plotNT_CC, aes(x = Year, ymin = datmin, ymax = datmax, fill = commodity), alpha = 0.2)
+  gg <- gg + geom_line(data = this_df_plotNT_NoCC, aes(x = Year, y = Value, group = commodity, color = commodity),
+                       linetype = "dashed", lwd = 1)
+  gg <- gg + labs(y="Net Trade ('000 MT)")
+  gg <- gg + theme(legend.position="bottom", 
+                   legend.text = element_text(size = 20),
+                   axis.text = element_text(face = "bold.italic", size = 20),
+                   axis.title = element_text(face = "bold.italic", size = 20),
+                   legend.title = element_blank())
+  #gg
+  #--
+  file_name <- paste0("netTrade_dottedEqualsNoCC_", this_country, ".png")
+  ggsave(file_name, width = 10, height = 7, units = 'in', dpi = 100)
+  
+}
+#dev.off()
+#================================================
+
 
 #Mediana de los cambios porcentuales por categorias.
 anal_datag<- aggregate(rend_all[,"Percentage_Change"],
