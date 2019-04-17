@@ -55,8 +55,11 @@ df_plot$Element <- factor(df_plot$Element,
                         ordered = T)
 gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
 gg <- gg + geom_area(position = "stack")
-gg <- gg + ggtitle(this_title)
+gg <- gg + labs(title = this_title,
+                caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_use_agd.png")
 #----Aggregate plot normalized
 df_plot <- df_plot %>% group_by(Year) %>% mutate(tot = sum(`Quantity (kg)`)) %>% as.data.frame(df_plot)
 df_plot$`Quantity (shares)` <- df_plot$`Quantity (kg)` / df_plot$tot
@@ -77,7 +80,10 @@ df_plot$Element <- factor(df_plot$Element,
 gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + labs(caption = "Source: FAO")
 gg
+ggsave("beans_use_disagd.png")
 #----Disaggregated by country, normalized
 df_plot <- df_plot %>% group_by(Area, Year) %>% mutate(tot = sum(`Quantity (kg)`)) %>% as.data.frame(df_plot)
 df_plot$`Quantity (shares)` <- df_plot$`Quantity (kg)` / df_plot$tot
@@ -115,8 +121,11 @@ df_plot$Element <- factor(df_plot$Element,
                           ordered = T)
 gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
 gg <- gg + geom_area(position = "stack")
-gg <- gg + ggtitle(this_title)
+gg <- gg + labs(title = this_title,
+                caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_supply_agd.png")
 #----Self-sufficiency ratio
 df_plotSSR <- df_plot
 df_plotSSR$Population <- NULL
@@ -127,7 +136,9 @@ df_plotSSR$`Self-Sufficiency Ratio` <- 100 * df_plotSSR$Production / (df_plotSSR
 gg <- ggplot(df_plotSSR, aes(x = Year, y = `Self-Sufficiency Ratio`))
 gg <- gg + geom_line(lwd = 1.5)
 gg <- gg + geom_point(size = 3)
-gg <- gg + ggtitle(this_title)
+gg <- gg + labs(title = this_title,
+                caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
 #----Disaggregated by country plot
 df_plot <- subset(df, Year > 1994)
@@ -142,7 +153,10 @@ df_plot$Element <- factor(df_plot$Element,
 gg <- ggplot(df_plot, aes(x = Year, y = `Quantity (kg / capita)`, fill = Element))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_supply_disagd.png")
 #----Disaggregated self-sufficiency ratios
 df_plotSSR <- df_plot
 df_plotSSR$Population <- NULL
@@ -154,7 +168,10 @@ df_plotSSR$`Self-Sufficiency Ratio`[which(df_plotSSR$`Self-Sufficiency Ratio` > 
 gg <- ggplot(df_plotSSR, aes(x = Year, y = `Self-Sufficiency Ratio`, color = Area, group = Area))
 gg <- gg + geom_line(lwd = 1.5)
 gg <- gg + geom_point(size = 3)
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_SSR_disagd.png")
 
 
 #==========================================
