@@ -3,6 +3,141 @@ library(ggplot2)
 library(pracma)
 library(tidyverse)
 #======================================
+# Data prep -- production
+# (source: FAO)
+df_crops <- read.csv("Production_Crops_E_All_Data.csv", stringsAsFactors = F)
+df_crops$Item.Code <- NULL
+df_crops$Area.Code <- NULL
+df_crops$Element.Code <- NULL
+u <- colnames(df_crops)
+df_crops <- df_crops[, -c(grep("F", u))]
+u <- colnames(df_crops)
+colnames(df_crops) <- gsub("Y", "", u)
+gathercols <- colnames(df_crops)[5:ncol(df_crops)]
+df_crops <- df_crops %>% gather_("Year", "Value", gathercols)
+df_crops$Year <- as.integer(df_crops$Year)
+df_yield_raw <- subset(df_crops, Element == "Yield")
+df_prod_raw <- subset(df_crops, Element == "Production")
+rm(df_crops)
+#======================================
+# Data prep -- population
+# (source: http://worldpopulationreview.com/countries/philippines-population/)
+df_pop_raw <- read.csv("Population_E_All_Data.csv", stringsAsFactors = F)
+df_pop_raw$Item.Code <- NULL
+df_pop_raw$Area.Code <- NULL
+df_pop_raw$Element.Code <- NULL
+u <- colnames(df_pop_raw)
+df_pop_raw <- df_pop_raw[, -c(grep("F", u))]
+u <- colnames(df_pop_raw)
+colnames(df_pop_raw) <- gsub("Y", "", u)
+gathercols <- colnames(df_pop_raw)[5:ncol(df_pop_raw)]
+df_pop_raw <- df_pop_raw %>% gather_("Year", "Value", gathercols)
+df_pop_raw$Year <- as.integer(df_pop_raw$Year)
+#======================================
+#======================================
+# Begin
+df_prod <- subset(df_prod_raw, Area == "Philippines")
+#unique(df_prod$Item)
+df_prod <- subset(df_prod, Item == "Rice, paddy")
+#unique(df_pop_raw$Element)
+df_pop <- subset(df_pop_raw, Element == "Total Population - Both sexes")
+df_pop <- subset(df_pop, Area == "Philippines")
+#--------------------------------------
+df_look <- df_pop
+gg <- ggplot(df_look, aes(x = lYear, y = Value))
+gg <- gg + geom_line(lwd = 1.5)
+gg
+#--------------------------------------
+df_pop$lValue <- log(df_pop$Value)
+df_pop$lYear <- log(df_pop$Year)
+modfit <- lm(lValue ~ Year, df_pop)
+summod <- summary(modfit)
+
+
+
+
+
+pop_hat_fun <- function(Year, A, B){
+  pop <- A * exp(-B / Year)
+  return(pop)
+}
+mod_fit <- nls(Value ~ pop_hat_fun(Year, A, B), start = c(A = 10^5, B = .85), data = df_pop)
+summod <- summary(mod_fit)
+#str(summod)
+A <- summod$parameters[1]
+B <- summod$parameters[2]
+df_pop$Value_hat <- A * exp(-B / df_pop$Year)
+
+
+
+
+library(pracma)
+p <- polyfit(x = df_pop$Year, y = df_pop$Value, n = 4)
+yr <- df_pop$Year
+
+df_pop$Year_hat <- p[5] * yr + p[4] * yr^2 + p[3] * yr^3 + p[2] * yr^4 + p[1]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#======================================
 FoodBal_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
 #unique(FoodBal_raw[which(FoodBal_raw$Item.Code == 2928),"Item"])
 FoodBal_raw <- subset(FoodBal_raw, Item.Code != 2928) #Miscellaneous
@@ -38,12 +173,11 @@ gg
 #======================================
 
 
-df_crops <- read.csv("Production_Crops_E_All_Data.csv", stringsAsFactors = F)
 
 #======================================
 
 
-df_trade <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
+#df_trade <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
 
 
 
@@ -104,7 +238,17 @@ x_GR89pct <- df$Year[ind_GR89pct]
 y_GR89pct <- df$Prod_perCap[ind_GR89pct]
 slope <- round(out[1], 2)
 yint <- round(out[2], 2)
+
+yfit <- slope * c(1:nrow(df)) + yint
+resid <- df$Prod_perCap - yfit
+sd_y <- sd(resid)
+
+png(filename = "PhilippinesRicePerCap.png", height = 600, width = 1000)
 gg <- ggplot(df, aes(x = Year, y = Prod_perCap))
+gg <- gg + annotate("rect", fill = "green", alpha = 0.4, 
+                    xmin = 1973, xmax = 1977,
+                    ymin = -Inf, ymax = Inf)
+gg <- gg + annotate("text", x = 1975, y = 185, label = "Masagana 99\n(effective years)")
 gg <- gg + geom_line(lwd = 1.2)
 gg <- gg + geom_point(size = 3, color = "blue")
 #gg <- gg + geom_point(aes(x_GRstart, y_GRstart), color = "green")
@@ -114,8 +258,11 @@ gg <- gg + geom_vline(xintercept = 1980, color = "green", linetype = "dashed", l
 gg <- gg + annotate("text", x = x_GR89pct, y = y_GR89pct, label = "89% / 77% adoption on irrigated / rainfed fields",
                     vjust = -1, hjust = 0.75, angle = 90)
 gg <- gg + stat_smooth(method = "lm", se = FALSE)
+#gg <- gg + geom_abline(slope = slope, intercept = yint + sd_y)
 gg <- gg + scale_x_continuous(breaks = df$Year)
 gg <- gg + ylab("Rice production (MT / capita)")
 gg <- gg + ggtitle("Green revolution (?) in the Philippines", subtitle = paste("Slope =", slope, " Y intercept =", yint))
+gg <- gg + theme_bw()
 gg <- gg + theme(axis.text.x = element_text(angle = 80, hjust = 1))
 gg
+dev.off()
