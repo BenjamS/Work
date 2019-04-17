@@ -44,24 +44,29 @@ df_pop <- subset(df_pop_raw, Element == "Total Population - Both sexes")
 df_pop <- subset(df_pop, Area == "Philippines")
 #--------------------------------------
 df_look <- df_pop
-gg <- ggplot(df_look, aes(x = lYear, y = Value))
+gg <- ggplot(df_look, aes(x = Year, y = Value))
 gg <- gg + geom_line(lwd = 1.5)
 gg
 #--------------------------------------
-df_pop$lValue <- log(df_pop$Value)
-df_pop$lYear <- log(df_pop$Year)
-modfit <- lm(lValue ~ Year, df_pop)
-summod <- summary(modfit)
-
-
-
-
-
-pop_hat_fun <- function(Year, A, B){
-  pop <- A * exp(-B / Year)
+pop_hat_fun <- function(Year, K, r, P0){
+  A <- (K - P0) / P0
+  pop <- K / (1 + A * exp(-r * Year))
   return(pop)
 }
-mod_fit <- nls(Value ~ pop_hat_fun(Year, A, B), start = c(A = 10^5, B = .85), data = df_pop)
+
+this_P0 <- df_pop$Value[1]
+K <- 10^6
+r <- 0.0004
+df_pop$Value_hat <- pop_hat_fun(df_pop$Year, K, r, P0 = this_P0)
+df_pop$Value_hat
+df_look <- df_pop %>% gather(Item, Value, Value:Value_hat)
+
+gg <- ggplot(df_look, aes(x = Year, y = Value, group = Item, color = Item))
+gg <- gg + geom_line(lwd = 1.5)
+gg
+
+
+mod_fit <- nls(Value ~ pop_hat_fun(Year, K, r, P0), start = c(K = 1.7 * 10^5, r = 0.003, P0 = 1950), data = df_pop)
 summod <- summary(mod_fit)
 #str(summod)
 A <- summod$parameters[1]
