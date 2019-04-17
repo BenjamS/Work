@@ -163,12 +163,19 @@ df_plot <- df_all
 gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Region))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Reporter.Countries, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+#gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_tradePartners_qty_disagd.png")
+
 #--
 gg <- ggplot(df_plot, aes(x = Year, y = Price, fill = Region))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Reporter.Countries, ncol = 2, scales = "free")
+gg <- gg + labs(y = ' "Price"  (export value / export quantity)',
+                caption = "Source: FAO")
 gg
+ggsave("beans_tradePartners_price_disagd.png")
 #----
 df_plot <- df_all
 df_plot$Reporter.Countries <- NULL
@@ -183,11 +190,17 @@ df_plot$Region <- factor(df_plot$Region,
 this_title <- paste(countries_keep, collapse = ", ")
 gg <- ggplot(df_plot, aes(x = Year, y = `Export Quantity`, fill = Region))
 gg <- gg + geom_area(position = "stack")
-gg <- gg + ggtitle(this_title)
+gg <- gg + labs(title = this_title,
+                caption = "Source: FAO")
+#gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_tradePartners_qty_agd.png")
 #--
 df_plot$Price[which(is.nan(df_plot$Price))] <- 0
 gg <- ggplot(df_plot, aes(x = Year, y = Price, fill = Region))
 gg <- gg + geom_area(position = "stack")
-gg <- gg + ggtitle(this_title)
+gg <- gg + labs(title = this_title,
+                y = ' "Price"  (export value / export quantity)',
+                caption = "Source: FAO")
 gg
+ggsave("beans_tradePartners_price_agd.png")
