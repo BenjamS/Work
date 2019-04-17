@@ -3,7 +3,6 @@ setwd("D:/OneDrive - CGIAR/Documents")
 options(warn = -1); options(scipen = 999)
 library(ggplot2)
 library(tidyverse)
-#Read in data -- MAKE SURE to first go into the .csv file and get rid of commas in the numbers! R no like commas in numbers.
 #------------------------------
 #------------------------------
 #Prep food balance data
@@ -102,6 +101,8 @@ df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Year) %>% mutate(tot_food = 
 df_kcal$`Food Supply (share of kcal)` <- df_kcal$`Food supply (kcal/capita/day)` / df_kcal$tot_food
 df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Year) %>% mutate(tot_prot = sum(`Protein supply (kcal/capita/day)`)))
 df_kcal$`Protein Supply (share of kcal)` <- df_kcal$`Protein supply (kcal/capita/day)` / df_kcal$tot_prot
+df_kcal <- as.data.frame(df_kcal %>% group_by(Area, Year) %>% mutate(tot_carb = sum(`Carb supply (kcal/capita/day)`)))
+df_kcal$`Carb Supply (share of kcal)` <- df_kcal$`Carb supply (kcal/capita/day)` / df_kcal$tot_carb
 #==============================================
 #--Food supply breakdown graph
 df_plot <- subset(df_kcal, Year > 1992)
@@ -112,12 +113,18 @@ df_plot$Item <- factor(df_plot$Item,
 gg <- ggplot(df_plot, aes(x = Year, y = `Food supply (kcal/capita/day)`, fill = Item))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_kcal_particip_disagd.png")
 #-
 gg <- ggplot(df_plot, aes(x = Year, y = `Food Supply (share of kcal)`, fill = Item))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_kcal_particip_normd_disagd.png")
 #--Protein supply breakdown graph
 df_plot <- subset(df_kcal, Year > 1992)
 df_plot$Year <- as.integer(df_plot$Year)
@@ -127,14 +134,46 @@ df_plot$Item <- factor(df_plot$Item,
 gg <- ggplot(df_plot, aes(x = Year, y = `Protein supply (kcal/capita/day)`, fill = Item))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
 gg
+ggsave("beans_protein_particip_disagd.png")
 #-
 gg <- ggplot(df_plot, aes(x = Year, y = `Protein Supply (share of kcal)`, fill = Item))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank())
+gg
+ggsave("beans_protein_particip_normd_disagd.png")
+#--
+#ggsave("bean_Protein_breakdown.png")
+#--Carb supply breakdown graph
+df_plot <- subset(df_kcal, Year > 1992)
+df_plot$Year <- as.integer(df_plot$Year)
+df_plot$Item <- factor(df_plot$Item,
+                       levels = unique(df_plot$Item[order(df_plot$mu_prot_area_item, df_plot$Item, decreasing = T)]),
+                       ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Carb supply (kcal/capita/day)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
+#-
+gg <- ggplot(df_plot, aes(x = Year, y = `Carb Supply (share of kcal)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
 gg
 #--
-
+#--Fat supply breakdown graph
+df_plot <- subset(df_kcal, Year > 1992)
+df_plot$Year <- as.integer(df_plot$Year)
+df_plot$Item <- factor(df_plot$Item,
+                       levels = unique(df_plot$Item[order(df_plot$mu_prot_area_item, df_plot$Item, decreasing = T)]),
+                       ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `Fat supply (kcal/capita/day)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
+gg
 
 
 
@@ -143,6 +182,33 @@ gg
 # gg <- gg + geom_area(position = "stack")
 # gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
 # gg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
