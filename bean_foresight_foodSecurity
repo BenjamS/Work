@@ -63,8 +63,10 @@ gg <- ggplot(df, aes(x = Year, y = Value, group = Area, color = Area))
 gg <- gg + geom_line(lwd = 1.5)
 gg <- gg + geom_point(size = 3)
 gg <- gg + facet_wrap(~Item, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank())
 gg
-
 
 df_wide <- df %>% spread(Area, Value)
 n_yrs_forecast <- 6
@@ -108,5 +110,8 @@ gg <- gg + geom_line(data = df, aes(x = Year, y = Value, group = Area, color = A
 gg <- gg + geom_point(data = df, aes(x = Year, y = Value, group = Area, color = Area), size = 2)
 gg <- gg + geom_line(data = df_Fcast, aes(x = Year, y = Value, group = Area, color = Area), linetype = "dotted", lwd = 1)
 gg <- gg + facet_wrap(~Item, ncol = 2, scales = "free")
+gg <- gg + labs(caption = "Source: FAO\nThe dotted lines are ARIMA projections 6 years beyond the data")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank())
 gg
-#ggsave("beans_foodSecurity.png")
+ggsave("beans_foodSecIndicators.png", width = 9.8, height = 5.9)
