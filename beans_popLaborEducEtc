@@ -1,3 +1,5 @@
+setwd("D:/OneDrive - CGIAR/Documents")
+options(warn = -1); options(scipen = 999)
 library(tidyverse)
 library(ggplot2)
 
@@ -67,40 +69,40 @@ pop_indicators <- c("Birth rate, crude (per 1,000 people)",
                     "Age dependency ratio, old (% of working-age population)",
                     "Population growth (annual %)",
                     "Population, total",
-"Population ages 0-4, female (% of female population)",
-"Population ages 0-4, male (% of male population)",
-"Population ages 5-9, female (% of female population)",
-"Population ages 5-9, male (% of male population)",
-"Population ages 10-14, female (% of female population)",
-"Population ages 10-14, male (% of male population)",
-"Population ages 15-19, female (% of female population)",
-"Population ages 15-19, male (% of male population)",
-"Population ages 20-24, female (% of female population)",
-"Population ages 20-24, male (% of male population)",
-"Population ages 25-29, female (% of female population)",
-"Population ages 25-29, male (% of male population)",
-"Population ages 30-34, female (% of female population)",
-"Population ages 30-34, male (% of male population)",
-"Population ages 35-39, female (% of female population)",
-"Population ages 35-39, male (% of male population)",
-"Population ages 40-44, female (% of female population)",
-"Population ages 40-44, male (% of male population)",
-"Population ages 45-49, female (% of female population)",
-"Population ages 45-49, male (% of male population)",
-"Population ages 50-54, female (% of female population)",
-"Population ages 50-54, male (% of male population)",
-"Population ages 55-59, female (% of female population)",
-"Population ages 55-59, male (% of male population)",
-"Population ages 60-64, female (% of female population)",
-"Population ages 60-64, male (% of male population)",
-"Population ages 65-69, female (% of female population)",
-"Population ages 65-69, male (% of male population)",
-"Population ages 70-74, female (% of female population)",
-"Population ages 70-74, male (% of male population)",
-"Population ages 75-79, female (% of female population)",
-"Population ages 75-79, male (% of male population)",
-"Population ages 80 and above, female (% of female population)",
-"Population ages 80 and above, male (% of male population)"
+                    "Population ages 0-4, female (% of female population)",
+                    "Population ages 0-4, male (% of male population)",
+                    "Population ages 5-9, female (% of female population)",
+                    "Population ages 5-9, male (% of male population)",
+                    "Population ages 10-14, female (% of female population)",
+                    "Population ages 10-14, male (% of male population)",
+                    "Population ages 15-19, female (% of female population)",
+                    "Population ages 15-19, male (% of male population)",
+                    "Population ages 20-24, female (% of female population)",
+                    "Population ages 20-24, male (% of male population)",
+                    "Population ages 25-29, female (% of female population)",
+                    "Population ages 25-29, male (% of male population)",
+                    "Population ages 30-34, female (% of female population)",
+                    "Population ages 30-34, male (% of male population)",
+                    "Population ages 35-39, female (% of female population)",
+                    "Population ages 35-39, male (% of male population)",
+                    "Population ages 40-44, female (% of female population)",
+                    "Population ages 40-44, male (% of male population)",
+                    "Population ages 45-49, female (% of female population)",
+                    "Population ages 45-49, male (% of male population)",
+                    "Population ages 50-54, female (% of female population)",
+                    "Population ages 50-54, male (% of male population)",
+                    "Population ages 55-59, female (% of female population)",
+                    "Population ages 55-59, male (% of male population)",
+                    "Population ages 60-64, female (% of female population)",
+                    "Population ages 60-64, male (% of male population)",
+                    "Population ages 65-69, female (% of female population)",
+                    "Population ages 65-69, male (% of male population)",
+                    "Population ages 70-74, female (% of female population)",
+                    "Population ages 70-74, male (% of male population)",
+                    "Population ages 75-79, female (% of female population)",
+                    "Population ages 75-79, male (% of male population)",
+                    "Population ages 80 and above, female (% of female population)",
+                    "Population ages 80 and above, male (% of male population)"
 )
 economic_indicators <- c("GINI index (World Bank estimate)",
                          "Research and development expenditure (% of GDP)",
@@ -109,7 +111,7 @@ economic_indicators <- c("GINI index (World Bank estimate)",
                          "Net ODA received per capita (current US$)",
                          "Poverty headcount ratio at $1.90 a day (2011 PPP) (% of population)"#,
                          #"Trade (% of GDP)"
-                         )
+)
 employment_indicators <- c("Employment in agriculture (% of total employment) (modeled ILO estimate)",
                            "Employment in industry (% of total employment) (modeled ILO estimate)",
                            "Employment in services (% of total employment) (modeled ILO estimate)",
@@ -181,15 +183,15 @@ WDI_pop <- WDI_pop %>% group_by(Country, Year, Indicator) %>%
   summarise(Value = sum(Value)) %>% as.data.frame(WDI_pop)
 
 pop_age_shares <- c("Population ages 0-19, female (% of female population)",
-                       "Population ages 0-19, male (% of male population)",
-                       "Population ages 20-39, female (% of female population)",
-                       "Population ages 20-39, male (% of male population)",
-                       "Population ages 40-59, female (% of female population)",
-                       "Population ages 40-59, male (% of male population)",
-                       "Population ages 60-79, female (% of female population)",
-                       "Population ages 60-79, male (% of male population)",
-                       "Population ages 80 and above, female (% of female population)",
-                       "Population ages 80 and above, male (% of male population)")
+                    "Population ages 0-19, male (% of male population)",
+                    "Population ages 20-39, female (% of female population)",
+                    "Population ages 20-39, male (% of male population)",
+                    "Population ages 40-59, female (% of female population)",
+                    "Population ages 40-59, male (% of male population)",
+                    "Population ages 60-79, female (% of female population)",
+                    "Population ages 60-79, male (% of male population)",
+                    "Population ages 80 and above, female (% of female population)",
+                    "Population ages 80 and above, male (% of male population)")
 df_plot <- subset(WDI_pop, Indicator %in% pop_age_shares)
 u <- df_plot$Indicator
 df_plot$Gender <- "Male"
@@ -209,6 +211,7 @@ gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
 gg <- gg + theme(legend.title = element_blank(),
                  axis.text.x = element_text(angle = 60, hjust = 1))
 gg
+ggsave("beans_pop_maleFemale.png", width = 12)
 
 unique(WDI_pop$Indicator)
 pop_age_absolute <- c("Population ages 0-14, total", 
@@ -218,8 +221,9 @@ df_plot <- subset(WDI_pop, Indicator %in% pop_age_absolute)
 df_plot$Year <- as.integer(df_plot$Year)
 u <- df_plot$Indicator
 df_plot$Indicator <- gsub(", total", "", u, fixed = T)
-colnames(df_plot)[4] <- "Total"
-gg <- ggplot(df_plot, aes(x = Year, y = Total, fill = Indicator))
+colnames(df_plot)[4] <- "Millions"
+df_plot$Millions <- df_plot$Millions * 10^-6
+gg <- ggplot(df_plot, aes(x = Year, y = Millions, fill = Indicator))
 gg <- gg + geom_area(position = "stack")
 gg <- gg + facet_wrap(~ Country, ncol = 2, scales = "free")
 gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year), max(df_plot$Year), by = 5),1))
@@ -227,12 +231,14 @@ gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
 gg <- gg + theme(legend.title = element_blank(),
                  axis.text.x = element_text(angle = 60, hjust = 1))
 gg
+ggsave("beans_pop.png", width = 12)
+
 
 unique(WDI_pop$Indicator)
 these_indicators <- c("Rural population (% of total population)",
                       "Age dependency ratio, young (% of working-age population)",
                       "Population growth (annual %)"
-                      )
+)
 df_plot <- subset(WDI_pop, Indicator %in% these_indicators)
 df_plot$Year <- as.integer(df_plot$Year)
 gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Country, color = Country))
@@ -242,8 +248,10 @@ gg <- gg + facet_wrap(~ Indicator, ncol = 1, scales = "free")
 gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year), max(df_plot$Year), by = 5),1))
 gg <- gg + labs(caption = "Source: World Development Indicators, World Bank")
 gg <- gg + theme(legend.title = element_blank(),
-                 axis.text.x = element_text(angle = 60, hjust = 1))
+                 axis.text.x = element_text(angle = 60, hjust = 1),
+                 axis.title.y = element_blank())
 gg
+ggsave("beans_other_popIndicators.png", width = 6)
 
 
 
@@ -265,6 +273,8 @@ gg <- gg + labs(title = "Labor force participation rate",
 gg <- gg + theme(legend.title = element_blank(),
                  axis.text.x = element_text(angle = 60, hjust = 1))
 gg
+ggsave("beans_employment.png")
+
 
 df_plot <- subset(WDI_employ, Indicator != "Labor force participation rate, total (% of total population ages 15+) (modeled ILO estimate)")
 u <- df_plot$Indicator
@@ -282,6 +292,7 @@ gg <- gg + labs(title = "Distribution of employment across sectors",
 gg <- gg + theme(legend.title = element_blank(),
                  axis.text.x = element_text(angle = 60, hjust = 1))
 gg
+ggsave("beans_sectorEmployment.png")
 
 
 #==================================
@@ -290,10 +301,11 @@ gg
 WDI_econ <- subset(WDI_long, Indicator %in% economic_indicators)
 economic_indicators
 df_plot <- subset(WDI_econ, Indicator %in% c("GDP per capita (current US$)",
-                                             "Net ODA received per capita (current US$)",
-                                             "Poverty headcount ratio at $1.90 a day (2011 PPP) (% of population)"))
+                                             "Net ODA received per capita (current US$)"))
 df_plot$Year <- as.integer(df_plot$Year)
+#df_plot$`Current US$` <- log(df_plot$`Current US$`)
 df_look <- df_plot %>% spread(Indicator, Value)
+
 
 df_Fcast <- getARIMAforecast(df_plot, n_yrs_forecast = 6)
 u <- df_plot$Indicator
@@ -309,12 +321,12 @@ gg <- gg + geom_point(data = df_plot, aes(x = Year, y = `Current US$`, group = C
 gg <- gg + geom_line(data = df_Fcast, aes(x = Year, y = `Current US$`, group = Country, color = Country), linetype = "dotted", lwd = 1.2)
 gg <- gg + scale_x_continuous(breaks = round(seq(min(df_plot$Year[which(!is.na(df_plot$Percent))]), max(df_plot$Year), by = 5),1))
 gg <- gg + facet_wrap(~ Indicator, ncol = 1, scales = "free")
-gg <- gg + labs(caption = "Source: World Development Indicators, World Bank\nThe dotted portion of the trajectory is an ARIMA forecast 6 years into the future")
+gg <- gg + labs(caption = "Source: World Development Indicators, World Bank\nThe dotted portion of the trajectory is an ARIMA forecast 6 years beyond the data")
 gg <- gg + theme(legend.title = element_blank(),
                  axis.text.x = element_text(angle = 60, hjust = 1)
-                 )
+)
 gg
-
+ggsave("beans_gdpOda.png", width = 6)
 
 #==================================
 # Education
@@ -337,3 +349,4 @@ gg <- gg + theme(legend.title = element_blank()#,
                  #axis.text.x = element_text(angle = 60, hjust = 1)
 )
 gg
+ggsave("beans_educ.png", width = 6)
