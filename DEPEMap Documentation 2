@@ -1,35 +1,139 @@
+# Libraries:
 library(ggplot2)
 library(rootSolve)
-library(plyr)
-library(dplyr)
-library(tidyr)
+# library(plyr)
+# library(dplyr)
+# library(tidyr)
+library(tidyverse)
 library(fields)
 library(lamW)
-rootfn_cstar <- function(C_star, beta, rCeil, lambda){
-  slack <- beta / C_star + lambertW0(-C_star / rCeil * (1 + lambda))
+#---------------------------------------------------------
+# Define functions:
+# rootfn_cstar <- function(yStar_SUP, yCeil_SUP, cStar_SUP, beta_SUP){
+#   slack <- beta_SUP / cStar_SUP + lambertW0(-yStar_SUP / yCeil_SUP * beta_SUP / cStar_SUP)
+#   return(slack)
+# }
+rootfn_cstar <- function(cStar_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
+  slack <- beta_SUP / cStar_SUP + lambertW0(-cStar_SUP / (P_SQ_SUP * yCeil_SUP) * (1 + lambda_SUP))
   return(slack)
 }
-
-
-
+#---------------------------------------------------------
+# Get data to fit beta_SUP
+df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
+colnames(df)[1] <- "x"
+df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
+colnames(df)[2:ncol(df)] <- df[2, 2:ncol(df)]
+df <- df[-c(1:2), ]
+colnames(df)[1] <- "Ampoer"
+colnames(df)[8] <- paste("Land Prep", colnames(df)[8])
+colnames(df)[15] <- paste("Harvest", colnames(df)[15])
+df_supplement <- df[97:144, ]
+df <- df[-c(96:nrow(df)), ]
+df[, -1] <- as.data.frame(apply(df[, -1], 2, as.numeric))
+#--
+#df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
+df$`Farm size (ha)` <- df$`Surface occupied by cassava (rai)` / 6.25
+df$`l(Farm size (ha))` <- log(df$`Farm size (ha)`)
+hist(df$`Farm size (ha)`)
+hist(df$`l(Farm size (ha))`)
+ind_look <- which(df$`l(Farm size (ha))` < 0)
+df$`Farm size (ha)`[ind_look]
+df$`Yield (ton/ha)`[ind_look]
+ind_rm <- which(df$`Farm size (ha)` < 0.8)
+df <- df[-ind_rm, ]
+ind_look <- which(df$`l(Farm size (ha))` > 3)
+df$`Farm size (ha)`[ind_look]
+df$`Yield (ton/ha)`[ind_look]
+colnames(df)
+#--
+df$`Yield (ton/ha)` <- df$`Yield (ton/rai) 1 ha = 6.25 rai` * 6.25
+df$`l(Yield (ton/ha))` <- log(df$`Yield (ton/ha)`)
+hist(df$`Yield (ton/ha)`)
+hist(df$`l(Yield (ton/ha))`)
+max(df$`Yield (ton/ha)`)
+ind_look <- which(df$`Yield (ton/ha)` > 40)
+df$`Farm size (ha)`[ind_look]
+df$`Yield (ton/ha)`[ind_look]
+ind_rm <- which(df$`Yield (ton/ha)` == 50)
+df <- df[-ind_rm, ]
+hist(df$`Yield (ton/ha)`)
+hist(df$`l(Yield (ton/ha))`)
+ind_look <- which(df$`Yield (ton/ha)` < 20)
+df$`Farm size (ha)`[ind_look]
+df$`Yield (ton/ha)`[ind_look]
+mu_yStar <- mean(df$`Yield (ton/ha)`)
+mu_yStar_SUP
+m_yStar_SUP <- mean(df$`l(Yield (ton/ha))`)
+#--
+cStar_atMuY_SUP <- 1000 # Surmise
+yCeil_SUP <- 44 # Based on data
+beta_SUP <- -cStar_atMuY_SUP * log(mu_yStar_SUP / yCeil_SUP)
+beta_SUP
+m_yStarNormd_SUP <- mean(log(df$`Yield (ton/ha)` / yCeil_SUP))
+#--
+P_SQ_SUP <- 2100
+#--
+# Check to see if this beta_SUP produces realistic farm costs per ha.
+df$`Cost (deduced)` <- -beta_SUP / log(df$`Yield (ton/ha)` / yCeil_SUP)
+hist(df$`Cost (deduced)`)
+ind_look <- which(df$`Cost (deduced)` > 2000)
+df$`Farm size (ha)`[ind_look]
+df$`Yield (ton/ha)`[ind_look]
+df$`Cost / ha. (deduced)` <- df$`Cost (deduced)` / df$`Farm size (ha)`
+hist(df$`Cost / ha. (deduced)`)
+df$`shadow price` <- P_SQ_SUP * beta_SUP * df$`Yield (ton/ha)` / df$`Cost (deduced)`^2 - 1
+df$`shadow price check` <- -P_SQ_SUP * df$`Yield (ton/ha)` / df$`Cost (deduced)` *
+  log(df$`Yield (ton/ha)` / yCeil_SUP) - 1
+#df$`shadow price` - df$`shadow price check`
+# hist(df$`shadow price`)
+# plot(df$`shadow price`, df$`Yield (ton/ha)`)
+# hist(df$`Cost / ha. (deduced)`)
+mu_lambda_SUP <- mean(df$`shadow price`)
+sigma_lambda_SUP <- sd(df$`shadow price`)
+cv_lambda_SUP <- sigma_lambda_SUP / mu_lambda_SUP
+cv_lambda_SUP
+# mu_cStar_SUP <- mean(df$`Cost (deduced)`)
+# mu_cStar_SUP
+# m_cStar_SUP <- mean(log(df$`Cost (deduced)`))
+# m_cStar_SUP
+# s_cStar_SUP <- sd(log(df$`Cost (deduced)`))
+# s_cStar_SUP
+# cv_lcStar_SUP <- s_cStar_SUP / m_cStar_SUP
+# cv_lcStar_SUP
 #=================================
+
+
+cStar_root <- rootfn_cstar(cStar_SUP, yCeil_SUP, beta_SUP, lambda_SUP)
+
+interval_cstar <- c(0, exp(-1) * P_SQ_SUP * yCeil_SUP / (1 + mu_lambda_SUP))
+cStar <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
+                     beta_SUP = mu_beta_SUP, rCeil = rCeil_SUP, lambda_SUP = lambda_SUP)
+
+
+
+
+
+
+
+
 # Supply side
 #in_P <- P_rev_per_output_SUP[!(P_rev_per_output_SUP > 2000)]
 P_sq <- 2200
 yCeil_SUP <- 45
-lambda <- 0
+lambda_SUP <- 0
 rCeil_sq_SUP <- yCeil_SUP * P_sq
-cStar_sq <- 0.33 * rCeil_sq_SUP # max is exp(-1) * rCeil_sq_SUP
+cStar_sq <- 0.35 * rCeil_sq_SUP # max is exp(-1) * rCeil_sq_SUP
 cStar_sq
-mu_beta <- -cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda))
-mu_beta
-m_yStar_norm <- -mu_beta / cStar_sq
+# Deduce mu_beta based on observed status quo expenditure cStar_sq
+mu_beta_SUP <- -cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda_SUP))
+mu_beta_SUP
+m_yStar_norm <- -mu_beta_SUP / cStar_sq
 m_yStar_norm
 yCeil_SUP * exp(m_yStar_norm)
 m_yStar <- m_yStar_norm + log(yCeil_SUP)
 m_yStar
-cv_yStar <- 0.07
-s2_yStar <- m_yStar^2 * cv_yStar^2
+cv_lyStar <- 0.07
+s2_yStar <- m_yStar^2 * cv_lyStar^2
 mu_yStar <- exp(m_yStar + s2_yStar / 2)
 mu_yStar
 #---------------------------------
@@ -37,16 +141,16 @@ mu_yStar
 N <- 80
 P_new <- P_sq
 rCeil_SUP <- yCeil_SUP * P_new
-interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
+interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda_SUP))
 cStar <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                     beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+                     beta_SUP = mu_beta_SUP, rCeil = rCeil_SUP, lambda_SUP = lambda_SUP)
 cStar
-m_yStar_norm <- -mu_beta / cStar
+m_yStar_norm <- -mu_beta_SUP / cStar
 m_yStar_norm
 m_yStar <- m_yStar_norm + log(yCeil_SUP)
 m_yStar
 exp(m_yStar)
-s_yStar <- m_yStar * cv_yStar
+s_yStar <- m_yStar * cv_lyStar
 mu_yStar <- exp(m_yStar + s_yStar^2 / 2)
 mu_yStar
 
@@ -75,19 +179,19 @@ gg <- gg + theme(axis.title.x = element_blank())
 gg
 
 
-QS <- function(P, N_area, yCeil_SUP, mu_beta, lambda){
+QS <- function(P, N_area, yCeil_SUP, cv_lyStar, mu_beta_SUP, lambda_SUP_SUP){
   QS_vec <- c()
   mktParticip_vec <- c()
   for(i in 1:length(P)){
     rCeil_SUP <- yCeil_SUP * P[i]
-    print(rCeil_SUP)
-    interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda))
+    #print(rCeil_SUP)
+    interval_cstar <- c(0, exp(-1) * rCeil_SUP / (1 + lambda_SUP))
     cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                              beta = mu_beta, rCeil_SUP = rCeil_SUP, lambda = lambda)
+                              beta = mu_beta_SUP, rCeil = rCeil_SUP, lambda = lambda_SUP)
     m_yStar_norm <- -mu_beta / cStar_atMu
     #m_yStar_norm
     m_yStar <- m_yStar_norm + log(yCeil_SUP)
-    s_yStar <- m_yStar * cv_yStar
+    s_yStar <- m_yStar * cv_lyStar
     mu_yStar <- exp(m_yStar + s_yStar^2 / 2)
     theta_upper <- (-m_yStar_norm) / s_yStar - s_yStar
     theta_lower <- (- 1 - m_yStar_norm) / s_yStar - s_yStar
@@ -110,11 +214,11 @@ cStar_sq <- 0.33 * rCeil_sq_SUP # max is exp(-1) * rCeil_sq_SUP
 #cStar_sq
 mu_beta <- -cStar_sq * lambertW0(-cStar_sq / rCeil_sq_SUP * (1 + lambda))
 #mu_beta
-cv_yStar <- 0.07
-df_QS <- QS(P, N_area, yCeil_SUP, mu_beta, cv_yStar)
+cv_lyStar <- 0.07
+df_QS <- QS(P, N_area, yCeil_SUP, cv_lyStar, mu_beta_SUP, lambda_SUP)
 
 
-df_plot <- df_out
+df_plot <- df_QS
 gg <- ggplot(df_plot, aes(x = P, y = mkt_particip))
 gg <- gg + geom_line(lwd = 1.7)
 gg
@@ -274,7 +378,7 @@ beta_DEM <- -cStar_sq_DEM * lambertW0(-cStar_sq_DEM / rCeil_sq_DEM * (1 + lambda
 yStar_sq_DEM <- yCeil_DEM * exp(-beta_DEM / cStar_sq_DEM)
 
 P_sq_SUP <- 2500
-# cv_ly <- 0.03
+cv_ly <- 0.03
 # m_y <- log(150)
 # s_y <- cv_ly * m_y
 # mode_yStar_sq_DEM <- exp(m_y - s_y)
@@ -315,10 +419,9 @@ cv_lyStar_DEM <- cv_ly
 cv_xStar <- cv_lyStar_DEM
 P_DEM <- P_sq_DEM
 N <- 11
-for(i in 1:length(P)){
-  
-}
-this_P <- P[i]
+
+this_P <- 2500
+#this_P <- P[i]
 mu_beta_DEM <- alpha_x_derived * this_P + aw_x
 cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
                          beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
@@ -358,7 +461,16 @@ gg
 
 
 #---------
+P <- seq(100, 3000, 10)
+
+
+QD <- function(P, beta_DEM, rCeil_sq_DEM, lambda_DEM, alpha_x_derived,
+               aw_x, cv_lyStar_DEM, m_yStar_DEM, yCeil_DEM, P_DEM){
+  
+}
 Q_D <- c()
+
+
 for(i in 1:length(P)){
   this_P <- P[i]
   mu_beta_DEM <- alpha_x_derived * this_P + aw_x
