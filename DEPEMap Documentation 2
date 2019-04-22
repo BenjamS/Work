@@ -13,8 +13,8 @@ library(lamW)
 #   slack <- beta_SUP / cStar_SUP + lambertW0(-yStar_SUP / yCeil_SUP * beta_SUP / cStar_SUP)
 #   return(slack)
 # }
-rootfn_cstar <- function(cStar_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
-  slack <- beta_SUP / cStar_SUP + lambertW0(-cStar_SUP / (P_SQ_SUP * yCeil_SUP) * (1 + lambda_SUP))
+rootfn_cstar <- function(cStar_SUP, P_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
+  slack <- beta_SUP / cStar_SUP + lambertW0(-cStar_SUP / (P_SUP * yCeil_SUP) * (1 + lambda_SUP))
   return(slack)
 }
 #---------------------------------------------------------
@@ -34,8 +34,8 @@ df[, -1] <- as.data.frame(apply(df[, -1], 2, as.numeric))
 #df$`Farm size (ha)` <- df$`Farm size (rai)` / 6.25
 df$`Farm size (ha)` <- df$`Surface occupied by cassava (rai)` / 6.25
 df$`l(Farm size (ha))` <- log(df$`Farm size (ha)`)
-hist(df$`Farm size (ha)`)
-hist(df$`l(Farm size (ha))`)
+# hist(df$`Farm size (ha)`)
+# hist(df$`l(Farm size (ha))`)
 ind_look <- which(df$`l(Farm size (ha))` < 0)
 df$`Farm size (ha)`[ind_look]
 df$`Yield (ton/ha)`[ind_look]
@@ -48,39 +48,43 @@ colnames(df)
 #--
 df$`Yield (ton/ha)` <- df$`Yield (ton/rai) 1 ha = 6.25 rai` * 6.25
 df$`l(Yield (ton/ha))` <- log(df$`Yield (ton/ha)`)
-hist(df$`Yield (ton/ha)`)
-hist(df$`l(Yield (ton/ha))`)
+# hist(df$`Yield (ton/ha)`)
+# hist(df$`l(Yield (ton/ha))`)
 max(df$`Yield (ton/ha)`)
 ind_look <- which(df$`Yield (ton/ha)` > 40)
 df$`Farm size (ha)`[ind_look]
 df$`Yield (ton/ha)`[ind_look]
 ind_rm <- which(df$`Yield (ton/ha)` == 50)
 df <- df[-ind_rm, ]
-hist(df$`Yield (ton/ha)`)
-hist(df$`l(Yield (ton/ha))`)
+# hist(df$`Yield (ton/ha)`)
+# hist(df$`l(Yield (ton/ha))`)
 ind_look <- which(df$`Yield (ton/ha)` < 20)
 df$`Farm size (ha)`[ind_look]
 df$`Yield (ton/ha)`[ind_look]
-mu_yStar <- mean(df$`Yield (ton/ha)`)
+mu_yStar_SUP <- mean(df$`Yield (ton/ha)`)
 mu_yStar_SUP
 m_yStar_SUP <- mean(df$`l(Yield (ton/ha))`)
 #--
-cStar_atMuY_SUP <- 1000 # Surmise
+cStarPerYstar_atMuYstar <- 500 # Surmise
+cStar_atMuYstar_SUP <- mu_yStar_SUP * cStarPerYstar_atMuYstar
 yCeil_SUP <- 44 # Based on data
-beta_SUP <- -cStar_atMuY_SUP * log(mu_yStar_SUP / yCeil_SUP)
+beta_SUP <- -cStar_atMuYstar_SUP * log(mu_yStar_SUP / yCeil_SUP)
 beta_SUP
-m_yStarNormd_SUP <- mean(log(df$`Yield (ton/ha)` / yCeil_SUP))
+#m_yStarNormd_SUP <- mean(log(df$`Yield (ton/ha)` / yCeil_SUP))
 #--
 P_SQ_SUP <- 2100
 #--
 # Check to see if this beta_SUP produces realistic farm costs per ha.
 df$`Cost (deduced)` <- -beta_SUP / log(df$`Yield (ton/ha)` / yCeil_SUP)
 hist(df$`Cost (deduced)`)
-ind_look <- which(df$`Cost (deduced)` > 2000)
-df$`Farm size (ha)`[ind_look]
-df$`Yield (ton/ha)`[ind_look]
 df$`Cost / ha. (deduced)` <- df$`Cost (deduced)` / df$`Farm size (ha)`
 hist(df$`Cost / ha. (deduced)`)
+df$`Cost / MT output (deduced)` <- df$`Cost (deduced)` / df$`Yield (ton/ha)`
+hist(df$`Cost / MT output (deduced)`)
+ind_look <- which(df$`Cost / MT output (deduced)` > 1000)
+df$`Farm size (ha)`[ind_look]
+df$`Yield (ton/ha)`[ind_look]
+#--
 df$`shadow price` <- P_SQ_SUP * beta_SUP * df$`Yield (ton/ha)` / df$`Cost (deduced)`^2 - 1
 df$`shadow price check` <- -P_SQ_SUP * df$`Yield (ton/ha)` / df$`Cost (deduced)` *
   log(df$`Yield (ton/ha)` / yCeil_SUP) - 1
@@ -93,25 +97,26 @@ sigma_lambda_SUP <- sd(df$`shadow price`)
 cv_lambda_SUP <- sigma_lambda_SUP / mu_lambda_SUP
 cv_lambda_SUP
 # mu_cStar_SUP <- mean(df$`Cost (deduced)`)
-# mu_cStar_SUP
-# m_cStar_SUP <- mean(log(df$`Cost (deduced)`))
-# m_cStar_SUP
-# s_cStar_SUP <- sd(log(df$`Cost (deduced)`))
-# s_cStar_SUP
-# cv_lcStar_SUP <- s_cStar_SUP / m_cStar_SUP
-# cv_lcStar_SUP
+#--
+# check
+df$`Yield (ton/ha)` - yCeil_SUP * exp(-df$`Cost / MT output (deduced)` / P_SQ_SUP * (1 + df$`shadow price`))
 #=================================
 
 
-cStar_root <- rootfn_cstar(cStar_SUP, yCeil_SUP, beta_SUP, lambda_SUP)
 
 interval_cstar <- c(0, exp(-1) * P_SQ_SUP * yCeil_SUP / (1 + mu_lambda_SUP))
-cStar <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                     beta_SUP = mu_beta_SUP, rCeil = rCeil_SUP, lambda_SUP = lambda_SUP)
-
-
-
-
+cStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
+                     interval_cstar,
+                     lower = min(interval_cstar),
+                     upper = max(interval_cstar),
+                     P_SUP = P_SQ_SUP,
+                     yCeil_SUP = yCeil_SUP,
+                     beta_SUP = beta_SUP,
+                     lambda_SUP = mu_lambda_SUP)
+cStar_atMuLamb_SUP
+#mu_yStar_SUP <- yCeil_SUP * exp(lambertW0(-cStar_SUP / (P_SQ_SUP * yCeil_SUP) * (1 + mu_lambda_SUP)))
+yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cStar_atMuLamb_SUP)
+cStarPerOutput_atMuLamb_SUP <- cStar_atMuLamb_SUP / yStar_atMuLamb_SUP
 
 
 
