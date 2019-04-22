@@ -1,9 +1,17 @@
+# #--------------------------------------------
+# #Make sure required packages are loaded
+# #--------------------------------------------
+# required_packages <- c("lamW", "rootSolve")
+# lapply(required_packages, FUN = function(x) {
+#   if (!require(x, character.only = TRUE)) {
+#     install.packages(x, dependencies = TRUE)
+#     library(x, character.only = TRUE)
+#   }
+# })
+# #-------------------------------------------
 # Libraries:
 library(ggplot2)
 library(rootSolve)
-# library(plyr)
-# library(dplyr)
-# library(tidyr)
 library(tidyverse)
 library(fields)
 library(lamW)
@@ -19,6 +27,7 @@ rootfn_cstar <- function(cStar_SUP, P_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
 }
 #---------------------------------------------------------
 # Get data to fit beta_SUP
+#setwd("D:/OneDrive - CGIAR/Documents/Cassava work")
 df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
@@ -101,22 +110,157 @@ cv_lambda_SUP
 # check
 df$`Yield (ton/ha)` - yCeil_SUP * exp(-df$`Cost / MT output (deduced)` / P_SQ_SUP * (1 + df$`shadow price`))
 #=================================
+#=================================
+#=================================
+
+
+Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP){
+  #--
+  P_min_SUP <- exp(1) * beta_SUP / yCeil_SUP * (1 + mu_lambda_SUP)
+  P_SUP_vec <- seq(P_min_SUP + 1, max(P_SUP), length.out = 50)
+  QS_vec <- c()
+  mktParticip_vec <- c()
+  muCstar_vec <- c()
+  muYstar_vec <- c()
+  for(i in 1:length(P_SUP_vec)){
+    this_P <- P_SUP_vec[i]
+    interval_cstar <- c(beta_SUP, exp(-1) * this_P * yCeil_SUP / (1 + mu_lambda_SUP))
+    cStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
+                                      interval_cstar,
+                                      lower = min(interval_cstar),
+                                      upper = max(interval_cstar),
+                                      P_SUP = this_P,
+                                      yCeil_SUP = yCeil_SUP,
+                                      beta_SUP = beta_SUP,
+                                      lambda_SUP = mu_lambda_SUP)
+    #cStar_atMuLamb_SUP
+    yStar_atMuLamb_SUP <- yCeil_SUP * exp(lambertW0(-cStar_atMuLamb_SUP / (this_P * yCeil_SUP) * (1 + mu_lambda_SUP)))
+    yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cStar_atMuLamb_SUP)
+    #cStarPerOutput_atMuLamb_SUP <- cStar_atMuLamb_SUP / yStar_atMuLamb_SUP
+    m_yStarNormd_SUP <- -beta_SUP / cStar_atMuLamb_SUP
+    s_yStar_SUP <- -cv_lyStar_SUP * m_yStarNormd_SUP
+    #--
+    theta_upper <- (-m_yStarNormd_SUP) / s_yStar_SUP - s_yStar_SUP
+    theta_lower <- (- 1 - m_yStarNormd_SUP) / s_yStar_SUP - s_yStar_SUP
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    mkt_particip_SUP <- N_upper - N_lower
+    #mkt_particip_SUP
+    #--
+    m_yStar_SUP <- log(yCeil_SUP) + m_yStarNormd_SUP
+    mu_yStar_SUP <- exp(m_yStar_SUP + s_yStar_SUP^2 / 2)
+    #--
+    Q_S <- N_SUP * mu_yStar_SUP * mkt_particip_SUP
+    #Q_S
+    QS_vec[i] <- ifelse(length(Q_S) == 0, NA, Q_S)
+    mktParticip_vec[i] <- ifelse(length(mkt_particip_SUP) == 0, NA, mkt_particip_SUP)
+    muCstar_vec[i] <- ifelse(length(cStar_atMuLamb_SUP) == 0, NA, cStar_atMuLamb_SUP)
+    muYstar_vec[i] <- ifelse(length(mu_yStar_SUP) == 0, NA, mu_yStar_SUP)
+  }
+  df_QS <- data.frame(Quantity = QS_vec, Participation = mktParticip_vec,
+                      mu_cStar_SUP = muCstar_vec, mu_yStar_SUP = muYstar_vec, Price = P_SUP_vec)
+  #--
+  P_interval <- P_SUP_vec[2] - P_SUP_vec[1]
+  P_NApad <- seq(0, P_min_SUP, P_interval)
+  df_NApad <- as.data.frame(matrix(NA, nrow = length(P_NApad), ncol = ncol(df_QS)))
+  colnames(df_NApad) <- colnames(df_QS)
+  df_NApad$Price <- P_NApad
+  df_QS <- rbind(df_NApad, df_QS)
+  #--
+  theta_upper_min <- 1 / cv_lyStar_SUP - cv_lyStar_SUP
+  theta_lower_min <- -cv_lyStar_SUP
+  N_upper_min <- pnorm(theta_upper_min)
+  N_lower_min <- pnorm(theta_lower_min)
+  mkt_particip_min_SUP <- N_upper_min - N_lower_min
+  #--
+  m_yStarNormd_min_SUP <- -1
+  s_yStar_min_SUP <- cv_lyStar_SUP * m_yStarNormd_min_SUP
+  m_yStar_min_SUP <- log(yCeil_SUP) + m_yStarNormd_min_SUP
+  mu_yStar_min_SUP <- exp(m_yStar_min_SUP + s_yStar_min_SUP^2 / 2)
+  QS_min <- N_SUP * mu_yStar_min_SUP * mkt_particip_min_SUP
+  #--
+  theta_upper_max <- 1 / cv_lyStar_SUP
+  theta_lower_max <- -Inf
+  N_upper_max <- pnorm(theta_upper_max)
+  N_lower_max <- pnorm(theta_lower_max)
+  mkt_particip_ceil_SUP <- N_upper_max - N_lower_max
+  #--
+  m_yStarNormd_max_SUP <- 0
+  s_yStar_max_SUP <- cv_lyStar_SUP * m_yStarNormd_max_SUP
+  m_yStar_max_SUP <- log(yCeil_SUP) + m_yStarNormd_max_SUP
+  mu_yStar_max_SUP <- exp(m_yStar_max_SUP + s_yStar_max_SUP^2 / 2)
+  QS_ceil <- N_SUP * mu_yStar_max_SUP * mkt_particip_ceil_SUP
+  #--
+  df_QS_bounds <- data.frame(Type = "Quantity", Min = QS_min,
+                             Ceiling = QS_ceil,
+                             min_price = P_min_SUP)
+  df_Particp_bounds <- data.frame(Type = "Participation", Min = mkt_particip_min_SUP,
+                                  Ceiling = mkt_particip_ceil_SUP,
+                                  min_price = P_min_SUP)
+  df_bounds <- rbind(df_QS_bounds, df_Particp_bounds)
+  colnames(df_bounds)[ncol(df_bounds)] <- "Min. Price"
+  #--
+  return(list(df_QS, df_bounds))
+  #--
+}
 
 
 
-interval_cstar <- c(0, exp(-1) * P_SQ_SUP * yCeil_SUP / (1 + mu_lambda_SUP))
-cStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
-                     interval_cstar,
-                     lower = min(interval_cstar),
-                     upper = max(interval_cstar),
-                     P_SUP = P_SQ_SUP,
-                     yCeil_SUP = yCeil_SUP,
-                     beta_SUP = beta_SUP,
-                     lambda_SUP = mu_lambda_SUP)
-cStar_atMuLamb_SUP
-#mu_yStar_SUP <- yCeil_SUP * exp(lambertW0(-cStar_SUP / (P_SQ_SUP * yCeil_SUP) * (1 + mu_lambda_SUP)))
-yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cStar_atMuLamb_SUP)
-cStarPerOutput_atMuLamb_SUP <- cStar_atMuLamb_SUP / yStar_atMuLamb_SUP
+
+
+
+
+
+
+
+
+#--
+sd(df$`l(Yield (ton/ha))`) / mean(df$`l(Yield (ton/ha))`)
+cv_lyStar_SUP <- 0.2
+#--
+N_SUP <- 60
+P_SUP <- seq(100, 3000, 100)
+
+list_QS <- Q_S(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP)
+df_QS <- list_QS[[1]]
+df_bounds <- list_QS[[2]]
+
+df_plot <- df_QS[, c("Price", "Quantity", "Participation")]
+df_plot <- df_plot %>% gather(Type, Value, Quantity:Participation)
+gg <- ggplot()
+gg <- gg + geom_line(data = df_plot, aes(x = Price, y = Value), lwd = 1.5)
+gg <- gg + geom_hline(data = df_bounds, aes(yintercept = Min), linetype = "dashed", lwd = 1.5)
+gg <- gg + geom_hline(data = df_bounds, aes(yintercept = Ceiling), linetype = "dashed", lwd = 1.5)
+gg <- gg + geom_vline(data = df_bounds, aes(xintercept = `Min. Price`), linetype = "dashed", lwd = 1.5)
+gg <- gg + facet_wrap(~ Type, ncol = 1, scales = "free")
+gg <- gg + expand_limits(y = 0)
+gg <- gg + theme(axis.title.y = element_blank())
+gg
+
+# df_plot <- df_QS[, c("Price", "mu_cStar_SUP", "mu_yStar_SUP")]
+# df_plot <- df_plot %>% gather(Type, Value, mu_cStar_SUP:mu_yStar_SUP)
+# gg <- ggplot()
+# gg <- gg + geom_line(data = df_plot, aes(x = Price, y = Value), lwd = 1.5)
+# #gg <- gg + geom_line(data = df_plot, aes(x = mu_cStar_SUP, y = mu_yStar_SUP), lwd = 1.5)
+# # gg <- gg + geom_hline(data = df_bounds, aes(yintercept = Min), linetype = "dashed", lwd = 1.5)
+# # gg <- gg + geom_hline(data = df_bounds, aes(yintercept = Ceiling), linetype = "dashed", lwd = 1.5)
+# # gg <- gg + geom_vline(data = df_bounds, aes(xintercept = `Min. Price`), linetype = "dashed", lwd = 1.5)
+# gg <- gg + facet_wrap(~ Type, ncol = 1, scales = "free")
+# gg <- gg + expand_limits(y = 0)
+# gg <- gg + theme(axis.title.y = element_blank())
+# gg
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -429,7 +573,7 @@ this_P <- 2500
 #this_P <- P[i]
 mu_beta_DEM <- alpha_x_derived * this_P + aw_x
 cStar_atMu <- uniroot.all(rootfn_cstar, interval_cstar, lower = min(interval_cstar), upper = max(interval_cstar),
-                         beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
+                          beta = beta_DEM, rCeil = rCeil_sq_DEM, lambda = lambda_DEM)
 m_yStar_norm_DEM <- -mu_beta_DEM / cStar_atMu
 m_yStar_DEM <- m_yStar_norm_DEM + log(yCeil_DEM)
 s_yStar_DEM <- cv_lyStar_DEM * m_yStar_DEM
@@ -496,7 +640,7 @@ for(i in 1:length(P)){
   mkt_particip <- pnorm(theta_upper) - pnorm(theta_lower)
   mkt_particip
   Q_D[i] <- N * (mu_xStar + sig_xStar * (dnorm(theta_lower) - dnorm(theta_upper)) / mkt_particip)
-
+  
 }
 
 df_plot <- data.frame(P, QD = Q_D)
@@ -813,6 +957,7 @@ beta
 exp(-1) * rCeil_SUP / (1 + lambda)
 
 mu_x <- 
+  
   
   
   
