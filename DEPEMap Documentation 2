@@ -21,8 +21,12 @@ library(lamW)
 #   slack <- beta_SUP / cStar_SUP + lambertW0(-yStar_SUP / yCeil_SUP * beta_SUP / cStar_SUP)
 #   return(slack)
 # }
-rootfn_cstar <- function(cStar_SUP, P_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
-  slack <- beta_SUP / cStar_SUP + lambertW0(-cStar_SUP / (P_SUP * yCeil_SUP) * (1 + lambda_SUP))
+# rootfn_cstar <- function(cStar_SUP, P_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
+#   slack <- beta_SUP / cStar_SUP + lambertW0(-cStar_SUP / (P_SUP * yCeil_SUP) * (1 + lambda_SUP))
+#   return(slack)
+# }
+rootfn_cstar <- function(cPerStar_SUP, P_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
+  slack <- cPerStar_SUP / P_SUP * (1 + lambda_SUP) + lambertW0(-beta_SUP / (cPerStar_SUP * yCeil_SUP))
   return(slack)
 }
 #---------------------------------------------------------
@@ -74,7 +78,7 @@ mu_yStar_SUP <- mean(df$`Yield (ton/ha)`)
 mu_yStar_SUP
 m_yStar_SUP <- mean(df$`l(Yield (ton/ha))`)
 #--
-cStarPerYstar_atMuYstar <- 500 # Surmise
+cStarPerYstar_atMuYstar <- 700 # Surmise
 cStar_atMuYstar_SUP <- mu_yStar_SUP * cStarPerYstar_atMuYstar
 yCeil_SUP <- 44 # Based on data
 beta_SUP <- -cStar_atMuYstar_SUP * log(mu_yStar_SUP / yCeil_SUP)
@@ -112,7 +116,17 @@ df$`Yield (ton/ha)` - yCeil_SUP * exp(-df$`Cost / MT output (deduced)` / P_SQ_SU
 #=================================
 #=================================
 #=================================
-
+this_P <- 3000
+interval_cstar <- c(exp(1) * beta_SUP / yCeil_SUP, 10^5)
+cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
+                                     interval_cstar,
+                                     lower = min(interval_cstar),
+                                     upper = max(interval_cstar),
+                                     P_SUP = this_P,
+                                     yCeil_SUP = yCeil_SUP,
+                                     beta_SUP = beta_SUP,
+                                     lambda_SUP = mu_lambda_SUP)
+cPerStar_atMuLamb_SUP / this_P
 
 Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP){
   #--
@@ -124,8 +138,8 @@ Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP)
   muYstar_vec <- c()
   for(i in 1:length(P_SUP_vec)){
     this_P <- P_SUP_vec[i]
-    interval_cstar <- c(beta_SUP, exp(-1) * this_P * yCeil_SUP / (1 + mu_lambda_SUP))
-    cStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
+    interval_cstar <- c(exp(1) * beta_SUP / yCeil_SUP, 10^5)
+    cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
                                       interval_cstar,
                                       lower = min(interval_cstar),
                                       upper = max(interval_cstar),
@@ -133,11 +147,12 @@ Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP)
                                       yCeil_SUP = yCeil_SUP,
                                       beta_SUP = beta_SUP,
                                       lambda_SUP = mu_lambda_SUP)
-    #cStar_atMuLamb_SUP
-    yStar_atMuLamb_SUP <- yCeil_SUP * exp(lambertW0(-cStar_atMuLamb_SUP / (this_P * yCeil_SUP) * (1 + mu_lambda_SUP)))
-    yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cStar_atMuLamb_SUP)
-    #cStarPerOutput_atMuLamb_SUP <- cStar_atMuLamb_SUP / yStar_atMuLamb_SUP
-    m_yStarNormd_SUP <- -beta_SUP / cStar_atMuLamb_SUP
+    #cPerStar_atMuLamb_SUP
+    # yStar_atMuLamb_SUP <- yCeil_SUP * exp(lambertW0(-cPerStar_atMuLamb_SUP / (this_P * yCeil_SUP) * (1 + mu_lambda_SUP)))
+    # yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cPerStar_atMuLamb_SUP)
+    yStar_atMuLamb_SUP <- yCeil_SUP * exp(-cPerStar_atMuLamb_SUP / this_P * (1 + mu_lambda_SUP))
+    #cStarPerOutput_atMuLamb_SUP <- cPerStar_atMuLamb_SUP / yStar_atMuLamb_SUP
+    m_yStarNormd_SUP <- -cPerStar_atMuLamb_SUP / this_P * (1 + mu_lambda_SUP)
     s_yStar_SUP <- -cv_lyStar_SUP * m_yStarNormd_SUP
     #--
     theta_upper <- (-m_yStarNormd_SUP) / s_yStar_SUP - s_yStar_SUP
@@ -154,7 +169,7 @@ Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP)
     #Q_S
     QS_vec[i] <- ifelse(length(Q_S) == 0, NA, Q_S)
     mktParticip_vec[i] <- ifelse(length(mkt_particip_SUP) == 0, NA, mkt_particip_SUP)
-    muCstar_vec[i] <- ifelse(length(cStar_atMuLamb_SUP) == 0, NA, cStar_atMuLamb_SUP)
+    muCstar_vec[i] <- ifelse(length(cPerStar_atMuLamb_SUP) == 0, NA, cPerStar_atMuLamb_SUP)
     muYstar_vec[i] <- ifelse(length(mu_yStar_SUP) == 0, NA, mu_yStar_SUP)
   }
   df_QS <- data.frame(Quantity = QS_vec, Participation = mktParticip_vec,
@@ -957,6 +972,7 @@ beta
 exp(-1) * rCeil_SUP / (1 + lambda)
 
 mu_x <- 
+  
   
   
   
