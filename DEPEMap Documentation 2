@@ -79,6 +79,18 @@ mu_yStar_SUP
 m_yStar_SUP <- mean(df$`l(Yield (ton/ha))`)
 #--
 cStarPerYstar_atMuYstar <- 700 # Surmise
+cStarPerYstar_atMuYstar / this_P * (1 + mu_lambda_SUP) + lambertW0(-beta_SUP / (cPerStar_SUP * yCeil_SUP))
+#--
+# this_P <- 2500
+# x <- seq(beta_SUP / yCeil_SUP * exp(1), 1500, length.out = 20)
+# f1 <- x / this_P * (1 + mu_lambda_SUP)
+# f2 <- -lambertW0(-beta_SUP / (x * yCeil_SUP))
+# df_plot <- data.frame(x, f1, f2)
+# df_plot <- df_plot %>% gather(fun, value, f1:f2)
+# gg <- ggplot(df_plot, aes(x, value, group = fun, color = fun))
+# gg <- gg + geom_line()
+# gg
+#--
 cStar_atMuYstar_SUP <- mu_yStar_SUP * cStarPerYstar_atMuYstar
 yCeil_SUP <- 44 # Based on data
 beta_SUP <- -cStar_atMuYstar_SUP * log(mu_yStar_SUP / yCeil_SUP)
@@ -116,8 +128,16 @@ df$`Yield (ton/ha)` - yCeil_SUP * exp(-df$`Cost / MT output (deduced)` / P_SQ_SU
 #=================================
 #=================================
 #=================================
-this_P <- 3000
-interval_cstar <- c(exp(1) * beta_SUP / yCeil_SUP, 10^5)
+# this_P <- 2100
+# cPerStar_SUP <- 691.1
+# cPerStar_SUP / this_P * (1 + mu_lambda_SUP) + lambertW0(-beta_SUP / (cPerStar_SUP * yCeil_SUP))
+# rootfn_cstar(cPerStar_SUP, P_SUP = this_P, yCeil_SUP = yCeil_SUP, beta_SUP = beta_SUP, lambda_SUP = mu_lambda_SUP)
+P_min <- exp(1) * beta_SUP / yCeil_SUP * (1 + mu_lambda_SUP)
+P_min
+cPerStar_min <- exp(1) * beta_SUP / yCeil_SUP
+cPerStar_min
+this_P <- 1250
+interval_cstar <- c(cPerStar_min, 6.7 * 10^2)
 cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
                                      interval_cstar,
                                      lower = min(interval_cstar),
@@ -126,11 +146,13 @@ cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
                                      yCeil_SUP = yCeil_SUP,
                                      beta_SUP = beta_SUP,
                                      lambda_SUP = mu_lambda_SUP)
+cPerStar_atMuLamb_SUP
 cPerStar_atMuLamb_SUP / this_P
-
-Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP){
+Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP,
+                mu_lambda_SUP, cv_lyStar_SUP){
   #--
-  P_min_SUP <- exp(1) * beta_SUP / yCeil_SUP * (1 + mu_lambda_SUP)
+  cPerStar_fixed_loBound <- exp(1) * beta_SUP / yCeil_SUP
+  P_min_SUP <- cPerStar_fixed_loBound * (1 + mu_lambda_SUP)
   P_SUP_vec <- seq(P_min_SUP + 1, max(P_SUP), length.out = 50)
   QS_vec <- c()
   mktParticip_vec <- c()
@@ -138,7 +160,8 @@ Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP)
   muYstar_vec <- c()
   for(i in 1:length(P_SUP_vec)){
     this_P <- P_SUP_vec[i]
-    interval_cstar <- c(exp(1) * beta_SUP / yCeil_SUP, 10^5)
+    #this_P <- 1200
+    interval_cstar <- c(cPerStar_fixed_loBound, )
     cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
                                       interval_cstar,
                                       lower = min(interval_cstar),
@@ -236,7 +259,8 @@ cv_lyStar_SUP <- 0.2
 N_SUP <- 60
 P_SUP <- seq(100, 3000, 100)
 
-list_QS <- Q_S(P_SUP, N_SUP, yCeil_SUP, beta_SUP, mu_lambda_SUP, cv_lyStar_SUP)
+list_QS <- Q_S(P_SUP, N_SUP, yCeil_SUP, beta_SUP,
+               mu_lambda_SUP, cv_lyStar_SUP)
 df_QS <- list_QS[[1]]
 df_bounds <- list_QS[[2]]
 
