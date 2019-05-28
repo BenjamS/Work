@@ -1,0 +1,306 @@
+#setwd("C:/Users/BSCHIEK.CGIARAD/Documents")
+setwd("D:/OneDrive - CGIAR/Documents")
+options(warn = -1); options(scipen = 999)
+library(ggplot2)
+library(tidyverse)
+source('D:/OneDrive - CGIAR/Documents/FAOdat_createRegionGroups.R')
+source('D:/OneDrive - CGIAR/Documents/CollectiveModes.R')
+#------------------------------
+#Prep food balance data
+df_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+df_raw <- subset(df_raw, Item.Code != 2928)
+df_raw$Area.Code <- NULL
+df_raw$Item.Code <- NULL
+df_raw$Element.Code <-NULL
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+colnames(df_raw)[5:ncol(df_raw)] <- as.character(c(1961:2013))
+df_raw <- gather(df_raw,Year,Value,`1961`:`2013`)
+#------------------------------
+#unique(df_raw$Element)
+#area_vec <- c("Kenya", "Uganda", "Ethiopia", "United Republic of Tanzania")
+item_vec <- c("Cereals - Excluding Beer", "Sugar (Raw Equivalent)", "Starchy Roots",
+              "Animal Products", "Pulses", "Vegetal Products", "Honey",
+              "Sugar cane", "Sugar non-centrifugal", "Sweeteners, Other")
+#element_vec <- c("Stock Variation")
+element_vec <- c("Food supply (kcal/capita/day)")
+df <- subset(df_raw, Item %in% item_vec)
+df <- subset(df, Element %in% element_vec)
+#df_raw <- subset(df, Area %in% area_vec)
+
+u <- df$Item
+df$Item[grep("Cereals", u)] <- "Cereals"
+#df$Item[grep("Fruits", u)] <- "Fruits"
+df$Item[grep("Vegetal", u)] <- "Fruits/Veg."
+unique(df$Item)[unique(df$Item) != "Grand Total"]
+df_wide <- df %>% spread(Item, Value)
+df_wide[is.na(df_wide)] <- 0
+#--
+df_wide$`Fruits/Veg.` <- df_wide$`Fruits/Veg.` - df_wide$Cereals - df_wide$Pulses -
+  df_wide$Honey - df_wide$`Starchy Roots` - df_wide$`Sugar cane` -
+  df_wide$`Sugar non-centrifugal` - df_wide$`Sweeteners, Other` - df_wide$`Sugar (Raw Equivalent)`
+df_wide$Honey <- NULL
+df_wide$`Sugar cane` <- NULL
+df_wide$`Sugar non-centrifugal` <- NULL
+df_wide$`Sweeteners, Other` <- NULL
+df_wide$Unit <- NULL
+ind <- which(colnames(df_wide) == "Sugar (Raw Equivalent)")
+colnames(df_wide)[ind] <- "Sugar"
+#--
+gathercols <- colnames(df_wide)[4:ncol(df_wide)]
+df <- df_wide %>% gather_("Item", "Value", gathercols)
+
+
+exclude_these <- c("Ethiopia PDR", "Brunei Darussalam", "China, Hong Kong SAR",
+                   "China, Macao SAR", "China, Taiwan Province of")
+df <- FAOdat_createRegionGroups(df, exclude_these, keep_FAOregions = F,
+                            df_is_trade_matrix = F,
+                            consolidate_LAC = T,
+                            consolidate_WEur = T,
+                            consolidate_AusNZPacIslands = T,
+                            consolidate_SSA = F)
+
+unique(df$Region)
+unique(df$Area[df$Region == "Eastern Africa"])
+df <- subset(df, Region != "Central Asia")
+df$Region[which(df$Region == "Western Asia")] <- "Middle East"
+  
+  
+df$Area <- NULL
+df$Element <- NULL
+df <- as.data.frame(df %>% group_by(Region, Year, Item) %>% summarise(Value = sum(Value)))
+df$Region_item <- paste(df$Region, df$Item)
+Item_vec <- df$Item
+Region_vec <- df$Region
+this_df <- df
+this_df$Item <- NULL
+this_df$Region <- NULL
+df_wide <- this_df %>% spread(Region_item, Value)
+year_vec <- df_wide$Year[-1]
+df_wide$Year <- NULL
+RegionItem_vec <- colnames(df_wide)
+mat_diff <- diff(as.matrix(df_wide))
+
+
+in_mat <- mat_diff
+cormat <- cor(in_mat)
+image(cormat)
+max_graph <- 12
+e <- eigen(cormat)
+eig_vectors <- e$vectors
+
+
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+gg
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, N_c) * 1 / N_c
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+
+
+# library(mclust)
+# library(FactoMineR)
+# library(factoextra)
+# # Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
+# class(eig_vectors)
+# mc <- Mclust(t(as.matrix(df_wide)))
+# # Print a summary
+# summary(mc)
+# fviz_cluster(mc, frame.type = "norm", geom = "point")
+
+
+# res <- PCA(df_wide)
+# fviz_pca_biplot(res)
+
+df_plot <- data.frame(eig_vectors[, 1:n_collModes])
+df_plot$Region_Item <- RegionItem_vec
+
+
+Item_vec <- gsub("(Cereals|Pulses|Starchy Roots|Fruits/Veg.|Animal Products|Sugar)(*SKIP)(*FAIL)|.", "", RegionItem_vec, perl = T)
+Region_vec <- gsub("(Cereals|Pulses|Starchy Roots|Fruits/Veg.|Animal Products|Sugar)", "", RegionItem_vec, perl = T)
+Region_vec <- str_trim(Region_vec)
+# df_plot$Item <- as.factor(Item_vec)
+# xx <- df_plot$Item
+# df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Region_Item[order(xx)]))
+df_plot$Region <- as.factor(Region_vec)
+xx <- df_plot$Region
+df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Region_Item[order(xx)]))
+colnames(df_plot)[1:n_collModes] <- paste("Contribution", 1:n_collModes)
+gathercols <- colnames(df_plot)[1:n_collModes]
+df_plot <- df_plot %>% gather_("Contribution", "Value", gathercols)
+#df_plot$Value <- df_plot$Value^2
+gg <- ggplot(df_plot, aes(x = Region_Item, y = Value, fill = Region))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+gg <- gg + facet_wrap(~ Contribution, ncol = 1)
+#gg <- gg + theme_economist()
+gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1),
+                 axis.title.x = element_blank(),
+                 panel.spacing = unit(1.5, "lines"))
+gg
+
+
+
+#==============================================
+#==============================================
+African_Regions <- c("Eastern Africa", "Western Africa", "Middle Africa", "Southern Africa", "Northern Africa")
+this_df <- subset(df, Region %in% c(African_Regions, "Southern Asia", "Middle East"))
+#unique(df$Region)
+this_df$Item <- NULL
+this_df$Region <- NULL
+df_wide <- this_df %>% spread(Region_item, Value)
+year_vec <- df_wide$Year[-1]
+df_wide$Year <- NULL
+RegionItem_vec <- colnames(df_wide)
+mat_diff <- diff(as.matrix(df_wide))
+
+
+in_mat <- mat_diff
+cormat <- cor(in_mat)
+image(cormat)
+max_graph <- 12
+e <- eigen(cormat)
+eig_vectors <- e$vectors
+
+
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+gg
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, N_c) * 1 / N_c
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+
+
+# library(mclust)
+# library(FactoMineR)
+# library(factoextra)
+# # Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
+# class(eig_vectors)
+# mc <- Mclust(t(as.matrix(df_wide)))
+# # Print a summary
+# summary(mc)
+# fviz_cluster(mc, frame.type = "norm", geom = "point")
+
+
+# res <- PCA(df_wide)
+# fviz_pca_biplot(res)
+
+df_plot <- data.frame(eig_vectors[, 1:n_collModes])
+df_plot$Region_Item <- RegionItem_vec
+
+
+Item_vec <- gsub("(Cereals|Pulses|Starchy Roots|Fruits/Veg.|Animal Products|Sugar)(*SKIP)(*FAIL)|.", "", RegionItem_vec, perl = T)
+Region_vec <- gsub("(Cereals|Pulses|Starchy Roots|Fruits/Veg.|Animal Products|Sugar)", "", RegionItem_vec, perl = T)
+Region_vec <- str_trim(Region_vec)
+# df_plot$Item <- as.factor(Item_vec)
+# xx <- df_plot$Item
+# df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Region_Item[order(xx)]))
+df_plot$Region <- as.factor(Region_vec)
+xx <- df_plot$Region
+df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Region_Item[order(xx)]))
+colnames(df_plot)[1:n_collModes] <- paste("Contribution", 1:n_collModes)
+gathercols <- colnames(df_plot)[1:n_collModes]
+df_plot <- df_plot %>% gather_("Contribution", "Value", gathercols)
+df_plot$Value <- df_plot$Value^2
+gg <- ggplot(df_plot, aes(x = Region_Item, y = Value, fill = Region))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+gg <- gg + facet_wrap(~ Contribution, ncol = 1)
+#gg <- gg + theme_economist()
+gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1),
+                 axis.title.x = element_blank(),
+                 panel.spacing = unit(1.5, "lines"))
+gg
+
+
+
+
