@@ -4,7 +4,7 @@ options(warn = -1); options(scipen = 999)
 library(ggplot2)
 library(tidyverse)
 source('D:/OneDrive - CGIAR/Documents/FAOdat_createRegionGroups.R')
-source('D:/OneDrive - CGIAR/Documents/CollectiveModes.R')
+#source('D:/OneDrive - CGIAR/Documents/CollectiveModes.R')
 #------------------------------
 #Prep food balance data
 df_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
@@ -25,8 +25,9 @@ df_raw <- gather(df_raw,Year,Value,`1961`:`2013`)
 item_vec <- c("Cereals - Excluding Beer", "Sugar (Raw Equivalent)", "Starchy Roots",
               "Animal Products", "Pulses", "Vegetal Products", "Honey",
               "Sugar cane", "Sugar non-centrifugal", "Sweeteners, Other")
-#element_vec <- c("Stock Variation")
-element_vec <- c("Food supply (kcal/capita/day)")
+element_vec <- c("Stock Variation")
+#element_vec <- c("Food supply (kcal/capita/day)")
+#element_vec <- c("Protein supply quantity (g/capita/day)")
 df <- subset(df_raw, Item %in% item_vec)
 df <- subset(df, Element %in% element_vec)
 #df_raw <- subset(df, Area %in% area_vec)
@@ -53,6 +54,9 @@ colnames(df_wide)[ind] <- "Sugar"
 gathercols <- colnames(df_wide)[4:ncol(df_wide)]
 df <- df_wide %>% gather_("Item", "Value", gathercols)
 
+if(element_vec == "Protein supply quantity (g/capita/day)"){
+  df$Value <- df$Value * 4 # convert g to kcal
+}
 
 exclude_these <- c("Ethiopia PDR", "Brunei Darussalam", "China, Hong Kong SAR",
                    "China, Macao SAR", "China, Taiwan Province of")
@@ -61,7 +65,7 @@ df <- FAOdat_createRegionGroups(df, exclude_these, keep_FAOregions = F,
                             consolidate_LAC = T,
                             consolidate_WEur = T,
                             consolidate_AusNZPacIslands = T,
-                            consolidate_SSA = F)
+                            consolidate_SSA = T)
 
 unique(df$Region)
 unique(df$Area[df$Region == "Eastern Africa"])
@@ -82,10 +86,136 @@ df_wide <- this_df %>% spread(Region_item, Value)
 year_vec <- df_wide$Year[-1]
 df_wide$Year <- NULL
 RegionItem_vec <- colnames(df_wide)
-mat_diff <- diff(as.matrix(df_wide))
+
+if(element_vec == "Stock Variation"){
+  in_mat <- as.matrix(df_wide)
+}else{
+  mat_diff <- diff(as.matrix(df_wide))
+  in_mat <- mat_diff
+  
+  }
+
+cormat <- cor(in_mat)
+image(cormat)
+max_graph <- 12
+e <- eigen(cormat)
+eig_vectors <- e$vectors
 
 
-in_mat <- mat_diff
+lam_cor <- e$values
+lamcor_max <- max(lam_cor)
+N_t <- nrow(in_mat)
+N_c <- ncol(in_mat)
+Q <- N_t / N_c
+s_sq <- 1 - lamcor_max / N_c
+#s_sq <- 1
+lamrand_max <- s_sq * (1 + 1 / Q + 2 / sqrt(Q))
+lamrand_min <- s_sq * (1 + 1 / Q - 2 / sqrt(Q))
+lam <- seq(lamrand_min, lamrand_max, 0.001)
+dens_rand <- Q / (2 * pi * s_sq) * sqrt((lamrand_max - lam) * (lam - lamrand_min)) / lam
+df_e <- data.frame(values = lam_cor)
+#--
+gg <- ggplot() +
+  geom_density(data = df_e, aes(x = values, color = "Correlation Matrix")) +
+  #geom_histogram(data = df_e, aes(x = values), alpha = 0.2) +
+  geom_line(data = data.frame(x = lam, y = dens_rand), aes(x = x, y = y, color = "Random matrix")) +
+  coord_cartesian(xlim = c(0, ceiling(lamcor_max))) +
+  scale_colour_manual(name = "Eigenvalue density", 
+                      values = c(`Correlation Matrix` = "blue", `Random matrix` = "orange"))
+gg
+#-----------------------------
+# How many collective modes?
+ind_deviating_from_noise <- which(lam_cor > lamrand_max)
+collModes <- as.matrix(eig_vectors[, ind_deviating_from_noise])
+
+noiseModes <- as.matrix(eig_vectors[, -ind_deviating_from_noise])
+n_collModes <- ncol(collModes)
+#-----------------------------
+# Set sign of eigenvectors such that they
+# best conform to the input time series
+Modes <- in_mat %*% collModes
+ts_avg <- in_mat %*% rep(1, N_c) * 1 / N_c
+for(i in 1:n_collModes){
+  sse <- sum((Modes[, i] - ts_avg)^2)
+  sse_neg <- sum((-Modes[, i] - ts_avg)^2)
+  sse_vec <- c(sse, sse_neg)
+  if(which(sse_vec == min(sse_vec)) == 2){
+    collModes[, i] <- -collModes[, i]
+  }
+}
+#-----------------------------
+n_collModes_really <- n_collModes
+n_collModes_to_graph <- n_collModes
+collModes_really <- collModes
+print(paste("Number of collective modes: ", n_collModes))
+if(ncol(collModes) > max_graph){
+  collModes <- collModes[, 1:max_graph]
+  n_collModes_to_graph <- max_graph
+}
+
+
+# library(mclust)
+# library(FactoMineR)
+# library(factoextra)
+# # Model-based-clustering (takes a little bit -- Correctly chooses 9 as optimal number of clusters!)
+# class(eig_vectors)
+# mc <- Mclust(t(as.matrix(df_wide)))
+# # Print a summary
+# summary(mc)
+# fviz_cluster(mc, frame.type = "norm", geom = "point")
+
+
+# res <- PCA(df_wide)
+# fviz_pca_biplot(res)
+
+df_plot <- data.frame(eig_vectors[, 1:n_collModes])
+df_plot$Region_Item <- RegionItem_vec
+
+
+Item_vec <- gsub("(Cereals|Pulses|Starchy Roots|Fruits/Veg.|Animal Products|Sugar)(*SKIP)(*FAIL)|.", "", RegionItem_vec, perl = T)
+Region_vec <- gsub("(Cereals|Pulses|Starchy Roots|Fruits/Veg.|Animal Products|Sugar)", "", RegionItem_vec, perl = T)
+Region_vec <- str_trim(Region_vec)
+df_plot$Item <- as.factor(Item_vec)
+xx <- df_plot$Item
+df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Region_Item[order(xx)]))
+# df_plot$Region <- as.factor(Region_vec)
+# xx <- df_plot$Region
+# df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Region_Item[order(xx)]))
+colnames(df_plot)[1:n_collModes] <- paste("Contribution", 1:n_collModes)
+gathercols <- colnames(df_plot)[1:n_collModes]
+df_plot <- df_plot %>% gather_("Contribution", "Value", gathercols)
+df_plot$Value <- df_plot$Value^2
+gg <- ggplot(df_plot, aes(x = Region_Item, y = Value, fill = Region))
+#gg <- ggplot(df_plot, aes(x = Region_Item, y = Value, fill = Item))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+gg <- gg + facet_wrap(~ Contribution, ncol = 1)
+#gg <- gg + theme_economist()
+gg <- gg + theme(axis.text.x = element_text(angle = 60, hjust = 1),
+                 axis.title.x = element_blank(),
+                 panel.spacing = unit(1.5, "lines"))
+gg
+
+
+
+#==============================================
+#==============================================
+African_Regions <- c("Eastern Africa", "Western Africa", "Middle Africa", "Southern Africa", "Northern Africa")
+this_df <- subset(df, Region %in% c(African_Regions, "Southern Asia", "Middle East"))
+#unique(df$Region)
+this_df$Item <- NULL
+this_df$Region <- NULL
+df_wide <- this_df %>% spread(Region_item, Value)
+year_vec <- df_wide$Year[-1]
+df_wide$Year <- NULL
+RegionItem_vec <- colnames(df_wide)
+if(element_vec == "Stock Variation"){
+  in_mat <- as.matrix(df_wide)
+}else{
+  mat_diff <- diff(as.matrix(df_wide))
+  in_mat <- mat_diff
+  
+}
+
 cormat <- cor(in_mat)
 image(cormat)
 max_graph <- 12
@@ -187,21 +317,179 @@ gg
 
 
 
-#==============================================
-#==============================================
-African_Regions <- c("Eastern Africa", "Western Africa", "Middle Africa", "Southern Africa", "Northern Africa")
-this_df <- subset(df, Region %in% c(African_Regions, "Southern Asia", "Middle East"))
-#unique(df$Region)
-this_df$Item <- NULL
-this_df$Region <- NULL
-df_wide <- this_df %>% spread(Region_item, Value)
-year_vec <- df_wide$Year[-1]
-df_wide$Year <- NULL
-RegionItem_vec <- colnames(df_wide)
-mat_diff <- diff(as.matrix(df_wide))
+
+#=======================================================
+#=======================================================
+#=======================================================
+library(stats)
+library(plyr)
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(TSA)
+
+subregion_vec <- c("Eastern Africa",
+                   "Middle Africa",
+                   "Northern Africa",
+                   "Southern Africa",
+                   "Western Africa",
+                   "Northern America",
+                   "Central America",
+                   "Caribbean",
+                   "South America",
+                   "Eastern Asia",
+                   "Central Asia",
+                   "Southern Asia",
+                   "South-Eastern Asia",
+                   "Western Asia",
+                   "Eastern Europe",
+                   "Northern Europe",
+                   "Southern Europe",
+                   "Western Europe",
+                   "Australia & New Zealand",
+                   "World")
+
+#unique(ExportData_raw$Item)[grep("Potatoes", unique(ExportData_raw$Item))]
+
+cerealPrimary_vec <- c("Maize", "Wheat", "Barley", "Rice", "Millet", "Rye", "Sorghum")
+cerealSecondary_vec <- c("Flour, maize", "Flour, wheat", "Cake, maize")
+
+RnTPrimary_vec <- c("Sweet potatoes", "Cassava Equivalent", "Potatoes")
+RnTSecondary_vec <- c("Starch, cassava", "Cassava dried", "Flour, potatoes")
+
+fruits_vec <- c("Oranges+Tang+Clem", "Tomatoes", "Plantains and others", "Mangoes, mangosteens, guavas", "Bananas")
+
+pulses_vec <- c("Flour, pulses", "Lentils", "Beans, dry")
+
+OilPrimary_vec <- c("Soybeans", "Cottonseed", "Linseed", "Coconuts")
+OilSecondary_vec <- c("Oil, soybean", "Oil, palm", "Oil, maize", "Oil, coconut (copra)", "Olive Oil,Total")
+
+SugarcropsPrimary_vec <- c("Sugar beet", "Sugar Raw Centrifugal")
+SugarcropsSecondary_vec <- c("Beet pulp")
+
+teaCoffeeCacao <- c("Tea", "Cocoa, butter", "Cocoa, paste", "Cocoa, beans", "Coffee, roasted", "Coffee, green")
+
+textileIndustrial <- c("Cotton lint", "Wool, greasy", "Wool, degreased", "Rubber, natural", "Cotton, carded, combed", "Silk raw")
+#---
+cereal_vec <- c(cerealPrimary_vec, cerealSecondary_vec)
+RnT_vec <- c(RnTPrimary_vec, RnTSecondary_vec)
+oil_vec <- c(OilPrimary_vec, OilSecondary_vec)
+sugar_vec <- c(SugarcropsPrimary_vec, SugarcropsSecondary_vec)
+#---
+item_vec <- c(cereal_vec, RnT_vec, oil_vec, fruits_vec, pulses_vec, sugar_vec, teaCoffeeCacao, textileIndustrial)
+#---
+ExportData_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
+ExportData_raw <- subset(ExportData_raw, Item.Code != 2928)
+ExportData_raw$Area.Code <- NULL
+ExportData_raw$Element.Code <-NULL
+ExportData_raw$Item <- as.character(ExportData_raw$Item)
+ExportData_raw$Element <- as.character(ExportData_raw$Element)
+ExportData_raw$Area <- as.character(ExportData_raw$Area)
+u <- colnames(ExportData_raw)
+ExportData_raw <- ExportData_raw[, -grep("F", u)]
+yr_cols <- 6:ncol(ExportData_raw)
+colnames(ExportData_raw)[yr_cols] <- gsub("Y", "", as.character(colnames(ExportData_raw)[yr_cols]))
+gathercols <- colnames(ExportData_raw)[yr_cols]
+ExportData_raw <- ExportData_raw %>% gather_("Year", "Value", gathercols)
+rm(u)
+colnames(ExportData_raw)
+unique(ExportData_raw$Element)
+ExportData_raw <- subset(ExportData_raw, Element %in% c("Export Quantity", "Export Value"))
+ExportData_raw$Item.Code <- NULL
+ExportData_raw$Unit <- NULL
+#--
+unique(ExportData_raw$Item)[grep("cereal", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("sugar", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("root", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("Meat", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("Vegetable", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("pulse", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("bean", unique(ExportData_raw$Item), ignore.case = T)]
+unique(ExportData_raw$Item)[grep("oil", unique(ExportData_raw$Item), ignore.case = T)]
 
 
+
+
+RnTPrimary_vec <- c("Sweet potatoes", "Cassava Equivalent", "Potatoes")
+fruits_vec <- c("Oranges+Tang+Clem", "Tomatoes", "Plantains and others", "Mangoes, mangosteens, guavas", "Bananas")
+OilPrimary_vec <- c("Soybeans", "Cottonseed", "Linseed", "Coconuts")
+OilSecondary_vec <- c("Oil, soybean", "Oil, palm", "Oil, maize", "Oil, coconut (copra)", "Olive Oil,Total")
+
+item_vec <- c("Cereals", "Sugar,Total (Raw Equiv.)", RnTPrimary_vec,
+              "Meat and Meat Preparations", "Pulses", "Fruit and Vegetables",
+              "Oilseeds")
+
+df_raw <- ExportData_raw
+df_raw <- subset(df_raw, Item %in% item_vec)
+df_raw <- subset(df_raw, Area %in% subregion_vec)
+u <- df_raw$Item
+df_raw$Item[grep("Fruit and Vegetables", u)] <- "Fruits/Veg."
+df_raw$Item[grep("Sugar", u)] <- "Sugar"
+df_raw$Item[grep("Meat", u)] <- "Meat and Preps."
+df_raw$Item[which(u %in% RnTPrimary_vec)] <- "RnT"
+df_raw <- df_raw %>% group_by(Area, Year, Element, Item) %>% summarise(Value = sum(Value, na.rm = T))
+#--
+# exclude_these <- c("Ethiopia PDR", "Brunei Darussalam", "China, Hong Kong SAR",
+#                    "China, Macao SAR", "China, Taiwan Province of")
+# df_raw <- FAOdat_createRegionGroups(df_raw, exclude_these, keep_FAOregions = F,
+#                                 df_is_trade_matrix = F,
+#                                 consolidate_LAC = T,
+#                                 consolidate_WEur = T,
+#                                 consolidate_AusNZPacIslands = T,
+#                                 consolidate_SSA = T)
+# unique(df_raw$Region)
+# df_raw <- subset(df_raw, Region != "Central Asia")
+# df_raw$Region[which(df_raw$Region == "Western Asia")] <- "Middle East"
+#--
+#unique(df_raw$Area)
+df_raw$Area[which(df_raw$Area == "Western Asia")] <- "Middle East"
+df_raw <- subset(df_raw, Area != "Central Asia")
+
+df <- df_raw
+#--
+# Consolidate regions
+LAC <- c("Central America", "Caribbean", "South America")
+u <- df$Area
+df$Area[which(u %in% LAC)] <- "LAC"
+Europe_WNS <- c("Southern Europe", "Western Europe", "Northern Europe")
+u <- df$Area
+df$Area[which(u %in% Europe_WNS)] <- "W/N/S Europe"
+SSA <- c("Eastern Africa", "Southern Africa", "Western Africa", "Middle Africa")
+u <- df$Area
+df$Area[which(u %in% SSA)] <- "Sub-Saharan Africa"
+rm(u)
+df <- df %>% group_by(Year, Element, Item, Area) %>% summarise(Value = sum(Value, na.rm = T))
+#--
+df <- as.data.frame(df)
+df <- df %>% spread(Element, Value)
+class(df)
+df <- as.data.frame(df)
+df$Price <- df$`Export Value` / df$`Export Quantity`
+df$`Export Value` <- NULL
+df$`Export Quantity` <- NULL
+df$Price[which(is.nan(df$Price))] <- NA
+df$Price[which(is.infinite(df$Price))] <- NA
+
+df$Region_Item <- paste(df$Area, df$Item)
+Item_vec <- df$Item
+Region_vec <- df$Area
+df$Item <- NULL
+df$Area <- NULL
+df <- as.data.frame(df)
+df <- df %>% spread(Region_Item, Price)
+df$Year <- NULL
+
+
+
+
+
+
+
+
+
+mat_diff <- diff(as.matrix(df))
 in_mat <- mat_diff
+
 cormat <- cor(in_mat)
 image(cormat)
 max_graph <- 12
@@ -291,7 +579,7 @@ df_plot$Region_Item <- factor(df_plot$Region_Item, levels = unique(df_plot$Regio
 colnames(df_plot)[1:n_collModes] <- paste("Contribution", 1:n_collModes)
 gathercols <- colnames(df_plot)[1:n_collModes]
 df_plot <- df_plot %>% gather_("Contribution", "Value", gathercols)
-df_plot$Value <- df_plot$Value^2
+#df_plot$Value <- df_plot$Value^2
 gg <- ggplot(df_plot, aes(x = Region_Item, y = Value, fill = Region))
 gg <- gg + geom_bar(stat = "identity", position = "dodge")
 gg <- gg + facet_wrap(~ Contribution, ncol = 1)
@@ -304,3 +592,56 @@ gg
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ExportData <- subset(ExportData_raw, Area %in% subregion_vec)
+LAC <- c("Central America", "Caribbean", "South America")
+Europe_E <- "Eastern Europe"
+Europe_WNS <- c("Southern Europe", "Western Europe", "Northern Europe")
+SSA <- c("Eastern Africa", "Southern Africa", "Western Africa", "Middle Africa")
+ESE_Asia <- c("South-Eastern Asia", "Eastern Asia")
+u <- ExportData$Area
+ExportData$Area[which(u %in% LAC)] <- "LAC"
+ExportData$Area[which(u %in% Europe_E)] <- "E. Europe"
+ExportData$Area[which(u %in% Europe_WNS)] <- "W., N., & S. Europe"
+ExportData$Area[which(u %in% SSA)] <- "Sub-Saharan Africa"
+ExportData$Area[which(u %in% ESE_Asia)] <- "E. & S.E. Asia"
+#--
+ExportData <- subset(ExportData, Item %in% item_vec)
+ExportData <- ExportData %>% group_by(Area, Year, Item, Element) %>% summarise(Value = sum(Value))
+ExportData$Group <- NA
+u <- ExportData$Item
+ExportData$Group[which(u %in% cereal_vec)] <- "Cereals"
+ExportData$Group[which(u %in% RnT_vec)] <- "RnT"
+ExportData$Group[which(u %in% oil_vec)] <- "Oils"
+ExportData$Group[which(u %in% sugar_vec)] <- "Sugars"
+ExportData$Group[which(u %in% fruits_vec)] <- "Fruit"
+ExportData$Group[which(u %in% pulses_vec)] <- "Pulses"
+ExportData$Group[which(u %in% teaCoffeeCacao)] <- "Tea, coffee, cacao"
+ExportData$Group[which(u %in% textileIndustrial)] <- "Industrial (textile, rubber)"
+#--
+u <- ExportData$Value
+ExportData$Value[which(is.na(u) == T | is.nan(u) == T | is.infinite(u) == T)] <- 0
+#which(is.na(ExportData$Item) == T)
+ExportData <- ExportData %>% group_by(Area, Year, Group, Item, Element) %>% summarise(Value = sum(Value, na.rm = T))
+#-----------------------------
+#this_region <- "E. & S.E. Asia"
+#------------------------------
