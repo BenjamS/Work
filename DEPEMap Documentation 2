@@ -31,7 +31,7 @@ rootfn_cstar <- function(cPerStar_SUP, P_SUP, yCeil_SUP, beta_SUP, lambda_SUP){
 }
 #---------------------------------------------------------
 # Get data to fit beta_SUP
-#setwd("D:/OneDrive - CGIAR/Documents/Cassava work")
+setwd("D:/OneDrive - CGIAR/Documents/Cassava work")
 df <- read.csv("tran12-survey-95farmers-cassava-Korat.csv", stringsAsFactors = F)
 colnames(df)[1] <- "x"
 df <- df[-c(1:2), -c(ncol(df), (ncol(df) - 1))]
@@ -78,7 +78,7 @@ mu_yStar_SUP <- mean(df$`Yield (ton/ha)`)
 mu_yStar_SUP
 m_yStar_SUP <- mean(df$`l(Yield (ton/ha))`)
 #--
-cStarPerYstar_atMuYstar <- 700 # Surmise
+cStarPerYstar_atMuYstar <- 900 # Surmise
 cStarPerYstar_atMuYstar / this_P * (1 + mu_lambda_SUP) + lambertW0(-beta_SUP / (cPerStar_SUP * yCeil_SUP))
 #--
 # this_P <- 2500
@@ -97,7 +97,7 @@ beta_SUP <- -cStar_atMuYstar_SUP * log(mu_yStar_SUP / yCeil_SUP)
 beta_SUP
 #m_yStarNormd_SUP <- mean(log(df$`Yield (ton/ha)` / yCeil_SUP))
 #--
-P_SQ_SUP <- 2100
+P_SQ_SUP <- 1900
 #--
 # Check to see if this beta_SUP produces realistic farm costs per ha.
 df$`Cost (deduced)` <- -beta_SUP / log(df$`Yield (ton/ha)` / yCeil_SUP)
@@ -114,9 +114,11 @@ df$`shadow price` <- P_SQ_SUP * beta_SUP * df$`Yield (ton/ha)` / df$`Cost (deduc
 df$`shadow price check` <- -P_SQ_SUP * df$`Yield (ton/ha)` / df$`Cost (deduced)` *
   log(df$`Yield (ton/ha)` / yCeil_SUP) - 1
 #df$`shadow price` - df$`shadow price check`
-# hist(df$`shadow price`)
+hist(df$`shadow price`)
 # plot(df$`shadow price`, df$`Yield (ton/ha)`)
 # hist(df$`Cost / ha. (deduced)`)
+ind_rm <- which(df$`shadow price` < 0)
+df <- df[-ind_rm, ]
 mu_lambda_SUP <- mean(df$`shadow price`)
 sigma_lambda_SUP <- sd(df$`shadow price`)
 cv_lambda_SUP <- sigma_lambda_SUP / mu_lambda_SUP
@@ -126,57 +128,123 @@ cv_lambda_SUP
 # check
 df$`Yield (ton/ha)` - yCeil_SUP * exp(-df$`Cost / MT output (deduced)` / P_SQ_SUP * (1 + df$`shadow price`))
 #=================================
+
+#=================================
 #=================================
 #=================================
 # this_P <- 2100
 # cPerStar_SUP <- 691.1
 # cPerStar_SUP / this_P * (1 + mu_lambda_SUP) + lambertW0(-beta_SUP / (cPerStar_SUP * yCeil_SUP))
 # rootfn_cstar(cPerStar_SUP, P_SUP = this_P, yCeil_SUP = yCeil_SUP, beta_SUP = beta_SUP, lambda_SUP = mu_lambda_SUP)
-P_min <- exp(1) * beta_SUP / yCeil_SUP * (1 + mu_lambda_SUP)
+P_min <- exp(1) * beta_SUP / yCeil_SUP * (1 + min(df$`shadow price`))
 P_min
+this_P <- 1200
 cPerStar_min <- exp(1) * beta_SUP / yCeil_SUP
 cPerStar_min
-this_P <- 1250
-interval_cstar <- c(cPerStar_min, 6.7 * 10^2)
-cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
-                                     interval_cstar,
-                                     lower = min(interval_cstar),
-                                     upper = max(interval_cstar),
-                                     P_SUP = this_P,
-                                     yCeil_SUP = yCeil_SUP,
-                                     beta_SUP = beta_SUP,
-                                     lambda_SUP = mu_lambda_SUP)
-cPerStar_atMuLamb_SUP
-cPerStar_atMuLamb_SUP / this_P
-Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP,
-                mu_lambda_SUP, cv_lyStar_SUP){
+cPerStar_vec <- c()
+for(i in 1:nrow(df)){
+  this_lambda <- df$`shadow price`[i]
+  cPerStar_max <- this_P / (1 + this_lambda)
+  cPerStar_max
+  interval_cstar <- c(cPerStar_min, cPerStar_max)
+  cPerStar_atLamb_SUP <- uniroot.all(rootfn_cstar,
+                                       interval_cstar,
+                                       lower = min(interval_cstar),
+                                       upper = max(interval_cstar),
+                                       P_SUP = this_P,
+                                       yCeil_SUP = yCeil_SUP,
+                                       beta_SUP = beta_SUP,
+                                       lambda_SUP = this_lambda)
+  print(cPerStar_atLamb_SUP)
+  #print(cPerStar_atLamb_SUP / this_P)
+  if(length(cPerStar_atLamb_SUP) != 0){
+    cPerStar_vec[i] <- cPerStar_atLamb_SUP
+    
+  }else{
+    cPerStar_vec[i] <- NA
+    
+  }
+}
+hist(df$`Cost / MT output (deduced)`)
+hist(cPerStar_vec)
+mean(df$`Cost / MT output (deduced)`, na.rm = T)
+mean(cPerStar_vec, na.rm = T)
+
+hist(df$`Cost / MT output (deduced)` / cPerStar_vec)
+
+
+this_lambda <- mean(df$`shadow price`[i])
+cPerStar_max <- this_P / (1 + this_lambda)
+cPerStar_max
+interval_cstar <- c(cPerStar_min, cPerStar_max)
+cPerStar_atLamb_SUP <- uniroot.all(rootfn_cstar,
+                                   interval_cstar,
+                                   lower = min(interval_cstar),
+                                   upper = max(interval_cstar),
+                                   P_SUP = this_P,
+                                   yCeil_SUP = yCeil_SUP,
+                                   beta_SUP = beta_SUP,
+                                   lambda_SUP = this_lambda)
+print(cPerStar_atLamb_SUP)
+#print(cPerStar_atLamb_SUP / this_P)
+cPerStar_vec[i] <- cPerStar_atLamb_SUP
+
+
+
+
+
+
+
+
+#lambda_SUP_vec <- df$`shadow price`
+
+
+Q_S <- function(interval_P_SUP, N_SUP, yCeil_SUP, beta_SUP,
+                lambda_SUP_vec, cv_lyStar_SUP){
   #--
-  cPerStar_fixed_loBound <- exp(1) * beta_SUP / yCeil_SUP
-  P_min_SUP <- cPerStar_fixed_loBound * (1 + mu_lambda_SUP)
-  P_SUP_vec <- seq(P_min_SUP + 1, max(P_SUP), length.out = 50)
+  cPerStar_min <- exp(1) * beta_SUP / yCeil_SUP
+  P_min_SUP <- cPerStar_min * min(lambda_SUP_vec)
+  P_SUP_vec <- seq(P_min_SUP + 1, max(interval_P_SUP), length.out = 50)
+  mu_lambda_SUP <- mean(lambda_SUP_vec)
   QS_vec <- c()
   mktParticip_vec <- c()
-  muCstar_vec <- c()
+  mu_cPerStar_vec <- c()
   muYstar_vec <- c()
   for(i in 1:length(P_SUP_vec)){
     this_P <- P_SUP_vec[i]
-    #this_P <- 1200
-    interval_cstar <- c(cPerStar_fixed_loBound, )
-    cPerStar_atMuLamb_SUP <- uniroot.all(rootfn_cstar,
-                                      interval_cstar,
-                                      lower = min(interval_cstar),
-                                      upper = max(interval_cstar),
-                                      P_SUP = this_P,
-                                      yCeil_SUP = yCeil_SUP,
-                                      beta_SUP = beta_SUP,
-                                      lambda_SUP = mu_lambda_SUP)
+    cPerStar_vec <- c()
+    for(j in 1:length(lambda_SUP_vec)){
+      this_lambda <- lambda_SUP_vec[j]
+      cPerStar_max <- this_P / (1 + this_lambda)
+      cPerStar_max
+      interval_cstar <- c(cPerStar_min, cPerStar_max)
+      cPerStar_atLamb_SUP <- uniroot.all(rootfn_cstar,
+                                         interval_cstar,
+                                         lower = min(interval_cstar),
+                                         upper = max(interval_cstar),
+                                         P_SUP = this_P,
+                                         yCeil_SUP = yCeil_SUP,
+                                         beta_SUP = beta_SUP,
+                                         lambda_SUP = this_lambda)
+      if(length(cPerStar_atLamb_SUP) != 0){
+        cPerStar_vec[j] <- cPerStar_atLamb_SUP
+        
+      }else{
+        cPerStar_vec[j] <- NA
+        
+      }
+    }
+    mu_cPerStar <- mean(cPerStar_vec, na.rm = T)
     #cPerStar_atMuLamb_SUP
-    # yStar_atMuLamb_SUP <- yCeil_SUP * exp(lambertW0(-cPerStar_atMuLamb_SUP / (this_P * yCeil_SUP) * (1 + mu_lambda_SUP)))
-    # yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cPerStar_atMuLamb_SUP)
-    yStar_atMuLamb_SUP <- yCeil_SUP * exp(-cPerStar_atMuLamb_SUP / this_P * (1 + mu_lambda_SUP))
-    #cStarPerOutput_atMuLamb_SUP <- cPerStar_atMuLamb_SUP / yStar_atMuLamb_SUP
-    m_yStarNormd_SUP <- -cPerStar_atMuLamb_SUP / this_P * (1 + mu_lambda_SUP)
-    s_yStar_SUP <- -cv_lyStar_SUP * m_yStarNormd_SUP
+    # # yStar_atMuLamb_SUP <- yCeil_SUP * exp(lambertW0(-cPerStar_atMuLamb_SUP / (this_P * yCeil_SUP) * (1 + mu_lambda_SUP)))
+    # # yStar_atMuLamb_SUP <- yCeil_SUP * exp(-beta_SUP / cPerStar_atMuLamb_SUP)
+    # yStar_atMuLamb_SUP <- yCeil_SUP * exp(-cPerStar_atMuLamb_SUP / this_P * (1 + mu_lambda_SUP))
+    # #cStarPerOutput_atMuLamb_SUP <- cPerStar_atMuLamb_SUP / yStar_atMuLamb_SUP
+    #yStar_atMuLamb_SUP <- yCeil_SUP * exp(-cPerStar_vec / this_P * (1 + lambda_SUP_vec))
+    m_yStarNormd_SUP <- mean(-cPerStar_vec / this_P * (1 + lambda_SUP_vec), na.rm = T)
+    #s_yStar_SUP <- -cv_lyStar_SUP * m_yStarNormd_SUP
+    s_yStar_SUP <- sd(-cPerStar_vec / this_P * (1 + lambda_SUP_vec), na.rm = T)
+    s_yStarNormd_SUP <- s_yStar_SUP
     #--
     theta_upper <- (-m_yStarNormd_SUP) / s_yStar_SUP - s_yStar_SUP
     theta_lower <- (- 1 - m_yStarNormd_SUP) / s_yStar_SUP - s_yStar_SUP
@@ -192,11 +260,11 @@ Q_S <- function(P_SUP, N_SUP, yCeil_SUP, beta_SUP,
     #Q_S
     QS_vec[i] <- ifelse(length(Q_S) == 0, NA, Q_S)
     mktParticip_vec[i] <- ifelse(length(mkt_particip_SUP) == 0, NA, mkt_particip_SUP)
-    muCstar_vec[i] <- ifelse(length(cPerStar_atMuLamb_SUP) == 0, NA, cPerStar_atMuLamb_SUP)
+    mu_cPerStar_vec[i] <- ifelse(length(mu_cPerStar) == 0, NA, mu_cPerStar)
     muYstar_vec[i] <- ifelse(length(mu_yStar_SUP) == 0, NA, mu_yStar_SUP)
   }
   df_QS <- data.frame(Quantity = QS_vec, Participation = mktParticip_vec,
-                      mu_cStar_SUP = muCstar_vec, mu_yStar_SUP = muYstar_vec, Price = P_SUP_vec)
+                      mu_cPerStar_SUP = mu_cPerStar_vec, mu_yStar_SUP = muYstar_vec, Price = P_SUP_vec)
   #--
   P_interval <- P_SUP_vec[2] - P_SUP_vec[1]
   P_NApad <- seq(0, P_min_SUP, P_interval)
@@ -257,10 +325,15 @@ sd(df$`l(Yield (ton/ha))`) / mean(df$`l(Yield (ton/ha))`)
 cv_lyStar_SUP <- 0.2
 #--
 N_SUP <- 60
-P_SUP <- seq(100, 3000, 100)
+lambda_SUP_vec <- exp(rnorm(100, -1.8, 0.8))
+hist(lambda_SUP_vec)
+interval_P_SUP <- c(1, 3000)
+cPerStar_min <- exp(1) * beta_SUP / yCeil_SUP
+P_min <- cPerStar_min * min(lambda_SUP_vec)
+P_min
 
-list_QS <- Q_S(P_SUP, N_SUP, yCeil_SUP, beta_SUP,
-               mu_lambda_SUP, cv_lyStar_SUP)
+list_QS <- Q_S(interval_P_SUP, N_SUP, yCeil_SUP, beta_SUP,
+               lambda_SUP_vec, cv_lyStar_SUP)
 df_QS <- list_QS[[1]]
 df_bounds <- list_QS[[2]]
 
@@ -996,6 +1069,7 @@ beta
 exp(-1) * rCeil_SUP / (1 + lambda)
 
 mu_x <- 
+  
   
   
   
