@@ -465,67 +465,69 @@ df_raw <- subset(df_raw, Area %in% subregion_vec)
 #unique(df_raw$Area)
 df_raw$Area[which(df_raw$Area == "Western Asia")] <- "Middle East"
 df_raw <- subset(df_raw, Area != "Central Asia")
-df <- df_raw
+#df <- df_raw
 #--
 # Consolidate regions
 LAC <- c("Central America", "Caribbean", "South America")
-u <- df$Area
-df$Area[which(u %in% LAC)] <- "LAC"
+u <- df_raw$Area
+df_raw$Area[which(u %in% LAC)] <- "LAC"
 Europe_WNS <- c("Southern Europe", "Western Europe", "Northern Europe")
-u <- df$Area
-df$Area[which(u %in% Europe_WNS)] <- "W/N/S Europe"
+u <- df_raw$Area
+df_raw$Area[which(u %in% Europe_WNS)] <- "W/N/S Europe"
 # SSA <- c("Eastern Africa", "Southern Africa", "Western Africa", "Middle Africa")
-# u <- df$Area
-# df$Area[which(u %in% SSA)] <- "SSA"
+# u <- df_raw$Area
+# df_raw_raw$Area[which(u %in% SSA)] <- "SSA"
 # Abbreviate
-u <- df$Area
-df$Area[which(u == "Australia & New Zealand")] <- "AUS/NZ"
-u <- df$Area
-df$Area <- gsub("South-Eastern", "SE", u)
-u <- df$Area
-df$Area <- gsub("Eastern", "E", u)
-u <- df$Area
-df$Area <- gsub("Western", "W", u)
-u <- df$Area
-df$Area <- gsub("Southern", "S", u)
-u <- df$Area
-df$Area <- gsub("Northern", "N", u)
-unique(df$Area)
+u <- df_raw$Area
+df_raw$Area[which(u == "Australia & New Zealand")] <- "AUS/NZ"
+u <- df_raw$Area
+df_raw$Area <- gsub("South-Eastern", "SE", u)
+u <- df_raw$Area
+df_raw$Area <- gsub("Eastern", "E", u)
+u <- df_raw$Area
+df_raw$Area <- gsub("Western", "W", u)
+u <- df_raw$Area
+df_raw$Area <- gsub("Southern", "S", u)
+u <- df_raw$Area
+df_raw$Area <- gsub("Northern", "N", u)
+unique(df_raw$Area)
 rm(u)
-df <- df %>% group_by(Year, Element, Item, Area) %>% summarise(Value = sum(Value, na.rm = T))
+df_raw <- df_raw %>% group_by(Year, Element, Item, Area) %>% summarise(Value = sum(Value, na.rm = T))
 #--
-df <- as.data.frame(df)
-df <- df %>% spread(Element, Value)
-class(df)
-#df <- as.data.frame(df)
-df$Price <- df$`Export Value` / df$`Export Quantity`
-df$`Export Value` <- NULL
-df$`Export Quantity` <- NULL
-df$Price[which(is.nan(df$Price))] <- NA
-df$Price[which(is.infinite(df$Price))] <- NA
+df_raw <- as.data.frame(df_raw)
+df_raw <- df_raw %>% spread(Element, Value)
+class(df_raw)
+#df_raw <- as.data.frame(df_raw)
+df_raw$Price <- df_raw$`Export Value` / df_raw$`Export Quantity`
+df_raw$`Export Value` <- NULL
+df_raw$`Export Quantity` <- NULL
+df_raw$Price[which(is.nan(df_raw$Price))] <- NA
+df_raw$Price[which(is.infinite(df_raw$Price))] <- NA
 #---------------------------------
-unique(df$Area)
-df$Region <- NA
-u <- df$Area
-df$Region[grep("Europe", u)] <- "Europe"
-df$Region[grep("Asia|Middle East", u)] <- "Asia"
-df$Region[grep("Africa", u)] <- "Africa"
-#which(is.na(df$Region))
-unique(df$Item)
-df$Group <- NA
-u <- df$Item
-df$Group[which(u %in% cerealPrimary_vec)] <- "Raw Cereals"
-df$Group[which(u %in% cerealSecondary_vec)] <- "Proc'd Cereals"
-df$Group[which(u %in% pulses_vec)] <- "Pulses"
-df$Group[which(u %in% meat_vec)] <- "Meats"
-#which(is.na(df$Group))
-df$Year <- as.integer(df$Year)
-df_plot <- subset(df, Area == "E Africa")
-gg <- ggplot(df, aes(x = Year, y = Price, group = Item, color = Item))
+unique(df_raw$Area)
+df_raw$Region <- NA
+u <- df_raw$Area
+df_raw$Region[grep("Europe", u)] <- "Europe"
+df_raw$Region[grep("Asia|Middle East", u)] <- "Asia"
+df_raw$Region[grep("Africa", u)] <- "Africa"
+#which(is.na(df_raw$Region))
+unique(df_raw$Item)
+df_raw$Group <- NA
+u <- df_raw$Item
+df_raw$Group[which(u %in% cerealPrimary_vec)] <- "Raw Cereals"
+df_raw$Group[which(u %in% cerealSecondary_vec)] <- "Proc'd Cereals"
+df_raw$Group[which(u %in% pulses_vec)] <- "Pulses"
+df_raw$Group[which(u %in% meat_vec)] <- "Meats"
+#which(is.na(df_raw$Group))
+df_raw$Year <- as.integer(df_raw$Year)
+df_plot <- df_raw
+#df_plot <- subset(df_raw, Area == "E Africa")
+gg <- ggplot(df_plot, aes(x = Year, y = Price, group = Item, color = Item))
 gg <- gg + geom_line()
 gg <- gg + facet_grid(Area ~ Group, scales = "free")
 gg
 #---------------------------------
+df <- df_raw
 df$Region_Item <- paste(df$Area, df$Item)
 Item_vec <- df$Item
 Region_vec <- df$Area
@@ -533,6 +535,8 @@ unique(Item_vec)
 unique(Region_vec)
 df$Item <- NULL
 df$Area <- NULL
+df$Region <- NULL
+df$Group <- NULL
 df <- as.data.frame(df)
 df <- df %>% spread(Region_Item, Price)
 df$Year <- NULL
@@ -561,12 +565,19 @@ colnames(df)[which(as.numeric(out) > 0)]
 
 u <- colnames(df)
 
-group_vec <- rep(NA, length(u))
-group_vec[grep(paste(cerealPrimary_vec, collapse = "|"), u)] <- "Raw Cereals"
-group_vec[grep(paste(cerealSecondary_vec, collapse = "|"), u)] <- "Proc'd Cereals"
-group_vec[grep(paste(pulses_vec, collapse = "|"), u)] <- "Pulses"
-group_vec[grep(paste(meat_vec, collapse = "|"), u)] <- "Meats"
-which(is.na(group_vec))
+commodGroup_vec <- rep(NA, length(u))
+commodGroup_vec[grep(paste(cerealPrimary_vec, collapse = "|"), u)] <- "Raw Cereals"
+commodGroup_vec[grep(paste(cerealSecondary_vec, collapse = "|"), u)] <- "Proc'd Cereals"
+commodGroup_vec[grep(paste(pulses_vec, collapse = "|"), u)] <- "Pulses"
+commodGroup_vec[grep(paste(meat_vec, collapse = "|"), u)] <- "Meats"
+which(is.na(commodGroup_vec))
+
+region_vec <- rep(NA, length(u))
+regions <- unique(Region_vec)
+for(i in 1:length(regions)){
+  region_vec[grep(regions[i], u)] <- regions[i]
+}
+which(is.na(region_vec))
 
 
 
@@ -632,18 +643,18 @@ if(ncol(collModes) > max_graph){
 }
 
 
-library(mclust)
-library(FactoMineR)
-library(factoextra)
-class(eig_vectors)
-mc <- Mclust(t(as.matrix(df)))
-# Print a summary
-summary(mc)
-fviz_cluster(mc, frame.type = "norm", geom = "point")
-length(mc$classification)
-nrow(eig_vectors)
-res <- PCA(t(as.matrix(df)))
-fviz_pca_biplot(res)
+# library(mclust)
+# library(FactoMineR)
+# library(factoextra)
+# class(eig_vectors)
+# mc <- Mclust(t(as.matrix(df)))
+# # Print a summary
+# summary(mc)
+# fviz_cluster(mc, frame.type = "norm", geom = "point")
+# length(mc$classification)
+# nrow(eig_vectors)
+# res <- PCA(t(as.matrix(df)))
+# fviz_pca_biplot(res)
 
 RegionItem_vec <- colnames(df)
 
