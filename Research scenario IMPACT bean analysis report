@@ -1,0 +1,421 @@
+---
+title: "R&D Investment Scenario IMPACT Bean Analysis"
+author: "Ben Schiek"
+date: "June 25, 2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#------------------------------------------------
+setwd("//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/USAIDForGFSF/CSVfiles")
+options(warn = -1); options(scipen = 999)
+library(plyr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+wdir <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/USAIDForGFSF/CSVfiles/"
+#------------------------------------------------
+base_scenario <- "SSP2-HGEM2"
+RnD_scenario <- c("SSP2-HGEM-HiNARS2") 
+scenario_vec <- c(base_scenario, RnD_scenario)
+IPR_commodity_vec <- c("jmaiz", "jwhea", "jchkp", "jcowp", "jlent", "jbean")
+IPR_area_vec <- c("KEN", "TZA", "ETH", "UGA", "COL", "HND", "IND")
+nonIPR_area_vec <- c("SSA", "MEN", "SAS", "LAC", "EAP", "NAM", "EUR", "FSU")
+area_vec <- c(IPR_area_vec, nonIPR_area_vec)
+PUL_commodity_vec <- c("PUL-Beans", "PUL-Chickpeas", "PUL-Cowpeas", "PUL-Lentils",
+                       "PUL-Pigeonpeas")
+CER_commodity_vec <- c("CER-Maize", "CER-Wheat", "CER-Rice")
+commodity_vec <- c(PUL_commodity_vec, CER_commodity_vec, IPR_commodity_vec)
+filename_vec <- c("AREAGRX0rdx", "YLDGRX0rdx", "QSupXAgg", "QFXAgg", "PerCapKCalCXAgg", "YldXAgg", "AreaXAgg")
+color_vec <- c("#E69F00", "#56B4E9")
+#------------------------------------------------
+n_files <- length(filename_vec)
+df_list <- list()
+for(i in 1:n_files){
+  filename <- filename_vec[i]
+  open_this <- paste0(wdir, filename, ".csv")
+  df_raw <- read.csv(open_this, stringsAsFactors = F)
+  df_raw <- as.data.frame(df_raw)
+  print(head(df_raw))
+  for(c in 1:ncol(df_raw)){u <- df_raw[, c]; df_raw[, c] <- gsub("'","",u)}; rm(u)
+  if(filename %in% c("YldXAgg", "AreaXAgg", "YLDGRX0rdx", "AREAGRX0rdx")){
+    colnames(df_raw) <- c("Scenario", "Commodity", "Region", "System", "Year", "Value")
+  }else{
+    colnames(df_raw) <- c("Scenario", "Commodity", "Region", "Year", "Value")
+    
+  }
+  
+  df_raw$Value <- as.numeric(df_raw$Value)
+  #unique(df_raw$Commodity)
+  #unique(df_raw$Scenario)
+  df <- subset(df_raw, Scenario %in% scenario_vec)
+  df <- subset(df, Region %in% area_vec)
+  df <- subset(df, Commodity %in% commodity_vec)
+  if(filename %in% c("YldXAgg", "AreaXAgg", "YLDGRX0rdx", "AREAGRX0rdx")){
+    df_irr <- subset(df, System == "air")
+    df_rf <- subset(df, System == "arf")
+    df_irr$System <- NULL
+    df_rf$System <- NULL
+    if(filename == "YldXAgg"){
+      df_irr$Parameter <- "Irrigated Yield"
+      df_rf$Parameter <- "Rainfed Yield"
+    }
+    if(filename == "AreaXAgg"){
+      df_irr$Parameter <- "Irrigated Area"
+      df_rf$Parameter <- "Rainfed Area"
+    }
+    if(filename == "YLDGRX0rdx"){
+      df_irr$Parameter <- "Exogenous annual crop irrigated yield growth rate"
+      df_rf$Parameter <- "Exogenous annual crop rainfed yield growth rate"
+    }
+    
+    if(filename == "AREAGRX0rdx"){
+      df_irr$Parameter <- "Exogenous annual crop irrigated area growth rate"
+      df_rf$Parameter <- "Exogenous annual crop rainfed area growth rate"
+    }
+    
+    
+    df <- rbind(df_irr, df_rf)
+  }else{
+    df$Parameter <- filename
+    
+  }
+  df_list[[i]] <- df
+}
+#------------------------------------------------
+df <- do.call(rbind, df_list)
+df <- df %>% spread(Parameter, Value)
+#------------------------------------------------
+df$`Food Demand/Supply Ratio` <- df$QFXAgg / df$QSupXAgg
+df$QSupXAgg <- NULL
+df$QFXAgg <- NULL
+#------------------------------------------------
+gathercols <- colnames(df)[5:ncol(df)]
+df <- df %>% gather_("Parameter", "Value", gathercols)
+#------------------------------------------------
+u <- df$Scenario
+df$Scenario[grep("SSP2-HGEM-HiNARS2", u)] <- "HIGH + NARS"
+df$Scenario[grep("SSP2-HGEM2", u)] <- "Reference"
+u <- df$Parameter
+df$Parameter[grep("PerCapKCalCXAgg", u)] <- "Kcal / capita"
+#------------------------------------------------
+df$Scenario <- factor(df$Scenario, levels = c("Reference", "HIGH + NARS"), ordered = T)
+df$Region <- factor(df$Region, levels = area_vec, ordered = T)
+df$Year <- as.integer(df$Year)
+#------------------------------------------------
+```
+
+## Exogenous annual crop yield growth rates (IPRs), yield, area, and consumption trajectories, 2010-2050
+
+### The business as usual and "HIGH + NARS" R&D scenarios
+
+"The High Increase in CGIAR Investments plus Increased Investments from National Agricultural Research Systems (HIGH+NARS) simulates increased investments in the CGIAR plus increased complementary investments in National Agricultural Research Systems (NARS)" (Rosegrant et al., 2017). For example, in the SSA region "business as usual" R&D scenario, the average annual investment in CGIAR and NARS investments for SSA is \$1.11 billion (in 2005 dollars) each. In the HIGH + NARS scenario, this is increased by \$1.66 billion (see page 46 and 53 of the cited report.
+
+### Exogenous annual crop yield growth rates (IPRs), 2010-2050
+
+In the business as usual (hereafter "reference") scenario, the exogenous annual crop yield growth rate (a.k.a. Internal Productivity Rate - IPR) follows a similar pattern for most crops: falling from about 2% in 2020 to 1% by 2050. In the HIGH + NARS R&D investment scenario, on the other hand, the IPRs generally rise up to 3% or higher by 2030 before falling to 1% by 2050. Generally speaking, it looks like the R&D boost to pulse IPRs is on par with that of cereal IPRs.
+
+It looks like the R&D boost to rainfed bean yields is a little bit less than that of other pulses. However, farther below we'll see that in many regions beans are the only pulses with significant production and consumption trajectories, despite the slightly higher R&D IPR yield shock of other pulses.
+
+```{r, echo = FALSE}
+this_param <- "Exogenous annual crop rainfed yield growth rate"
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% IPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
+df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
+# df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
+# df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+
+this_param <- "Exogenous annual crop irrigated yield growth rate"
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% IPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
+df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
+# df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
+# df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+
+
+this_param <- "Exogenous annual crop rainfed area growth rate"
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% IPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
+df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
+# df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
+# df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+
+this_param <- "Exogenous annual crop irrigated area growth rate"
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% IPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
+df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
+# df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
+# df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+
+
+```
+
+### Pulse yield trajectories, 2010-2050
+
+*Rainfed yields generally reflect the IPRs.
+
+*In SSA, rainfed bean yields are surpassed by chick pea and lentil yields, regardless of the R&D scenario. However, later we'll see that chick peas and lentils do not exhibit significant production or consumption trajectories in SSA.
+
+*In MEN, rainfed bean yields surpass all other rainfed pulse yields. However, farther below we will see that the rainfed bean area trajectory is low, especially as compared to the rainfed chick pea area trajectory.
+
+*Outside of NAM, EUR, and FSU, the highest rainfed bean yield trajectories are in LAC and EAP. These are also the places where the R&D shock has the biggest impact on rainfed bean yields.
+
+
+```{r, echo = FALSE}
+#-----------------------
+this_param <- "Rainfed Yield"
+#-----------------------
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% PUL_commodity_vec)
+
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                 axis.title.y = element_blank())
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + labs(title = this_param)
+gg
+
+#-----------------------
+this_param <- "Irrigated Yield"
+#-----------------------
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% PUL_commodity_vec)
+
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                 axis.title.y = element_blank())
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + labs(title = this_param)
+gg
+
+```
+
+### Pulse area trajectories, 2010-2050
+
+*Combining the yield trajectories above with the area trajectories below, it turns out that beans and cow peas are the only pulses with significant production trajectories in SSA, despite the higher yield trajectories of chick peas and lentils.
+
+*In LAC and EAP, rainfed beans are the only pulses exhibiting a significant area trajectory.
+
+*In MEN, the bean area trajectory is far surpassed by the lentil and chick peas area trajectories, despite the higher bean yield trajectory in this region.
+
+
+```{r, echo = FALSE}
+
+#-----------------------
+this_param <- "Rainfed Area"
+#-----------------------
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% PUL_commodity_vec)
+
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                 axis.title.y = element_blank())
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + labs(title = this_param)
+gg
+
+#-----------------------
+this_param <- "Irrigated Area"
+#-----------------------
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% PUL_commodity_vec)
+
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                 axis.title.y = element_blank())
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + labs(title = this_param)
+gg
+
+
+```
+
+### Food security trajectories, 2010-2050
+
+*In SSA, the bean food demand/supply ratio is projected to increase from roughly 1.0 in 2020 to 1.4 in 2050. The only other pulse with a significant production trajectory in SSA, cowpeas, exhibits a low demand to supply ratio, hovering around 0.6.
+
+*Bean consumption (Kcal / capita) trajectories are highest in LAC and SSA, regardless of R&D scenario. In both these regions, beans are the only pulse with a significant consumption trajectory.
+
+```{r, echo = FALSE}
+
+#-----------------------
+this_param <- "Food Demand/Supply Ratio"
+#-----------------------
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% PUL_commodity_vec)
+
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                 axis.title.y = element_blank())
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + labs(title = this_param)
+gg
+#-----------------------
+this_param <- "Kcal / capita"
+#-----------------------
+df_plot <- subset(df, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Commodity %in% PUL_commodity_vec)
+
+gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Commodity, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                 axis.title.y = element_blank())
+gg <- gg + scale_color_manual(values = color_vec)
+gg <- gg + labs(title = this_param)
+gg
+
+```
+
+
+### Year by year percentage difference comparisons, 2010-2050
+
+The trajectories below indicate, for each year, the percentage difference between the HIGH + NARS scenario value and the Reference scenario value.
+
+*For yield and Kcal / capita, PUL percentage difference trajectories are not that different from CER percentage difference trajectories.
+
+*PUL area percentage differences are more negative than CER area percentage differences (some CER trajectories are even positive). This suggests PUL R&D is more aligned with sustainable intensification objectives than CER R&D.
+
+```{r, echo = FALSE}
+
+df$Group <- NA
+df$Group[grep("CER", df$Commodity)] <- "CER"
+df$Group[grep("PUL", df$Commodity)] <- "PUL"
+df_pct <- subset(df, Parameter != "Food Demand/Supply Ratio")
+df_diff <- subset(df, Parameter == "Food Demand/Supply Ratio")
+df_pct <- df_pct %>% spread(Scenario, Value)
+df_pct$`Year by Year Pct. Diff (HIGH+NARS - Reference)` <- (df_pct$`HIGH + NARS` - df_pct$Reference) / df_pct$Reference * 100
+df_diff <- df_diff %>% spread(Scenario, Value)
+df_diff$`Year by Year Diff (HIGH+NARS - Reference)` <- df_diff$`HIGH + NARS` - df_diff$Reference
+#-------------------------------------------
+# Diff of food demand/supply
+#-------------------------------------------
+# df_plot <- df_diff
+# df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+# df_plot <- subset(df_plot, Group %in% c("CER", "PUL"))
+# gg <- ggplot(df_plot, aes(x = Year, y = `Year by Year Diff (HIGH+NARS - Reference)`, group = Commodity, color = Commodity))
+# gg <- gg + geom_line(lwd = 1.2)
+# gg <- gg + facet_grid(Region ~ Group, scales = "free_y")
+# gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# gg <- gg + labs(title = "Food Demand/Supply Ratio")
+# gg
+
+#-------------------------------------------
+this_param <- "Kcal / capita"
+#-------------------------------------------
+df_plot <- subset(df_pct, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Group %in% c("CER", "PUL"))
+gg <- ggplot(df_plot, aes(x = Year, y = `Year by Year Pct. Diff (HIGH+NARS - Reference)`, group = Commodity, color = Commodity))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Group, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+
+#-------------------------------------------
+this_param <- "Rainfed Yield"
+#-------------------------------------------
+df_plot <- subset(df_pct, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Group %in% c("CER", "PUL"))
+gg <- ggplot(df_plot, aes(x = Year, y = `Year by Year Pct. Diff (HIGH+NARS - Reference)`, group = Commodity, color = Commodity))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Group, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+#-------------------------------------------
+this_param <- "Rainfed Area"
+#-------------------------------------------
+df_plot <- subset(df_pct, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Group %in% c("CER", "PUL"))
+gg <- ggplot(df_plot, aes(x = Year, y = `Year by Year Pct. Diff (HIGH+NARS - Reference)`, group = Commodity, color = Commodity))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Group, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+#-------------------------------------------
+this_param <- "Irrigated Yield"
+#-------------------------------------------
+df_plot <- subset(df_pct, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Group %in% c("CER", "PUL"))
+gg <- ggplot(df_plot, aes(x = Year, y = `Year by Year Pct. Diff (HIGH+NARS - Reference)`, group = Commodity, color = Commodity))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Group, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+#-------------------------------------------
+this_param <- "Irrigated Area"
+#-------------------------------------------
+df_plot <- subset(df_pct, Parameter == this_param)
+df_plot <- subset(df_plot, Region %in% nonIPR_area_vec)
+df_plot <- subset(df_plot, Group %in% c("CER", "PUL"))
+gg <- ggplot(df_plot, aes(x = Year, y = `Year by Year Pct. Diff (HIGH+NARS - Reference)`, group = Commodity, color = Commodity))
+gg <- gg + geom_line(lwd = 1.2)
+gg <- gg + facet_grid(Region ~ Group, scales = "free_y")
+gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+gg <- gg + labs(title = this_param)
+gg
+
+
+```
+
+## Reference
+
+Rosegrant, M.W., T.B. Sulser, D. Mason-D’Croz, N. Cenacchi, A. Nin-Pratt, S. Dunston, T. Zhu, C. Ringler, K. Wiebe, S. Robinson, D. Willenbockel, H. Xie, H-Y Kwon, T. Johnson, T.S. Thomas, F. Wimmer, R. Schaldach, G.C. Nelson, and B. Willaarts. 2017. Quantitative Foresight Modeling to Inform the CGIAR Research Portfolio. Project Report, Washington DC, USA: International Food Policy Research Institute (IFPRI).
