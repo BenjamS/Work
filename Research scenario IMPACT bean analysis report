@@ -3,6 +3,7 @@ title: "R&D Investment Scenario IMPACT Bean Analysis"
 author: "Ben Schiek"
 date: "June 25, 2019"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
@@ -29,7 +30,7 @@ PUL_commodity_vec <- c("PUL-Beans", "PUL-Chickpeas", "PUL-Cowpeas", "PUL-Lentils
                        "PUL-Pigeonpeas")
 CER_commodity_vec <- c("CER-Maize", "CER-Wheat", "CER-Rice")
 commodity_vec <- c(PUL_commodity_vec, CER_commodity_vec, IPR_commodity_vec)
-filename_vec <- c("AREAGRX0rdx", "YLDGRX0rdx", "QSupXAgg", "QFXAgg", "PerCapKCalCXAgg", "YldXAgg", "AreaXAgg")
+filename_vec <- c("YLDGRX0rdx", "QSupXAgg", "QFXAgg", "PerCapKCalCXAgg", "YldXAgg", "AreaXAgg") #"AREAGRX0rdx",
 color_vec <- c("#E69F00", "#56B4E9")
 #------------------------------------------------
 n_files <- length(filename_vec)
@@ -112,7 +113,7 @@ df$Year <- as.integer(df$Year)
 
 ### The business as usual and "HIGH + NARS" R&D scenarios
 
-"The High Increase in CGIAR Investments plus Increased Investments from National Agricultural Research Systems (HIGH+NARS) simulates increased investments in the CGIAR plus increased complementary investments in National Agricultural Research Systems (NARS)" (Rosegrant et al., 2017). For example, in the SSA region "business as usual" R&D scenario, the average annual investment in CGIAR and NARS investments for SSA is \$1.11 billion (in 2005 dollars) each. In the HIGH + NARS scenario, this is increased by \$1.66 billion (see page 46 and 53 of the cited report.
+"The High Increase in CGIAR Investments plus Increased Investments from National Agricultural Research Systems (HIGH+NARS) simulates increased investments in the CGIAR plus increased complementary investments in National Agricultural Research Systems (NARS)" (Rosegrant et al., 2017). For example, in the SSA region "business as usual" R&D scenario, the average annual investment in CGIAR and NARS investments for SSA is \$1.11 billion (in 2005 dollars) each. In the HIGH + NARS scenario, this is increased by \$1.66 billion (see page 46 and 53 of the cited report).
 
 ### Exogenous annual crop yield growth rates (IPRs), 2010-2050
 
@@ -120,7 +121,7 @@ In the business as usual (hereafter "reference") scenario, the exogenous annual 
 
 It looks like the R&D boost to rainfed bean yields is a little bit less than that of other pulses. However, farther below we'll see that in many regions beans are the only pulses with significant production and consumption trajectories, despite the slightly higher R&D IPR yield shock of other pulses.
 
-```{r, echo = FALSE}
+```{r, fig.width=11, fig.height=9, fig.align='center', echo = FALSE}
 this_param <- "Exogenous annual crop rainfed yield growth rate"
 df_plot <- subset(df, Parameter == this_param)
 df_plot <- subset(df_plot, Region %in% IPR_area_vec)
@@ -152,51 +153,51 @@ gg <- gg + labs(title = this_param)
 gg
 
 
-this_param <- "Exogenous annual crop rainfed area growth rate"
-df_plot <- subset(df, Parameter == this_param)
-df_plot <- subset(df_plot, Region %in% IPR_area_vec)
-df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
-df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
-# df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
-# df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
-gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
-gg <- gg + geom_line(lwd = 1.2)
-gg <- gg + scale_color_manual(values = color_vec)
-gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
-gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-gg <- gg + labs(title = this_param)
-gg
-
-this_param <- "Exogenous annual crop irrigated area growth rate"
-df_plot <- subset(df, Parameter == this_param)
-df_plot <- subset(df_plot, Region %in% IPR_area_vec)
-df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
-df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
-# df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
-# df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
-gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
-gg <- gg + geom_line(lwd = 1.2)
-gg <- gg + scale_color_manual(values = color_vec)
-gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
-gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-gg <- gg + labs(title = this_param)
-gg
+# this_param <- "Exogenous annual crop rainfed area growth rate"
+# df_plot <- subset(df, Parameter == this_param)
+# df_plot <- subset(df_plot, Region %in% IPR_area_vec)
+# df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
+# df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
+# # df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
+# # df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
+# gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+# gg <- gg + geom_line(lwd = 1.2)
+# gg <- gg + scale_color_manual(values = color_vec)
+# gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
+# gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# gg <- gg + labs(title = this_param)
+# gg
+# 
+# this_param <- "Exogenous annual crop irrigated area growth rate"
+# df_plot <- subset(df, Parameter == this_param)
+# df_plot <- subset(df_plot, Region %in% IPR_area_vec)
+# df_plot <- subset(df_plot, Commodity %in% IPR_commodity_vec)
+# df_plot$Commodity <- gsub("j", "", df_plot$Commodity)
+# # df_plot$Scenario <- factor(df_plot$Scenario, levels = c("No R&D", "HIGH + NARS"), ordered = T)
+# # df_plot$Region <- factor(df_plot$Region, levels = area_vec, ordered = T)
+# gg <- ggplot(df_plot, aes(x = Year, y = Value, group = Scenario, color = Scenario))
+# gg <- gg + geom_line(lwd = 1.2)
+# gg <- gg + scale_color_manual(values = color_vec)
+# gg <- gg + facet_grid(Region ~ Commodity, scales = "free")
+# gg <- gg + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# gg <- gg + labs(title = this_param)
+# gg
 
 
 ```
 
 ### Pulse yield trajectories, 2010-2050
 
-*Rainfed yields generally reflect the IPRs.
+* Rainfed yields generally reflect the IPRs.
 
-*In SSA, rainfed bean yields are surpassed by chick pea and lentil yields, regardless of the R&D scenario. However, later we'll see that chick peas and lentils do not exhibit significant production or consumption trajectories in SSA.
+* In SSA, rainfed bean yields are surpassed by chick pea and lentil yields, regardless of the R&D scenario. However, later we'll see that chick peas and lentils do not exhibit significant production or consumption trajectories in SSA.
 
-*In MEN, rainfed bean yields surpass all other rainfed pulse yields. However, farther below we will see that the rainfed bean area trajectory is low, especially as compared to the rainfed chick pea area trajectory.
+* In MEN, rainfed bean yields surpass all other rainfed pulse yields. However, farther below we will see that the rainfed bean area trajectory is low, especially as compared to the rainfed chick pea area trajectory.
 
-*Outside of NAM, EUR, and FSU, the highest rainfed bean yield trajectories are in LAC and EAP. These are also the places where the R&D shock has the biggest impact on rainfed bean yields.
+* Outside of NAM, EUR, and FSU, the highest rainfed bean yield trajectories are in LAC and EAP. These are also the places where the R&D shock has the biggest impact on rainfed bean yields.
 
 
-```{r, echo = FALSE}
+```{r, fig.width=11, fig.height=9, fig.align='center', echo = FALSE}
 #-----------------------
 this_param <- "Rainfed Yield"
 #-----------------------
@@ -233,14 +234,14 @@ gg
 
 ### Pulse area trajectories, 2010-2050
 
-*Combining the yield trajectories above with the area trajectories below, it turns out that beans and cow peas are the only pulses with significant production trajectories in SSA, despite the higher yield trajectories of chick peas and lentils.
+* Combining the yield trajectories above with the area trajectories below, it turns out that beans and cow peas are the only pulses with significant production trajectories in SSA, despite the higher yield trajectories of chick peas and lentils.
 
-*In LAC and EAP, rainfed beans are the only pulses exhibiting a significant area trajectory.
+* In LAC and EAP, rainfed beans are the only pulses exhibiting a significant area trajectory.
 
-*In MEN, the bean area trajectory is far surpassed by the lentil and chick peas area trajectories, despite the higher bean yield trajectory in this region.
+* In MEN, the bean area trajectory is far surpassed by the lentil and chick peas area trajectories, despite the higher bean yield trajectory in this region.
 
 
-```{r, echo = FALSE}
+```{r, fig.width=11, fig.height=9, fig.align='center', echo = FALSE}
 
 #-----------------------
 this_param <- "Rainfed Area"
@@ -279,11 +280,11 @@ gg
 
 ### Food security trajectories, 2010-2050
 
-*In SSA, the bean food demand/supply ratio is projected to increase from roughly 1.0 in 2020 to 1.4 in 2050. The only other pulse with a significant production trajectory in SSA, cowpeas, exhibits a low demand to supply ratio, hovering around 0.6.
+* In SSA, the bean food demand/supply ratio is projected to increase from roughly 1.0 in 2020 to 1.4 in 2050. The only other pulse with a significant production trajectory in SSA, cowpeas, exhibits a low demand to supply ratio, hovering around 0.6.
 
-*Bean consumption (Kcal / capita) trajectories are highest in LAC and SSA, regardless of R&D scenario. In both these regions, beans are the only pulse with a significant consumption trajectory.
+* Bean consumption (Kcal / capita) trajectories are highest in LAC and SSA, regardless of R&D scenario. In both these regions, beans are the only pulse with a significant consumption trajectory.
 
-```{r, echo = FALSE}
+```{r, fig.width=11, fig.height=9, fig.align='center', echo = FALSE}
 
 #-----------------------
 this_param <- "Food Demand/Supply Ratio"
@@ -323,11 +324,11 @@ gg
 
 The trajectories below indicate, for each year, the percentage difference between the HIGH + NARS scenario value and the Reference scenario value.
 
-*For yield and Kcal / capita, PUL percentage difference trajectories are not that different from CER percentage difference trajectories.
+* For yield and Kcal / capita, PUL percentage difference trajectories are not that different from CER percentage difference trajectories.
 
-*PUL area percentage differences are more negative than CER area percentage differences (some CER trajectories are even positive). This suggests PUL R&D is more aligned with sustainable intensification objectives than CER R&D.
+* PUL area percentage differences are more negative than CER area percentage differences (some CER trajectories are even positive). This suggests PUL R&D is more aligned with sustainable intensification objectives than CER R&D.
 
-```{r, echo = FALSE}
+```{r, fig.width=11, fig.height=9, fig.align='center', echo = FALSE}
 
 df$Group <- NA
 df$Group[grep("CER", df$Commodity)] <- "CER"
