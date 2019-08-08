@@ -88,6 +88,7 @@ df$`Gross Prod. Value / MT\n(current USD)` <- 10^6 * df$`Gross Production Value\
 # df_kcal <- data.frame(Item = item_vec, kcal_per_MT = kcalMT_vec)
 #-----------------------------
 df_plot <- subset(df, Year == 2016)
+df_plot <- subset(df_plot, Area == "World")
 xx <- df_plot$Group
 df_plot$Item <- factor(df_plot$Item, levels = unique(df_plot$Item[order(xx)]))
 df_plot$Production <- NULL
@@ -114,6 +115,17 @@ gg <- gg + theme(axis.title.y = element_blank(),
                  axis.text.y = element_text(size = 7))
 gg <- gg + coord_flip()
 gg
+
+
+df_plot <- subset(df_plot, Area == "World")
+gg <- ggplot(df_plot, aes(x = Item, y = `Gross Prod. Value / MT\n(current USD)`, fill = Group))
+gg <- gg + geom_bar(stat = "identity", position = "dodge")
+#gg <- gg + facet_wrap(~Area)
+gg <- gg + theme(axis.title.y = element_blank(),
+                 axis.text.y = element_text(size = 7))
+#gg <- gg + coord_flip()
+gg
+
 #-----------------------------
 df_plot <- df
 df_plot$Year <- as.integer(df_plot$Year)
