@@ -359,7 +359,7 @@ plot_frontier_and_budget <- function(df_frontier, df_w_plot,
   gg <- ggplot(df_plot, aes(x = `Risk (variance)`, y = `Return target`))
   gg <- gg + labs(title = str_title)
   gg <- gg + theme(axis.title.x = element_blank(),
-                     axis.text.x = element_blank())
+                   axis.text.x = element_blank())
   gg <- gg + geom_point()
   gg_frontier <- gg
   #-------------------------------------------
@@ -780,15 +780,29 @@ cereal_fbal_vec <- c("Maize and products", "Wheat and products", "Millet and pro
                      "Rice (Milled Equivalent)")
 pulses_oilcrops_fbal_vec <- c("Beans", "Groundnuts (Shelled Eq)", "Soyabeans")
 RnT_fbal_vec <- c("Cassava and products", "Sweet potatoes", "Yams", "Potatoes and products")
-item_fbal_vec <- c(cereal_fbal_vec, pulses_oilcrops_fbal_vec, RnT_fbal_vec)
+item_fbal_vec <- c(cereal_fbal_vec, pulses_oilcrops_fbal_vec, RnT_fbal_vec, "Population")
 # item_vec <- c("Cereals - Excluding Beer", "Sugar (Raw Equivalent)", "Starchy Roots",
 #               "Animal Products", "Pulses", "Vegetal Products", "Grand Total", "Honey",
 #               "Sugar cane", "Sugar non-centrifugal", "Sweeteners, Other")
 #element_vec <- c("Food supply (kcal/capita/day)", "Protein supply quantity (g/capita/day)", "Fat supply quantity (g/capita/day)")
-element_vec <- c("Food supply (kcal/capita/day)")
+element_vec <- c("Food supply (kcal/capita/day)", "Total Population - Both sexes")
 df_foodbal <- subset(df_foodbal_raw, Item %in% item_fbal_vec)
 df_foodbal <- subset(df_foodbal, Area %in% area_vec)
 df_foodbal <- subset(df_foodbal, Element %in% element_vec)
+#---------------
+df_pop <- subset(df_foodbal, Item == "Population")
+df_foodbal <- subset(df_foodbal, Item != "Population")
+colnames(df_foodbal)[6] <- "Food supply (kcal/capita/day)"
+df_foodbal$Element <- NULL
+df_pop$Value <- 1000 * df_pop$Value
+df_pop$Unit <- NULL
+colnames(df_pop)[5] <- "Population"
+df_pop$Item <- NULL
+df_pop$Element <- NULL
+#---------------
+df_foodbal <- merge(df_foodbal, df_pop, by = c("Area", "Year"))
+df_foodbal$`Food supply (kcal/year)` <- 365 * df_foodbal$`Food supply (kcal/capita/day)` * df_foodbal$Population
+df_foodbal$Unit <- NULL
 #---------------
 df_foodbal$Group <- NA
 u <- df_foodbal$Item
@@ -810,16 +824,20 @@ df_foodbal$Item[grep("Cassava", u)] <- "Cassava"
 #---------------
 df_foodbal$Unit <- NULL
 df_vap$Unit <- NULL
+#---------------
 df <- merge(df_foodbal, df_vap, by = c("Area", "Year", "Group", "Item"))
-df$`Value per kcal` <- df$Value.y / df$Value.x
+df$`Value per kcal` <- 10^6 * df$`Gross Production Value
+(current million USD)` / df$`Food supply (kcal/year)`
 df <- df[, c("Area", "Year", "Group", "Item", "Value per kcal")]
 df <- subset(df, Item != "Soybeans")
 #---------------
-df_plot <- subset(df, Area == "Least Developed Countries" & Year == 2013)
+#df_plot <- subset(df, Area == "Least Developed Countries" & Year == 2013)
+df_plot <- subset(df, Year == 2013)
 xx <- df_plot$Group
 df_plot$Item <- factor(df_plot$Item, levels = unique(df_plot$Item[order(xx)]))
 gg <- ggplot(df_plot, aes(x = Item, y = `Value per kcal`, fill = Group))
 gg <- gg + geom_bar(stat = "identity", position = "dodge")
+gg <- gg + facet_wrap(~Area, ncol = 2, scales = "free")
 gg <- gg + coord_flip()
 gg
 
