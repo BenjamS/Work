@@ -1,0 +1,11 @@
+#http://rstudio-pubs-static.s3.amazonaws.com/179757_4fd1fbdcaa3f4f28868bfada3b9855d4.html
+
+df <- as.data.frame(readxl::read_excel("mentimeter_test.xlsx"))
+df <- df[-1, -1]
+colnames(df) <- df[1, ]
+df <- df[-1, ]
+
+
+
+
+
