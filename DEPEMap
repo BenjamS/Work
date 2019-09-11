@@ -1,0 +1,310 @@
+library(lamW)
+library(rootSolve)
+#--------------------------------------
+rootfn_cStarPerQ <- function(cStarPerQ, P, yCeil, beta, gamma){
+  root <- cStarPerQ / P * gamma + lambertW0(-beta / (cStarPerQ * yCeil))
+  return(root)
+}
+rootfn_yStar <- function(yStar, cStarPerQ, P, yCeil, beta){
+  cStar <- yStar * cStarPerQ
+  root <- beta / cStar + lambertW0(-cStar / (P * yCeil))
+  return(root)
+}
+#--------------------------------------
+n_farms <- 2000
+#--------------------------------------
+yCeil <- 44
+yFloor <- yCeil * exp(-1)
+beta <- 17 * 1000
+mu_gamma <- 1.10
+#--------------------------------------
+P_SUP_sQuo <- 2000
+#--------------------------------------
+get_cStarPerQ_atGam_atP <- function(P, gamma, cStarPerQ_max, yCeil, beta, quietly = F){
+  
+  if(gamma > P * yCeil / beta * exp(-1)){print("gamma exceeds its upper bound")}
+  if(gamma < 0){print("gamma less than its lower bound")}
+  
+  cStarPerQ_min_atGam <- P_SUP_sQuo / gamma
+  interval_cStarPerQ <- c(cStarPerQ_min_atGam, cStarPerQ_max)
+  out_uniroot <- uniroot.all(rootfn_cStarPerQ,
+                     interval = interval_cStarPerQ,
+                     lower = min(interval_cStarPerQ),
+                     upper = max(interval_cStarPerQ),
+                     P = P,
+                     yCeil = yCeil,
+                     beta = beta,
+                     gamma = gamma)
+  cStarPerQ_atGam_atP <- out_uniroot
+  if(!quietly){
+    cat(paste("Cost per unit output at user specified\ngamma, price, beta, and yield ceiling:",
+              round(cStarPerQ_atGam_atP, 2)), sep = "\n")
+    }
+  return(cStarPerQ_atGam_atP)
+}
+#--------------------------------------
+get_yStar_atGam_atP <- function(cStarPerQ_atGam_atP, P, yCeil, beta, quietly = F){
+  yStar_min <- yCeil * exp(-1)
+  yStar_max <- yCeil
+  interval_yStar <- c(yStar_min, yStar_max)
+  out <- uniroot.all(rootfn_yStar,
+                     interval = interval_yStar,
+                     lower = min(interval_yStar),
+                     upper = max(interval_yStar),
+                     cStarPerQ = cStarPerQ_atGam_atP,
+                     P = P,
+                     yCeil = yCeil,
+                     beta = beta)
+  yStar_atGam_atP <- out
+  if(!quietly){
+    cat(paste("Cost per unit output at user specified\ngamma, price, beta, and yield ceiling:",
+              round(yStar_atGam_atP, 2)), sep = "\n")
+  }
+  return(yStar_atGam_atP)
+}
+#--------------------------------------
+get_cStarPerQ_and_yStar_atGam_atP <- function(P, fun_env){
+  gamma <- fun_env[[1]]
+  cStarPerQ_max <- fun_env[[2]]
+  yCeil <- fun_env[[3]]
+  beta <- fun_env[[4]]
+  quietly = fun_env[[5]]
+  cStarPerQ_atGam_atP <- get_cStarPerQ_atGam_atP(P, gamma, cStarPerQ_max, yCeil, beta, quietly = quietly)
+  yStar_atGam_atP <- get_yStar_atGam_atP(cStarPerQ_atGam_atP, P, yCeil, beta, quietly = quietly)
+  out_vec <- c(cStarPerQ_atGam_atP, yStar_atGam_atP)
+  return(out_vec)
+  
+}
+#--------------------------------------
+fun_env <- list(
+  gamma = mu_gamma,
+  cStarPerQ_max = 10^3,
+  yCeil = yCeil,
+  beta = beta,
+  quietly = F
+)
+outvec_cStarPerQ_yStar <- get_cStarPerQ_and_yStar_atGam_atP(P = P_SUP_sQuo, fun_env)
+
+cStarPerQ_atGam_atP <- outvec_cStarPerQ_yStar[1]
+yStar_atGam_atP <- outvec_cStarPerQ_yStar[2]
+#--------------------------------------
+n_P <- 50
+P_seq <- seq(100, 4000, length.out = n_P)
+cStarPerQ_atGam_atP_vec <- c()
+yStar_atGam_atP_vec <- c()
+for(i in 1:n_P){
+  this_P <- P_seq[i]
+  outvec_cStarPerQ_yStar <- get_cStarPerQ_and_yStar_atGam_atP(P = this_P, fun_env)
+  cStarPerQ_atGam_atP_vec[i] <- outvec_cStarPerQ_yStar[1]
+  yStar_atGam_atP_vec[i] <- outvec_cStarPerQ_yStar[2]
+}
+
+plot(cStarPerQ_atGam_atP_vec, yStar_atGam_atP_vec)
+plot(P_seq, yStar_atGam_atP_vec)
+
+P_seq[which(is.na(yStar_atGam_atP_vec))]
+cStarPerQ_globalMin <- beta / yCeil * exp(1)
+P_globalMin_atGam <- cStarPerQ_globalMin * mu_gamma
+gamma_globalMax <- P_SUP_sQuo * yCeil / beta * exp(-1)
+#--------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+cv_lyStar <- 0.12
+mu_lyStar <- log(19)
+sd_lyStar <- cv_lyStar * mu_lyStar
+lyStar <- rnorm(n_farms, mean = mu_lyStar, sd = sd_lyStar)
+hist(lyStar)
+#--------------------------------------
+yStar <- exp(lyStar)
+hist(yStar)
+mu_yStar <- exp(mu_lyStar + sd_lyStar^2 / 2)
+mu_yStar
+#--------------------------------------
+cStar_A <- -beta / (lyStar - log(yCeil))
+hist(beta / cStar_A)
+#--------------------------------------
+cStar_Q <- cStar_A / yStar
+#--------------------------------------
+P_SUP_sQuo <- 2400
+#--------------------------------------
+u <- -beta / (cStar_Q * yCeil)
+which(u < -exp(-1))
+gamma <- -P_SUP_sQuo / cStar_Q * lambertW0(u)
+hist(gamma)
+gamma_max <- P_SUP_sQuo * yCeil / beta * exp(-1)
+#which(gamma > gamma_max)
+#--------------------------------------
+yStar_check <- yCeil * exp(-cStar_Q * gamma / P_SUP_sQuo)
+hist(yStar_check)
+check_yStar <- yStar - yStar_check
+hist(check_yStar)
+ind_look <- which(check_yStar < -1)
+hist(u[ind_look])
+hist(u)
+#--------------------------------------
+cStar_Q_min <- beta / yCeil * exp(1)
+cStar_Q_vec <- seq(cStar_Q_min, 2500, length.out = 50)
+u_vec <- -beta / (cStar_Q_vec * yCeil)
+eta_yStar_nu <- lambertW0(u_vec) / (1 + lambertW0(u_vec))
+plot(cStar_Q_vec, eta_yStar_nu)
+#--------------------------------------
+ind_rand <- 932
+this_cStarQ <- cStar_Q[ind_rand]
+this_gamma <- gamma[ind_rand]
+A <- 3
+u <- -beta / (this_cStarQ * yCeil)
+eta_yStar_nu <- lambertW0(u) / (1 + lambertW0(u))
+eta_yStar_nu
+#eta_yStar_nu <- lambertWm1(u) / (1 + lambertWm1(u))
+eta_nu_A <- ((this_gamma - 1) * this_cStarQ / (P_SUP_sQuo * A)) / (eta_yStar_nu - this_cStarQ * this_gamma / P_SUP_sQuo)
+eta_nu_A
+#plot(eta_nu_A)
+eta_yStar_A <- eta_yStar_nu * eta_nu_A
+eta_yStar_A
+#plot(eta_yStar_A)
+#--------------------------------------
+
+
+
+
+
+
+
+
+
+
+u_seq <- seq(0, -exp(-1), length.out = 100)
+
+y <- (1 + lambertW0(u_seq)) / (2 + lambertW0(u_seq))
+plot(u_seq, y)
+y[1]
+y[length(y)]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mu_cStarPerQGam <- -(mu_lyStar - log(yCeil)) * P_SUP_sQuo
+sd_cStarPerQGam <- mu_cStarPerQGam * cv_lyStar
+#--------------------------------------
+cStarPerQGam <- rnorm(n_farms, mean = mu_cStarPerQGam, sd = sd_cStarPerQGam)
+hist(cStarPerQGam)
+#--------------------------------------
+yStar <- yCeil * exp(-cStarPerQGam / P_SUP_sQuo)
+hist(yStar)
+#--------------------------------------
+beta <- 16 * 1000
+#--------------------------------------
+u <- -yStar * cStarPerQGam / (P_SUP_sQuo * yCeil)
+cStar <- -beta / lambertW0(u)
+hist(cStar)
+yStar_check <- yCeil * exp(-beta / cStar)
+hist(yStar_check)
+check_yStar <- yStar - yStar_check
+hist(check_yStar)
+ind_look <- which(check_yStar < -10^-10)
+check_yStar[ind_look]
+yStar_check[ind_look]
+yStar[ind_look]
+cStar[ind_look]
+#--------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+P_SUP <- 2200
+#--------------------------------------
+gamma <- -P_SUP / cStarPerQ * lambertW0(-beta / (cStarPerQ * yCeil) )
+hist(gamma)
+#--------------------------------------
+yStar <- yCeil * exp(-cStarPerQ / P_SUP * gamma)
+hist(yStar)
+#--------------------------------------
+P_SUP_new <- P_SUP * 0.9
+interval_cStarPerQ <- c(beta / yCeil * exp(1), 10^5)
+#--------------------------------------
+cStarPerQ_new <- c()
+for(i in 1:n_farms){
+  this_gamma <- gamma[i]
+  cStarPerQ_new[i] <- uniroot.all(rootfn_cStarPerQ,
+                        interval_cStarPerQ,
+                        lower = interval_cStarPerQ[1],
+                        upper = interval_cStarPerQ[2],
+                        P = P_SUP_new,
+                        yCeil = yCeil,
+                        beta = beta,
+                        gamma = this_gamma)
+  
+  
+}
+hist(cStarPerQ_new)
