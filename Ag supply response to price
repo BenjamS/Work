@@ -1,0 +1,96 @@
+library(tidyverse)
+library(ggrepel)
+
+df_vap_raw <- read.csv("Value_of_Production_E_All_Data.csv", stringsAsFactors = F)
+#colnames(df_vap_raw)
+df_vap_raw$Area.Code <- NULL
+df_vap_raw$Item.Code <- NULL
+df_vap_raw$Element.Code <-NULL
+u <- colnames(df_vap_raw)
+#colnames(df_vap_raw)
+df_vap_raw <- df_vap_raw[, -grep("F", u)]
+colnames(df_vap_raw)[5:ncol(df_vap_raw)] <- as.character(c(1961:(1961 + ncol(df_vap_raw) - 5)))
+df_vap_raw <- gather(df_vap_raw,Year,Value,`1961`:`2016`)
+#------------------
+#unique(df_vap_raw$Area)[grep("africa", unique(df_vap_raw$Area), ignore.case = T)]
+#unique(df_vap_raw$Item)[grep("potato", unique(df_vap_raw$Item), ignore.case = T)]
+#------------------
+area_vec <- c("Thailand")
+item_vec <- c("Cassava")
+#------------------
+df_vap <- subset(df_vap_raw, Area %in% area_vec)
+df_vap <- subset(df_vap, Item %in% item_vec)
+#unique(df_vap_raw$Element)
+#element_vec <- c("Gross Production Value (current million US$)")
+element_vec <- c("Gross Production Value (current million SLC)")
+df_vap <- subset(df_vap, Element %in% element_vec)
+#df_vap <- subset(df_vap, Year > 1990)
+df_vap$Unit <- NULL
+df_vap$Element <- NULL
+df_vap$Value <- df_vap$Value * 10^6
+colnames(df_vap)[4] <- "Gross Production Value (current USD)"
+colnames(df_vap)[4] <- "Gross Production Value (current SLC)"
+#------------------------------
+# Get production data
+df_prod_raw <- read.csv("Production_Crops_E_All_Data.csv", stringsAsFactors = F)
+df_prod_raw <- subset(df_prod_raw, Item.Code != 2928)
+df_prod_raw$Area.Code <- NULL
+df_prod_raw$Item.Code <- NULL
+df_prod_raw$Element.Code <-NULL
+u <- colnames(df_prod_raw)
+df_prod_raw <- df_prod_raw[, -grep("F", u)]
+last_yr <- (1961 + ncol(df_prod_raw) - 5)
+colnames(df_prod_raw)[5:ncol(df_prod_raw)] <- as.character(c(1961:last_yr))
+gathercols <- colnames(df_prod_raw)[5:ncol(df_prod_raw)]
+df_prod_raw <- gather_(df_prod_raw, "Year", "Value", gathercols)
+#------------------------------
+#unique(df_prod_raw$Item)[grep("beans", unique(df_prod_raw$Item), ignore.case = T)]
+df_prod_yield <- subset(df_prod_raw, Item %in% item_vec)
+df_prod_yield <- subset(df_prod_yield, Area %in% area_vec)
+df_prod_yield$Unit <- NULL
+df_prod_yield <- subset(df_prod_yield, Element %in% c("Yield", "Production"))
+df_prod_yield <- df_prod_yield %>% spread(Element, Value)
+df_prod_yield$Yield <- df_prod_yield$Yield / 10000
+colnames(df_prod_yield)[5] <- "Yield (MT)"
+colnames(df_prod_yield)[4] <- "Production (MT)"
+#------------------------------
+df_price <- merge(df_vap, df_prod_yield, by = c("Area", "Year", "Item"))
+df_price$Price <- df_price[, 4] / df_price[, 5]
+#------------------------------
+df_exPrice_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
+df_exPrice_raw <- subset(df_exPrice_raw, Item.Code != 2928)
+df_exPrice_raw$Area.Code <- NULL
+df_exPrice_raw$Element.Code <-NULL
+df_exPrice_raw$Item <- as.character(df_exPrice_raw$Item)
+df_exPrice_raw$Element <- as.character(df_exPrice_raw$Element)
+df_exPrice_raw$Area <- as.character(df_exPrice_raw$Area)
+u <- colnames(df_exPrice_raw)
+df_exPrice_raw <- df_exPrice_raw[, -grep("F", u)]
+colnames(df_exPrice_raw)[6:ncol(df_exPrice_raw)] <- as.character(c(1961:2016))
+df_exPrice_raw <- gather(df_exPrice_raw, Year, Value, `1961`:`2016`)
+rm(u)
+colnames(df_exPrice_raw)
+unique(df_exPrice_raw$Element)
+df_exPrice_raw$Item.Code <- NULL
+df_exPrice <- subset(df_exPrice_raw, Element %in% c("Export Quantity", "Export Value"))
+df_exPrice$Unit <- NULL
+df_exPrice <- subset(df_exPrice, Item == "Cassava Equivalent")
+df_exPrice <- subset(df_exPrice, Area %in% area_vec)
+df_exPrice <- df_exPrice %>% spread(Element, Value)
+df_exPrice$`Export Price` <- df_exPrice$`Export Value` / df_exPrice$`Export Quantity`
+#------------------------------
+df_plot <- merge(df_price, df_exPrice[, c("Area", "Year", "Export Price")], by = c("Area", "Year"))
+df_plot <- subset(df_plot, Year > 1990)
+gg <- ggplot(df_plot, aes(x = `Export Price`, y = Price, label = Year))
+gg <- gg + geom_point()
+gg <- gg + geom_text_repel()
+gg
+
+
+
+df_plot$lPrice <- log(df_price$Price)
+df_plot$`lYield (MT)` <- log(df_plot$`Yield (MT)`)
+gg <- ggplot(df_plot, aes(x = `Production (MT)`, y = Price, label = Year))
+gg <- gg + geom_point()
+gg <- gg + geom_text_repel()
+gg
