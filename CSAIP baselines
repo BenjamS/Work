@@ -1,0 +1,280 @@
+library(tidyverse)
+library(patchwork)
+#==============================================================
+#==============================================================
+# Kcal shares
+#==============================================================
+#==============================================================
+
+df_raw <- read.csv("FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+df_raw <- subset(df_raw, Item.Code != 2928) #Miscellaneous
+df_raw <- subset(df_raw, !(Item.Code %in% c(2949, 2948))) #Eggs and Milk are repeated for some reason
+df_raw$Area.Code <- NULL
+df_raw$Element.Code <-NULL
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+colnames(df_raw)[6:ncol(df_raw)] <- as.character(c(1961:2013))
+df_raw <- gather(df_raw,Year,Value,`1961`:`2013`)
+colnames(df_raw)
+#---
+# unique(df_raw$Item[which(df_raw$Item.Code == 2914)])
+# df_raw <- subset(df_raw, Item.Code != 2914) #Vegetables repeated
+df_raw$Item.Code <- NULL
+#---
+u <- df_raw$Item
+unique(u)[grep("sugar", unique(u), ignore.case = T)]
+unique(u)[grep("vegetal", unique(u), ignore.case = T)]
+#---
+df_raw$Item[which(u == "Fruits - Excluding Wine")] <- "Fruits"
+#df$Item[grep("Sugar", u)] <- "Sugar"
+df_raw$Item[grep("Cereals - Excluding Beer", u)] <- "Cereals"
+df_raw$Item[which(u %in% c("Vegetables", "Vegetable Oils"))] <- "Vegetables"
+df_raw$Unit <- NULL
+df_raw <- df_raw %>% group_by(Area, Item, Element, Year) %>% summarise(Value = sum(Value))
+#---
+area_vec <- c("Ghana")
+year_vec <- 1973:2013
+element_vec <- c("Food supply (kcal/capita/day)", "Food supply quantity (kg/capita/yr)")
+item_vec <- foodbal_items_keep <- c("Grand Total",
+                                    "Animal Products",
+                                    "Cereals",
+                                    "Starchy Roots",
+                                    "Sugar (Raw Equivalent)",
+                                    "Pulses",
+                                    "Oilcrops",
+                                    "Vegetables",
+                                    "Fruits")
+#---
+df <- subset(df_raw, Area %in% area_vec)
+rm(df_raw)
+gc()
+df <- subset(df, Item %in% item_vec)
+df <- subset(df, Year %in% year_vec)
+df <- subset(df, Element %in% element_vec)
+#---
+df$Item[grep("Sugar", df$Item)] <- "Sugar"
+df <- subset(df, Element == "Food supply (kcal/capita/day)")
+df <- df %>% spread(Item, Value) %>% as.data.frame()
+df$Other <- df$`Grand Total` - rowSums(df[, -c(1:3, which(colnames(df) == "Grand Total"))])
+df$`Grand Total` <- NULL
+gathercols <- colnames(df)[-c(1:3)]
+df <- df %>% gather_("Item", "Value", gathercols)
+df$Element <- NULL
+#---
+df_plot <- df
+df_plot <- df_plot %>% group_by(Area, Item) %>%
+  mutate(mu_val = mean(Value, na.rm = T)) %>%
+  as.data.frame()
+df_plot$mu_val[which(df_plot$Item == "Other")] <- 0
+df_plot <- df_plot %>% group_by(Area, Year) %>%
+  mutate(Item = factor(Item, levels = unique(Item[order(mu_val, decreasing = T)]))) %>%
+  as.data.frame()
+colnames(df_plot)[ncol(df_plot) - 1] <- "Food supply (kcal/capita/day)"
+distinct_colors <- randomcoloR::distinctColorPalette(k = length(unique(df_plot$Item)))
+df_plot$Year <- as.integer(df_plot$Year)
+my_breaks <- unique(df_plot$Year)[seq.int(1, length(unique(df_plot$Year)), length.out = 10)]
+gg <- ggplot(df_plot, aes(x = Year, y = `Food supply (kcal/capita/day)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + scale_fill_manual(values = distinct_colors)
+gg <- gg + scale_x_continuous(breaks = my_breaks)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+
+#==============================================================
+#==============================================================
+# Area shares
+#==============================================================
+#==============================================================
+
+df_raw <- read.csv("Production_Crops_E_All_Data.csv", stringsAsFactors = F)
+df_raw$Area.Code <- NULL
+df_raw$Element.Code <-NULL
+df_raw$Item.Code <- NULL
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+colnames(df_raw)[5:ncol(df_raw)] <- as.character(c(1961:2017))
+df_raw <- gather(df_raw,Year,Value,`1961`:`2017`)
+colnames(df_raw)
+unique(df_raw$Item)[grep("total", unique(df_raw$Item), ignore.case = T)]
+
+area_vec <- c("Ghana")
+item_vec <- c("Cereals,Total", "Pulses,Total", "Roots and Tubers,Total",
+              "Treenuts,Total", "Fruit Primary", "Cocoa, beans", "Oilcrops, Oil Equivalent")
+element_vec <- c("Area harvested")
+year_vec <- c(1973:2017)
+
+df <- subset(df_raw, Area %in% area_vec)
+df <- subset(df, Item %in% item_vec)
+df <- subset(df, Element %in% element_vec)
+df <- subset(df, Year %in% year_vec)
+# rm(df_raw)
+# gc()
+df$Unit <- NULL
+df$Element <- NULL
+df$Item <- gsub(",Total", "", df$Item)
+df$Item <- gsub(" Primary", "", df$Item)
+df$Item <- gsub(", beans", "", df$Item)
+df$Item <- gsub(", Oil Equivalent", "", df$Item)
+#-----------
+# For some reason in Ghana oilcrop area is NA for 2015-2017.
+df <- df %>% spread(Item, Value)
+df$Oilcrops[which(is.na(df$Oilcrops))] <- df$Oilcrops[which(df$Year == 2014)]
+gathercols <- colnames(df)[-c(1, 2)]
+df <- df %>% gather_("Item", "Value", gathercols)
+#-----------
+# df$Total <- rowSums(df[, -c(1, 2)], na.rm = T)
+# gathercols <- colnames(df)[-c(1, 2)]
+# df <- df %>% gather_("Item", "Area harvested (ha)", gathercols)
+#-----------
+df$Value <- df$Value * 10^-6
+df_plot <- df
+df_plot <- df_plot %>% group_by(Area, Item) %>%
+  mutate(mu_share = mean(Value, na.rm = T)) %>%
+  as.data.frame()
+df_plot <- df_plot %>% group_by(Area, Year) %>%
+  mutate(Item = factor(Item, levels = unique(Item[order(mu_share, decreasing = T)]))) %>%
+  as.data.frame()
+colnames(df_plot)[ncol(df_plot) - 1] <- "Area harvested (million has.)"
+
+distinct_colors <- randomcoloR::distinctColorPalette(k = length(unique(df_plot$Item)))
+df_plot$Year <- as.integer(df_plot$Year)
+my_breaks <- unique(df_plot$Year)[seq.int(1, length(unique(df_plot$Year)), length.out = 10)]
+gg <- ggplot(df_plot, aes(x = Year, y = `Area harvested (million has.)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + scale_fill_manual(values = distinct_colors)
+gg <- gg + scale_x_continuous(breaks = my_breaks)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+gg_area_mosaic <- gg + theme(legend.position = "bottom",
+                             axis.title.x = element_blank(),
+                             axis.title.y = element_blank(),
+                             plot.title = element_text(size = 12)) +
+  labs(title = "Area harvested (million hectares)")
+
+
+
+#======================================================
+cereal_item_vec <- c("Cereals,Total", "Maize", "Millet", "Sorghum", "Rice, paddy")
+RnT_item_vec <- c("Roots and Tubers,Total", "Cassava", "Yams", "Taro (cocoyam)", "Sweet potatoes")
+oilcrop_item_vec <- c("Oilcrops, Oil Equivalent", "Coconuts", "Groundnuts, with shell", "Karite nuts (sheanuts)",
+                      "Oil palm fruit", "Seed cotton")
+item_vec <- c(cereal_item_vec, RnT_item_vec, oilcrop_item_vec)
+list_item_vec <- list(cereal_item_vec, RnT_item_vec, oilcrop_item_vec)
+df <- subset(df_raw, Area %in% area_vec)
+df <- subset(df, Element %in% element_vec)
+df <- subset(df, Year %in% year_vec)
+df <- subset(df, Item %in% item_vec)
+df <- subset(df, !(Item %in% c("Cereals,Total", "Roots and Tubers,Total", "Oilcrops, Oil Equivalent")))
+df$Value <- df$Value * 10^-6
+
+crop_plot_titles <- c("Cereals", "Roots and Tubers", "Oilcrops")
+list_gg <- list()
+list_gg_mosaic <- list()
+excl_txt <- c(",Total|, with shell|, paddy| \\(cocoyam\\)| \\(sheanuts\\)")
+last_i <- length(list_item_vec)
+for(i in 1:last_i){
+  df_plot <- subset(df, Item %in% list_item_vec[[i]])
+  df_plot$Item <- gsub(excl_txt, "", df_plot$Item)
+  df_plot$Item <- gsub("Sweet potatoes", "Sweet\npotatoes", df_plot$Item)
+  df_plot <- df_plot %>% group_by(Area, Item) %>%
+    mutate(mu_share = mean(Value, na.rm = T)) %>%
+    as.data.frame()
+  df_plot <- df_plot %>% group_by(Area, Year) %>%
+    mutate(Item = factor(Item, levels = unique(Item[order(mu_share, decreasing = T)]))) %>%
+    as.data.frame()
+  colnames(df_plot)[ncol(df_plot) - 1] <- "Area harvested (million has.)"
+  
+  distinct_colors <- randomcoloR::distinctColorPalette(k = length(unique(df_plot$Item)))
+  df_plot$Year <- as.integer(df_plot$Year)
+  my_breaks <- unique(df_plot$Year)[seq.int(1, length(unique(df_plot$Year)), length.out = 10)]
+  gg <- ggplot(df_plot, aes(x = Year, y = `Area harvested (million has.)`, fill = Item))
+  gg <- gg + geom_area(position = "stack")
+  gg <- gg + scale_fill_manual(values = distinct_colors)
+  gg <- gg + scale_x_continuous(breaks = my_breaks)
+  gg <- gg + theme(legend.title = element_blank(),
+                   axis.text.x = element_text(angle = 60, hjust = 1))
+  gg
+  list_gg[[i]] <- gg
+  gg_mosaic <- gg + labs(title = crop_plot_titles[i]) +
+    theme(plot.title = element_text(size = 10),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank())
+  
+  if(i != last_i){
+    gg_mosaic <- gg_mosaic + theme(axis.title.x = element_blank(),
+                                   axis.text.x = element_blank(),
+                                   axis.ticks.x = element_blank())
+  }
+  
+  list_gg_mosaic[[i]] <- gg_mosaic
+}
+
+rm(df_raw)
+gc()
+
+gg_area_mosaic + (list_gg_mosaic[[1]] / list_gg_mosaic[[2]] / list_gg_mosaic[[3]]) + plot_layout(ncol = 2, widths = c(2, 1))
+
+
+
+#==============================================================
+#==============================================================
+# Export shares
+#==============================================================
+#==============================================================
+area_vec <- c("Ghana")
+item_vec <- c("Grand Total",
+              "Animal Products",
+              "Cereals",
+              "Starchy Roots",
+              "Sugar (Raw Equivalent)",
+              "Pulses",
+              "Oilcrops",
+              "Vegetables",
+              "Fruits")
+element_vec <- c("Export Value", "Import Value")
+#---------------------------------------------------------------
+
+df_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
+df_raw <- subset(df_raw, Item.Code != 2928)
+df_raw$Area.Code <- NULL
+df_raw$Element.Code <-NULL
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+colnames(df_raw)[6:ncol(df_raw)] <- as.character(c(1961:2017))
+df_raw <- gather(df_raw, Year, Value, `1961`:`2017`)
+rm(u)
+colnames(df_raw)
+unique(df_raw$Element)
+unique(df_raw$Item)
+df_raw$Item.Code <- NULL
+
+df <- subset(df_raw, Element %in% element_vec)
+df <- subset(df, Area %in% area_vec)
+df$Value[which(is.na(df$Value))] <- 0
+df <- df %>% spread(Element, Value)
+df$`Net Trade ('000 USD)` <- df$`Export Value` - df$`Import Value`
+df <- df %>% group_by(Area, Item) %>%
+  mutate(mu_x = mean(`Net Trade ('000 USD)`, na.rm = T)) %>%
+  as.data.frame()
+
+u <- unique(df$mu_x)
+u[which(is.nan(u))] <- NA
+q_999 <- stats::quantile(u, probs = 0.95, na.rm = T)
+unique(df$Item[which(df$`Net Trade ('000 USD)` >= q_999)])
+
+df[grep("Plantain", df$Item, ignore.case = T), ]
+
+df <- subset(df, Item %in% item_vec)
+
