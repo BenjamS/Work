@@ -1,0 +1,405 @@
+setwd("C:/Users/bensc/OneDrive/Documents/CSAIP Ghana and Burkina Faso")
+library(tidyverse)
+library(patchwork)
+
+#Net trade
+#==================================================================
+df_raw <- read.csv("Copy of QNXAgg -- Net Tradeperce_by_year_solo_cambio_climatico.csv", stringsAsFactors = F)
+u <- unique(df_raw$commodity)
+u[grep("OLS", u, ignore.case = T)]
+
+# commod_vec <- c("PUL-Other Pulses", "CER-Maize", "CER-Sorghum", "CER-Millet", 
+#                 "CER-Rice", "OLS-Soybean", "AMT-Beef")
+commod_vec <- c("PUL-Other Pulses", "CER-Maize", "CER-Sorghum", 
+                "CER-Rice")#"OLS-Other Oilseeds"
+
+df <- subset(df_raw, commodity %in% commod_vec)
+df <- df[, c("commodity", "year", "CC", "NoCC")]
+
+df_plot <- df
+df_plot$commodity <- gsub("PUL-|CER-|OLS-", "", df_plot$commodity)
+df_plot$commodity <- gsub("Other Pulses", "White/brown beans", df_plot$commodity)
+df_plot$commodity <- gsub("Other Oilseeds", "Sesame seed", df_plot$commodity)
+
+
+df_plot <- df_plot %>% gather(Scenario, `Net trade ('000 MT)`, CC:NoCC)
+df_plotCC <- subset(df_plot, Scenario == "CC")
+df_plotNoCC <- subset(df_plot, Scenario == "NoCC")
+gg <- ggplot(df_plot, aes(x = year, y  = `Net trade ('000 MT)`, group = Scenario, linetype = Scenario))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~commodity, ncol = 2, scales = "free")
+gg <- gg + theme(axis.title.x = element_blank())
+gg
+#==================================================================
+# Tech vs. no tech
+#==================================================================
+# Define plot functions
+# Tech impact on trade
+tech_plot_netTrade <- function(df_raw,
+                               commod_vec,
+                               background_color = "palegreen",
+                               title_size = 10){
+  n_commods <- length(commod_vec)
+  df <- subset(df_raw, commodity %in% commod_vec)
+  colind_tech <- grep("tech_", colnames(df_raw))
+  tech_col <- colnames(df_raw)[colind_tech]
+  df <- df[, c("commodity", "year", "Notech", tech_col)]
+  colnames(df)[3:4] <- c("CC", "CC with CSAIP")
+  
+  df_plot <- df
+  df_plot$commodity <- gsub(".*-", "", df_plot$commodity)
+  df_plot <- df_plot %>% gather(Scenario, `Net trade ('000 MT)`, CC:`CC with CSAIP`)
+  gg <- ggplot(df_plot, aes(x = year, y  = `Net trade ('000 MT)`, group = Scenario, linetype = Scenario))
+  gg <- gg + geom_line(size = 1.2)
+  if(n_commods > 1){
+    gg <- gg + facet_wrap(~commodity, ncol = 1, scales = "free")
+    }
+  gg <- gg + scale_color_brewer(palette = "Dark2")
+  gg <- gg + theme(axis.title = element_blank(),
+                   legend.title = element_blank(),
+                   legend.position = "bottom",
+                   panel.background = element_rect(fill = background_color),
+                   plot.title = element_text(size = title_size))
+  # if(n_commods > 1){
+  #   gg <- gg + theme(legend.position = "bottom")
+  # }
+  gg <- gg + labs(title = "Net Trade ('000 MT)")
+  return(gg)
+  
+}
+#------------------------------------------------------------------
+# Tech impact on yields
+tech_plot_yield <- function(df_raw,
+                            commod_vec,
+                            production_type = "arf",
+                            background_color = "palegreen",
+                            title_size = 10){
+  n_commods <- length(commod_vec)
+  df <- subset(df_raw, commodity %in% commod_vec)
+  if(production_type != "bypass"){
+    df <- subset(df, productiontype == production_type)
+  }
+  colind_tech <- grep("tech_", colnames(df_raw))
+  tech_col <- colnames(df_raw)[colind_tech]
+  df <- df[, c("commodity", "year", "Notech", tech_col)]
+  colnames(df)[3:4] <- c("CC", "CC with CSAIP")
+  
+  df_plot <- df
+  df_plot$commodity <- gsub(".*-", "", df_plot$commodity)
+  df_plot <- df_plot %>% gather(Scenario, `Yield (MT)`, CC:`CC with CSAIP`)
+  df_plotTech <- subset(df_plot, Scenario == "CC")
+  df_plotNoTech <- subset(df_plot, Scenario == "CC with CSAIP")
+  gg <- ggplot()
+  gg <- gg + geom_line(data = df_plotTech, aes(x = year, y  = `Yield (MT)`, group = commodity, color = commodity), size = 1.2)
+  gg <- gg + geom_line(data = df_plotNoTech, aes(x = year, y  = `Yield (MT)`, group = commodity, color = commodity), linetype = "dashed", size = 1.2)
+  gg <- gg + scale_color_brewer(palette = "Dark2")
+  gg <- gg + theme(axis.title = element_blank(),
+                   legend.title = element_blank(),
+                   legend.position = "bottom",
+                   panel.background = element_rect(fill = background_color),
+                   plot.title = element_text(size = 10))
+  # if(n_commods > 1){
+  #   gg <- gg + theme(legend.position = "bottom")
+  # }else{
+  #   gg <- gg + theme(legend.position = "none")
+  # }
+  gg <- gg + labs(title = "Yield (MT)")
+  gg
+  return(gg)
+}
+#==================================================================
+#==================================================================
+# End plot function definition
+#==================================================================
+#==================================================================
+background_color <- "palegreen"
+title_size <- 10
+#==================================================================
+# Maize, sorghum, and groundnut
+# 1.	Improved crop varieties, Organic Fertilizer, Inorganic Fertilizer, Irrigation
+commod_vec <- c("CER-Maize", "CER-Rice")
+#==================================================================
+# Yield
+df_raw <- read.csv("TYldXAgg -- Total Yield_tech_Improved_crop_varietiesperce_by_year_techVr_notech_climatico.csv"
+, stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "arf",  background_color, title_size)
+#------------------------------------------------------------------
+# Net trade
+df_raw <- read.csv("QNXAgg -- Net Trade_tech_Improved_crop_varietiesperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2, widths = c(sqrt(2), 1))
+#------------------------------------------------------------------
+# Food availability
+# df_raw <- read.csv("FoodAvailXAgg_tech_cereRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+#                    , stringsAsFactors = F)
+# unique(df_raw$commodity)
+# gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#==================================================================
+# 2.	Using organic residues for local energy production
+commod_vec <- c("CER-Sorghum", "CER-Maize", "CER-Millet")
+#==================================================================
+# Yield
+df_raw <- read.csv("TYldXAgg -- Total Yield_tech_using_organicperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "arf", background_color, title_size)
+#------------------------------------------------------------------
+# Net trade
+df_raw <- read.csv("QNXAgg -- Net Trade_tech_using_organicperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+# 
+# # Food availability
+# df_raw <- read.csv("FoodAvailXAgg_tech_rootRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+#                    , stringsAsFactors = F)
+#unique(df_raw$commodity)
+#gg_yield <- tech_plot_yield(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2, widths = c(sqrt(2), 1))
+#------------------------------------------------------------------
+#==================================================================
+# 3. Climate resilient Livestock Production
+# commod_vec <- c("AMT-Beef", "AMT-Lamb", "AMT-Pork")
+# #==================================================================
+# # Yield
+# df_raw <- read.csv("TYldXAgg -- Total Yield_tech_livestockperce_by_year_techVr_notech_climatico.csv"
+#                    , stringsAsFactors = F)
+# #unique(df_raw$commodity)
+# gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "arf", background_color, title_size)
+# #------------------------------------------------------------------
+# # Net trade
+# df_raw <- read.csv("QNXAgg -- Net Trade_tech_using_organicperce_by_year_techVr_notech_climatico.csv"
+#                    , stringsAsFactors = F)
+# #unique(df_raw$commodity)
+# df_raw$commodity <- gsub("Other Pulses", "Sesame, white/brown beans", df_raw$commodity)
+# gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+# gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2, widths = c(sqrt(2), 1))
+
+#==================================================================
+# 4. Diversification, bio-pesticide, bio-fertilizer (nitrogen fertilizer) post- harvest technologies
+commod_vec <- c("PUL-White/brown beans", "OLS-Soybean")
+#==================================================================
+# Yield
+df_raw <- read.csv("TYldXAgg -- Total Yield_tech_diversificationperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+df_raw$commodity <- gsub("Other Pulses", "White/brown beans", df_raw$commodity)
+#df_raw$commodity <- gsub("Other Oilseeds", "Sesame seeds", df_raw$commodity)
+gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "arf", background_color, title_size)
+#------------------------------------------------------------------
+# Net trade
+df_raw <- read.csv("QNXAgg -- Net Trade_tech_diversificationperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+df_raw$commodity <- gsub("Other Pulses", "White/brown beans", df_raw$commodity)
+df_raw$commodity <- gsub("Other Pulses", "White/brown beans", df_raw$commodity)
+
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2, widths = c(sqrt(2), 1))
+
+#==================================================================
+# 5. Restoring degraded land and soil conservation (no bennefit on the first years)
+commod_vec <- c("CER-Maize", "CER-Sorghum", "CER-Millet")
+#==================================================================
+# Yield
+df_raw <- read.csv("TYldXAgg -- Total Yield_tech_restoringperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "arf", background_color, title_size)
+#------------------------------------------------------------------
+# Net trade
+df_raw <- read.csv("QNXAgg -- Net Trade_tech_restoringperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2, widths = c(sqrt(2), 1))
+
+#==================================================================
+# 6. Mobilizing surface water for adaptation
+commod_vec <- c("CER-Maize", "CER-Rice")
+#==================================================================
+# Yield
+df_raw <- read.csv("TYldXAgg -- Total Yield_tech_restoringperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "air", background_color, title_size)
+#------------------------------------------------------------------
+# Net trade
+df_raw <- read.csv("QNXAgg -- Net Trade_tech_restoringperce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+#unique(df_raw$commodity)
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2, widths = c(sqrt(2), 1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+#--------------------------------
+commod_vec <- c("CER-Rice")
+df_raw_rice <- read.csv("YldXAgg -- Yield_tech_waterRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                        , stringsAsFactors = F)
+df_raw_rice <- subset(df_raw_rice, productiontype == "air" & commodity == "CER-Rice")
+colind <- grep("tech_", colnames(df_raw_rice))
+colnames(df_raw_rice)[colind] <- "tech_crop"
+
+gg_Tech_Yield <- tech_plot_yield(df_raw_rice, commod_vec, production_type = "air", background_color, title_size)
+
+df_raw_rice <- read.csv("QNXAgg -- Net Trade_tech_waterRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                        , stringsAsFactors = F)
+df_raw_rice <- subset(df_raw_rice, commodity == "CER-Rice")
+colind <- grep("tech_", colnames(df_raw_rice))
+colnames(df_raw_rice)[colind] <- "tech_crop"
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw_rice, commod_vec, background_color, title_size)
+
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+df_raw_rice <- read.csv("YldXAgg -- Yield_tech_waterRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                    , stringsAsFactors = F)
+df_raw_rice <- subset(df_raw_rice, productiontype == "air" & commodity == "CER-Rice")
+colind <- grep("tech_", colnames(df_raw_rice))
+colnames(df_raw_rice)[colind] <- "tech_crop"
+colnames(df_raw_cacao)[colind] <- "tech_crop"
+df_raw <- rbind(df_raw_cacao, df_raw_rice)
+df_raw$productiontype <- "bypass"
+#unique(df_raw$commodity)
+# colnames(df_raw_cacao)
+# colnames(df_raw_rice)
+gg_Tech_Yield <- tech_plot_yield(df_raw, commod_vec, production_type = "bypass", background_color, title_size)
+#------------------------------------------------------------------
+# Net trade
+df_raw_cacao <- read.csv("QNXAgg -- Net Trade_tech_cocoaRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+df_raw_cacao <- subset(df_raw_cacao, commodity == "COT-Cacao")
+df_raw_rice <- read.csv("QNXAgg -- Net Trade_tech_waterRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+df_raw_rice <- subset(df_raw_rice, commodity == "CER-Rice")
+colind <- grep("tech_", colnames(df_raw_rice))
+colnames(df_raw_rice)[colind] <- "tech_crop"
+colnames(df_raw_cacao)[colind] <- "tech_crop"
+df_raw <- rbind(df_raw_cacao, df_raw_rice)
+gg_Tech_Net_Trade <- tech_plot_netTrade(df_raw, commod_vec, background_color, title_size)
+#------------------------------------------------------------------
+gg_Tech_Yield + gg_Tech_Net_Trade + plot_layout(ncol = 2)
+#------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+df_raw <- read.csv("QNXAgg -- Net Trade_tech_cereRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+unique(df_raw$commodity)
+commod_vec <- c("CER-Maize", "CER-Sorghum", "OLS-Groundnut")
+#tried: "CER-Millet", "CER-Rice"
+
+df <- subset(df_raw, commodity %in% commod_vec)
+df <- df[, c("commodity", "year", "Notech", "tech_cere")]
+colnames(df)[3:4] <- c("CC", "CC with CSAIP")
+
+df_plot <- df
+df_plot$commodity <- gsub("CER-", "", df_plot$commodity)
+df_plot$commodity <- gsub("OLS-", "", df_plot$commodity)
+df_plot <- df_plot %>% gather(Scenario, `Net trade ('000 MT)`, CC:`CC with CSAIP`)
+gg <- ggplot(df_plot, aes(x = year, y  = `Net trade ('000 MT)`, group = Scenario, linetype = Scenario))
+gg <- gg + geom_line(size = 1.2)
+gg <- gg + facet_wrap(~commodity, ncol = 1, scales = "free")
+gg <- gg + scale_color_brewer(palette = "Dark2")
+gg <- gg + theme(axis.title = element_blank(),
+                 legend.title = element_blank(),
+                 legend.position = "bottom",
+                 panel.background = element_rect(fill = background_color))
+gg <- gg + labs(title = "Net Trade ('000 MT)")
+gg
+
+
+#------------------------------------------------------------------
+
+
+#------------------------------------------------------------------
+# Roots and tubers
+#------------------------------------------------------------------
+df_raw <- read.csv("YldXAgg -- Yield_tech_rootRCP_8.5_SSP2_perce_by_year_techVr_notech_climatico.csv"
+                   , stringsAsFactors = F)
+unique(df_raw$commodity)
+commod_vec <- c("R&T-Sweet Potato", "R&T-Cassava", )
+#tried: 
+
+df <- subset(df_raw, commodity %in% commod_vec)
+df <- subset(df, productiontype == "arf")
+df <- df[, c("commodity", "year", "Notech", "tech_cere")]
+colnames(df)[3:4] <- c("NoTech", "Tech")
+
+df_plot <- df
+df_plot$commodity <- gsub("CER-", "", df_plot$commodity)
+df_plot <- df_plot %>% gather(Scenario, `Yield (MT)`, NoTech:Tech)
+df_plotTech <- subset(df_plot, Scenario == "Tech")
+df_plotNoTech <- subset(df_plot, Scenario == "NoTech")
+gg <- ggplot()
+gg <- gg + geom_line(data = df_plotTech, aes(x = year, y  = `Yield (MT)`, group = commodity, color = commodity), linetype = "dashed", size = 1.2)
+gg <- gg + geom_line(data = df_plotNoTech, aes(x = year, y  = `Yield (MT)`, group = commodity, color = commodity), size = 1.2)
+gg <- gg + scale_color_brewer(palette = "Dark2")
+gg <- gg + theme(axis.title.x = element_blank(),
+                 legend.title = element_blank(),
+                 panel.background = element_rect(fill = background_color))
+gg
+
