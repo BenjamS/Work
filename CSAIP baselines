@@ -1,5 +1,9 @@
+setwd("C:/Users/bensc/OneDrive/Documents")
 library(tidyverse)
 library(patchwork)
+#==============================================================
+#==============================================================
+this_place <- "Burkina Faso"
 #==============================================================
 #==============================================================
 # Kcal shares
@@ -35,7 +39,7 @@ df_raw$Item[which(u %in% c("Vegetables", "Vegetable Oils"))] <- "Vegetables"
 df_raw$Unit <- NULL
 df_raw <- df_raw %>% group_by(Area, Item, Element, Year) %>% summarise(Value = sum(Value))
 #---
-area_vec <- c("Ghana")
+area_vec <- c(this_place)
 year_vec <- 1973:2013
 element_vec <- c("Food supply (kcal/capita/day)", "Food supply quantity (kg/capita/yr)")
 item_vec <- foodbal_items_keep <- c("Grand Total",
@@ -105,9 +109,9 @@ df_raw <- gather(df_raw,Year,Value,`1961`:`2017`)
 colnames(df_raw)
 unique(df_raw$Item)[grep("total", unique(df_raw$Item), ignore.case = T)]
 
-area_vec <- c("Ghana")
-item_vec <- c("Cereals,Total", "Pulses,Total", "Roots and Tubers,Total",
-              "Treenuts,Total", "Fruit Primary", "Cocoa, beans", "Oilcrops, Oil Equivalent")
+area_vec <- c(this_place)
+item_vec <- c("Cereals,Total", "Pulses,Total",
+              "Oilcrops, Oil Equivalent") #"Treenuts,Total", "Cocoa, beans",
 element_vec <- c("Area harvested")
 year_vec <- c(1973:2017)
 
@@ -124,11 +128,11 @@ df$Item <- gsub(" Primary", "", df$Item)
 df$Item <- gsub(", beans", "", df$Item)
 df$Item <- gsub(", Oil Equivalent", "", df$Item)
 #-----------
-# For some reason in Ghana oilcrop area is NA for 2015-2017.
-df <- df %>% spread(Item, Value)
-df$Oilcrops[which(is.na(df$Oilcrops))] <- df$Oilcrops[which(df$Year == 2014)]
-gathercols <- colnames(df)[-c(1, 2)]
-df <- df %>% gather_("Item", "Value", gathercols)
+# For some reason in Ghana and Burkina Faso oilcrop area is NA for 2015-2017.
+  df <- df %>% spread(Item, Value)
+  df$Oilcrops[which(is.na(df$Oilcrops))] <- df$Oilcrops[which(df$Year == 2014)]
+  gathercols <- colnames(df)[-c(1, 2)]
+  df <- df %>% gather_("Item", "Value", gathercols)
 #-----------
 # df$Total <- rowSums(df[, -c(1, 2)], na.rm = T)
 # gathercols <- colnames(df)[-c(1, 2)]
@@ -164,19 +168,22 @@ gg_area_mosaic <- gg + theme(legend.position = "bottom",
 
 #======================================================
 cereal_item_vec <- c("Cereals,Total", "Maize", "Millet", "Sorghum", "Rice, paddy")
-RnT_item_vec <- c("Roots and Tubers,Total", "Cassava", "Yams", "Taro (cocoyam)", "Sweet potatoes")
-oilcrop_item_vec <- c("Oilcrops, Oil Equivalent", "Coconuts", "Groundnuts, with shell", "Karite nuts (sheanuts)",
-                      "Oil palm fruit", "Seed cotton")
-item_vec <- c(cereal_item_vec, RnT_item_vec, oilcrop_item_vec)
-list_item_vec <- list(cereal_item_vec, RnT_item_vec, oilcrop_item_vec)
+#RnT_item_vec <- c("Roots and Tubers,Total", "Cassava", "Yams", "Taro (cocoyam)", "Sweet potatoes")
+pulses_item_vec <- c("Pulses,Total", "Bambara beans", "Cow peas, dry", "Pulses, nes")
+oilcrop_item_vec <- c("Oilcrops, Oil Equivalent", "Sesame seed", "Groundnuts, with shell", "Karite nuts (sheanuts)",
+                      "Soybeans", "Seed cotton")
+item_vec <- c(cereal_item_vec, pulses_item_vec, oilcrop_item_vec)
+list_item_vec <- list(cereal_item_vec, pulses_item_vec, oilcrop_item_vec)
 df <- subset(df_raw, Area %in% area_vec)
 df <- subset(df, Element %in% element_vec)
 df <- subset(df, Year %in% year_vec)
 df <- subset(df, Item %in% item_vec)
-df <- subset(df, !(Item %in% c("Cereals,Total", "Roots and Tubers,Total", "Oilcrops, Oil Equivalent")))
+#df <- subset(df, !(Item %in% c("Cereals,Total", "Roots and Tubers,Total", "Oilcrops, Oil Equivalent")))
+df <- subset(df, !(Item %in% c("Cereals,Total", "Pulses,Total", "Oilcrops, Oil Equivalent")))
 df$Value <- df$Value * 10^-6
 
-crop_plot_titles <- c("Cereals", "Roots and Tubers", "Oilcrops")
+#crop_plot_titles <- c("Cereals", "Roots and Tubers", "Oilcrops")
+crop_plot_titles <- c("Cereals", "Pulses", "Oilcrops")
 list_gg <- list()
 list_gg_mosaic <- list()
 excl_txt <- c(",Total|, with shell|, paddy| \\(cocoyam\\)| \\(sheanuts\\)")
@@ -230,7 +237,7 @@ gg_area_mosaic + (list_gg_mosaic[[1]] / list_gg_mosaic[[2]] / list_gg_mosaic[[3]
 # Export shares
 #==============================================================
 #==============================================================
-area_vec <- c("Ghana")
+area_vec <- c("Burkina Faso")
 item_vec <- c("Grand Total",
               "Animal Products",
               "Cereals",
