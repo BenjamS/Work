@@ -1,0 +1,215 @@
+---
+title: "Assessing cassava supply response to price"
+author: "Benjamin Schiek"
+date: "`r Sys.time()`"
+header-includes:
+  - \usepackage{float}
+  - \floatplacement{figure}{H}
+output: 
+  pdf_document:
+    fig_caption: true
+    number_sections: true
+    latex_engine: xelatex
+mainfont: Garamond
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+library(xtable)
+library(ggrepel)
+#========================================================================
+# Define functions
+#========================================================================
+
+#yStar
+
+
+```
+
+
+# Introduction
+
+(Problems with existing yield models)
+(Things we want the function to do - positive supply response (but this might come from expanded area) - inverse relation between farm size and "TFP" (output per unit cost))
+
+The supply response to changes in price is not clear.
+
+* Supply response to price changes is poorly understood. (India experience - no response to price, but yes response to technological improvements.)
+* So, before you go pouring millions of dollars into a variety that lowers yield, careful modeling is required to assess whether or not, to what extent, and under what conditions it is possible to offset the lower yield with higher price.
+* We cannot determine the supply response, we can describe the conditions under which, according to theory (i.e. consistent with axioms acceptable to everyone), a given response may occur. (That is, we can bracket the uncertainty).
+
+
+```{r, echo=FALSE, include=FALSE}
+
+df_vap_raw <- read.csv("Value_of_Production_E_All_Data.csv", stringsAsFactors = F)
+#colnames(df_vap_raw)
+df_vap_raw$Area.Code <- NULL
+df_vap_raw$Item.Code <- NULL
+df_vap_raw$Element.Code <-NULL
+u <- colnames(df_vap_raw)
+#colnames(df_vap_raw)
+df_vap_raw <- df_vap_raw[, -grep("F", u)]
+colnames(df_vap_raw)[5:ncol(df_vap_raw)] <- as.character(c(1961:(1961 + ncol(df_vap_raw) - 5)))
+df_vap_raw <- gather(df_vap_raw,Year,Value,`1961`:`2016`)
+#------------------
+#unique(df_vap_raw$Area)[grep("africa", unique(df_vap_raw$Area), ignore.case = T)]
+#unique(df_vap_raw$Item)[grep("rice", unique(df_vap_raw$Item), ignore.case = T)]
+#------------------
+area_vec <- c("Thailand")
+item_vec <- c("Rice, paddy", "Cassava")
+#------------------
+df_vap <- subset(df_vap_raw, Area %in% area_vec)
+df_vap <- subset(df_vap, Item %in% item_vec)
+#unique(df_vap_raw$Element)
+#element_vec <- c("Gross Production Value (current million US$)")
+element_vec <- c("Gross Production Value (current million SLC)")
+df_vap <- subset(df_vap, Element %in% element_vec)
+#df_vap <- subset(df_vap, Year > 1990)
+df_vap$Unit <- NULL
+df_vap$Element <- NULL
+df_vap$Value <- df_vap$Value * 10^6
+colnames(df_vap)[4] <- "Gross Production Value (current USD)"
+colnames(df_vap)[4] <- "Gross Production Value (current SLC)"
+#------------------------------
+# Get production data
+df_prod_raw <- read.csv("Production_Crops_E_All_Data.csv", stringsAsFactors = F)
+df_prod_raw <- subset(df_prod_raw, Item.Code != 2928)
+df_prod_raw$Area.Code <- NULL
+df_prod_raw$Item.Code <- NULL
+df_prod_raw$Element.Code <-NULL
+u <- colnames(df_prod_raw)
+df_prod_raw <- df_prod_raw[, -grep("F", u)]
+last_yr <- (1961 + ncol(df_prod_raw) - 5)
+colnames(df_prod_raw)[5:ncol(df_prod_raw)] <- as.character(c(1961:last_yr))
+gathercols <- colnames(df_prod_raw)[5:ncol(df_prod_raw)]
+df_prod_raw <- gather_(df_prod_raw, "Year", "Value", gathercols)
+#------------------------------
+#unique(df_prod_raw$Item)[grep("beans", unique(df_prod_raw$Item), ignore.case = T)]
+df_prod_yield <- subset(df_prod_raw, Item %in% item_vec)
+df_prod_yield <- subset(df_prod_yield, Area %in% area_vec)
+#df_prod_yield <- subset(df_prod_yield, Year == 2014)
+df_prod_yield$Unit <- NULL
+#df_prod_yield <- subset(df_prod_yield, Element %in% c("Yield", "Production"))
+df_prod_yield <- df_prod_yield %>% spread(Element, Value)
+df_prod_yield$Yield <- df_prod_yield$Yield / 10000
+df_prod_yield$Production <- df_prod_yield$Production / 1000
+df_prod_yield$`Area harvested` <- df_prod_yield$`Area harvested` / 1000
+colnames(df_prod_yield)[4:6] <- c("Area harvested ('000 Ha)", "Production ('000 MT)", "Yield (MT)")
+#------------------------------
+# df_plot <- subset(df_prod_yield, Item == "Rice, paddy")
+# df_plot$x <- log(df_plot$`Area harvested ('000 Ha)`)
+# df_plot$y <- log(df_plot$`Yield (MT)`)
+# gg <- ggplot(df_plot, aes(x, y))
+# gg <- gg + geom_point()
+# gg
+#------------------------------
+df_price <- merge(df_vap, df_prod_yield, by = c("Area", "Year", "Item"))
+df_price$`Price (Baht / MT)` <- df_price$`Gross Production Value (current SLC)` / df_price$`Production ('000 MT)`
+#------------------------------
+# df_exPrice_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv", stringsAsFactors = F)
+# df_exPrice_raw <- subset(df_exPrice_raw, Item.Code != 2928)
+# df_exPrice_raw$Area.Code <- NULL
+# df_exPrice_raw$Element.Code <-NULL
+# df_exPrice_raw$Item <- as.character(df_exPrice_raw$Item)
+# df_exPrice_raw$Element <- as.character(df_exPrice_raw$Element)
+# df_exPrice_raw$Area <- as.character(df_exPrice_raw$Area)
+# u <- colnames(df_exPrice_raw)
+# df_exPrice_raw <- df_exPrice_raw[, -grep("F", u)]
+# colnames(df_exPrice_raw)[6:ncol(df_exPrice_raw)] <- as.character(c(1961:2016))
+# df_exPrice_raw <- gather(df_exPrice_raw, Year, Value, `1961`:`2016`)
+# rm(u)
+# colnames(df_exPrice_raw)
+# unique(df_exPrice_raw$Element)
+# df_exPrice_raw$Item.Code <- NULL
+# df_exPrice <- subset(df_exPrice_raw, Element %in% c("Export Quantity", "Export Value"))
+# df_exPrice$Unit <- NULL
+# df_exPrice <- subset(df_exPrice, Item == "Cassava Equivalent")
+# df_exPrice <- subset(df_exPrice, Area %in% area_vec)
+# df_exPrice <- df_exPrice %>% spread(Element, Value)
+# df_exPrice$`Export Price` <- df_exPrice$`Export Value` / df_exPrice$`Export Quantity`
+# #------------------------------
+# df_plot <- merge(df_price, df_exPrice[, c("Area", "Year", "Export Price")], by = c("Area", "Year"))
+# df_plot <- subset(df_plot, Year > 1990)
+# gg <- ggplot(df_plot, aes(x = `Export Price`, y = Price, label = Year))
+# gg <- gg + geom_point()
+# gg <- gg + geom_text_repel()
+# gg
+```
+
+There is a clear correlation between price and production in the case of rice. For cassava, there appears to be some correlation, but it is much less clear.
+
+```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:supply_response}Production response to price (FAO).", echo=FALSE}
+
+df_plot <- df_price
+df_plot$`Gross Production Value (current SLC)` <- NULL
+df_plot <- df_plot %>% gather(Type, Value, `Area harvested ('000 Ha)`:`Yield (MT)`)
+gg <- ggplot(df_plot, aes(x = Value, y = `Price (Baht / MT)`, label = Year))
+gg <- gg + geom_point()
+gg <- gg + geom_text_repel()
+gg <- gg + facet_grid(Type~Item, scales = "free_y")
+gg
+
+
+
+
+```
+
+There is some correlation between yield and price (Figure \ref{fig:yield_response}). However, it is not a tight correlation. Not a response. Have to separate improvements in technology from price.
+
+```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:yield_response}Area response to price (FAO).", echo=FALSE}
+
+df_plot <- subset(df_price, Item == "Rice, paddy")
+# df_plot$lPrice <- log(df_price$Price)
+# df_plot$`lYield (MT)` <- log(df_plot$`Yield (MT)`)
+gg <- ggplot(df_plot, aes(x = `Yield (MT)`, y = `Area harvested ('000 Ha)`, label = Year))
+gg <- gg + geom_point()
+gg <- gg + geom_text_repel()
+gg
+
+```
+
+
+
+The other manner of increasing production is to expand area. However, there is no clear relation between price and area. If any relation at all, it is that area is inelastic with respect to price (Figure \ref{fig:area_response}).
+
+
+```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:area_response}Area response to price (FAO).", echo=FALSE}
+
+df_plot <- df_price
+gg <- ggplot(df_plot, aes(x = `Area harvested ('000 Ha)`, y = `Price (Baht / MT)`, label = Year))
+gg <- gg + geom_point()
+gg <- gg + geom_text_repel()
+gg
+
+```
+
+# The new model
+
+
+
+
+# Appendix
+
+\begin{equation}
+\mathcal{L} = APy - C + \lambda_C (\bar{C} - C)
+\end{equation}
+
+\begin{equation}
+y = e^{\frac{\tilde{C} (1 + \lambda_C / A)}{P h}}
+\end{equation}
+
+\begin{equation}
+\eta_{y,P}
+\end{equation}
+
+\begin{equation}
+\eta_{y,A}, \eta_{\nu, A}
+\end{equation}
+
+
