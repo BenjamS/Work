@@ -1,5 +1,5 @@
 # library(lamW)
-# library(rootSolve)
+library(rootSolve)
 library(tidyverse)
 #=============================================================
 #=============================================================
@@ -10,7 +10,14 @@ library(tidyverse)
 #=============================================================
 # Supply function
 #=============================================================
-QS_at_P <- function(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N){
+QS_at_P <- function(P, QS_env){
+  mu_alpha <- QS_env[["mu_alpha"]]
+  sig_alpha <- QS_env[["sig_alpha"]]
+  yCeil <- QS_env[["yCeil"]]
+  m_A <- QS_env[["m_A"]]
+  s_A <- QS_env[["s_A"]]
+  N <- QS_env[["N"]]
+  
   m_y <- log(yCeil) + mu_alpha / P
   s_y <- sig_alpha / P
   mu_y <- exp(m_y + s_y^2 / 2)
@@ -38,25 +45,84 @@ QS_at_P <- function(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N){
   return(out_vec)
 }
 #-------------------------------------------------------------
-QS_curve <- function(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N){
+QS_curve <- function(P, QS_env){
   QS_vec <- c()
   mkt_particip_vec <- c()
-  list_out <- purrr::map(P_vec, QS_at_P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
+  list_out <- purrr::map(P_vec, QS_at_P, QS_env)
   return(list_out)
 }
-#-------------------------------------------------------------
-QD_at_P <- function(P, P_output, a_e, gamma_D, N_D){
+#=============================================================
+# Demand curve
+#=============================================================
+QD_at_P <- function(P, QD_env){
+  P_output <- QD_env[["P_output"]]
+  a_e <- QD_env[["a_e"]] 
+  gamma_D <- QD_env[["gamma_D"]]
+  N_D <- QD_env[["N_D"]]
   QD <- N_D * P_output / (P * gamma_D) * a_e
   out_vec <- c(P, QD)
   return(out_vec)
 }
 #-------------------------------------------------------------
-QD_curve <- function(P_vec, P_output, a_e, gamma_D, N_D){
+QD_curve <- function(P_vec, QD_env){
   QS_vec <- c()
   mkt_particip_vec <- c()
-  list_out <- purrr::map(P_vec, QD_at_P, P_output, a_e, gamma_D, N_D)
+  list_out <- purrr::map(P_vec, QD_at_P, QD_env)
   return(list_out)
 }
+#=============================================================
+# Equilibrium
+#=============================================================
+equilib_rootfn <- function(P_vec, QS_env, QD_env){
+  print(P_vec)
+  print(length(P_vec))
+  
+  QS <- QS_curve(P_vec, QS_env)
+  QS <- as.data.frame(do.call(rbind, QS))
+  QS <- QS[, 2]
+  print(length(QS))
+  
+  QD <- QD_curve(P_vec, QD_env)
+  QD <- as.data.frame(do.call(rbind, QD))
+  QD <- QD[, 2]
+  print(length(QD))
+  
+  slack <- QS - QD
+  
+  # print(c(slack[1], slack[length(slack)]))
+  # print(c(P_vec[1], P_vec[length(P_vec)]))
+  # print(c(QS[1], QS[length(QS)]))
+  # print(c(QD[1], QD[length(QD)]))
+  # 
+  # print(QS[1] - QD[1])
+  # print(QS[length(QS)] - QD[length(QD)])
+  
+  # print(length(QS))
+  # print(length(QD))
+  
+  return(slack)
+} 
+
+QSQD_Equilib <- function(interval_P, QS_env, QD_env){
+  
+  P_E <- uniroot.all(equilib_rootfn,
+              interval_P,
+              lower = min(interval_P),
+              upper = max(interval_P),
+              QS_env = QS_env,
+              QD_env = QD_env)
+  
+  QS_vec <- QS_at_P(P_E, QS_env)
+  
+  return(QS_vec)
+  
+}
+#=============================================================
+# Tech adoption
+#=============================================================
+
+
+
 #=============================================================
 #=============================================================
 #=============================================================
@@ -88,10 +154,23 @@ P_vec <- seq(200, 3500, length.out = 50)
 #=============================================================
 # P <- 1800
 # QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
-list_QS_curve <- QS_curve(P_vec, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
+QS_env <- list()
+QS_env[["mu_alpha"]] <- mu_alpha
+QS_env[["sig_alpha"]] <- sig_alpha
+QS_env[["yCeil"]] <- yCeil
+QS_env[["m_A"]] <- m_A
+QS_env[["s_A"]] <- s_A
+QS_env[["N"]] <- N
+list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
-list_QD_curve <- QD_curve(P_vec, P_output, a_e, gamma_D, N_D)
+
+QD_env <- list()
+QD_env[["P_output"]] <- P_output
+QD_env[["a_e"]] <- a_e
+QD_env[["gamma_D"]] <- gamma_D
+QD_env[["N_D"]] <- N_D
+list_QD_curve <- QD_curve(P_vec, QD_env)
 df_QD <- as.data.frame(do.call(rbind, list_QD_curve))
 colnames(df_QD) <- c("Price (Baht / MT)", "Demand")
 df_plot <- df_QS
@@ -102,6 +181,9 @@ df_plot <- df_QS
 # gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Demand))
 # gg <- gg + geom_line()
 # gg
+
+interval_P <- c(200, 3000)
+equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
 
 df_plot <- merge(df_QS, df_QD)
 df_plot$`Market Participation` <- NULL
@@ -115,19 +197,26 @@ gg
 
 
 
+#=============================================================
+#=============================================================
+
+function(P_0, P_1, delta){
+  alpha_switch <- (log(P_0) - log(P_1)) / (delta / P_1 - 1 / P_0)
+  
+  
+}
 
 
 
-alpha_0 <- alpha_1 / P_1 * P_0
-
-
-
-y_0 <- y_Ceil * exp(alpha_0 / P_0)
 
 
 
 
 
+
+
+#=============================================================
+#=============================================================
 
 
 
