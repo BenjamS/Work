@@ -8,6 +8,28 @@ library(tidyverse)
 #=============================================================
 #=============================================================
 #=============================================================
+# Tech adoption
+#=============================================================
+adoptBounds_QS <- function(P_0, P_1, delta){
+  
+  alpha_switch <- (log(P_0) - log(P_1)) / (delta / P_1 - 1 / P_0)
+  lq_upper_0 <- alpha_switch / P_0
+  lq_lower_1 <- alpha_switch / P_1
+  
+  out_vec <- c(lq_upper_0, lq_lower_1, P_0)
+  
+  return(out_vec)
+}
+n_points <- 40
+out <- purrr::map(seq(1900, 2100, length.out = n_points), adoptBounds_QS, P_1, delta)
+df <- as.data.frame(do.call(rbind, out))
+colnames(df)[3] <- "P_0"
+df <- df %>% gather(Item, Value, V1:V2)
+gg <- ggplot(df, aes(x = P_0, y = Value, group = Item, color = Item))
+gg <- gg + geom_line()
+gg <- gg + geom_vline(xintercept = P_1 / delta, color = "violet", size = 1)
+gg
+#=============================================================
 # Supply function
 #=============================================================
 QS_at_P <- function(P, QS_env){
@@ -17,11 +39,12 @@ QS_at_P <- function(P, QS_env){
   m_A <- QS_env[["m_A"]]
   s_A <- QS_env[["s_A"]]
   N <- QS_env[["N"]]
+  adopt_list <- QS_env[["adopt_list"]]
   
   m_y <- log(yCeil) + mu_alpha / P
   s_y <- sig_alpha / P
   mu_y <- exp(m_y + s_y^2 / 2)
-
+  
   mu_A <- exp(m_A + s_A^2 / 2)
   
   mu_q <- mu_y * mu_A
@@ -31,23 +54,46 @@ QS_at_P <- function(P, QS_env){
   lq_upper <- 0
   lq_lower <- -1
   
-  u_upper <- (lq_upper - mu_alpha / P) / s_q
-  u_lower <- (lq_lower - mu_alpha / P) / s_q
+  flag_zero <- 0
+  if(!is.null(adopt_list)){
+    delta <- adopt_list[[1]]
+    P_1 <- adopt_list[[2]]
+    P_0 <- P
+    which_tech <- adopt_list[[3]]
+    lq_bounds_01 <- adoptBounds_QS(P_0, P_1, delta)
+
+    if(which_tech == "baseline"){
+      x_upper <- lq_bounds_01[1]
+      lq_upper <- ifelse(x_upper < 0 & x_upper > -1, x_upper, NA)
+      }
+    if(which_tech == "new"){
+      x_lower <- lq_bounds_01[2]
+      lq_lower <- ifelse(x_lower < 0 & x_lower > -1, x_lower, NA)
+      }
+    if(is.na(lq_lower) | is.na(lq_upper)){flag_zero <- 1}
+  }
   
-  theta_upper <- u_upper - s_q
-  theta_lower <- u_lower - s_q
-  
-  N_upper <- pnorm(theta_upper)
-  N_lower <- pnorm(theta_lower)
-  mkt_particip <- N_upper - N_lower
-  QS <- N * mu_q * mkt_particip
-  out_vec <- c(P, QS, mkt_particip)
+  if(flag_zero == 0){
+    u_upper <- (lq_upper - mu_alpha / P) / s_q
+    u_lower <- (lq_lower - mu_alpha / P) / s_q
+    
+    theta_upper <- u_upper - s_q
+    theta_lower <- u_lower - s_q
+    
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    mkt_particip <- N_upper - N_lower
+    QS <- N * mu_q * mkt_particip
+    out_vec <- c(P, QS, mkt_particip)
+  }else{
+    QS <- 0
+    out_vec <- c(P, QS, NA)
+  }
+
   return(out_vec)
 }
 #-------------------------------------------------------------
-QS_curve <- function(P, QS_env){
-  QS_vec <- c()
-  mkt_particip_vec <- c()
+QS_curve <- function(P_vec, QS_env){
   list_out <- purrr::map(P_vec, QS_at_P, QS_env)
   return(list_out)
 }
@@ -65,8 +111,6 @@ QD_at_P <- function(P, QD_env){
 }
 #-------------------------------------------------------------
 QD_curve <- function(P_vec, QD_env){
-  QS_vec <- c()
-  mkt_particip_vec <- c()
   list_out <- purrr::map(P_vec, QD_at_P, QD_env)
   return(list_out)
 }
@@ -74,53 +118,33 @@ QD_curve <- function(P_vec, QD_env){
 # Equilibrium
 #=============================================================
 equilib_rootfn <- function(P_vec, QS_env, QD_env){
-  print(P_vec)
-  print(length(P_vec))
   
   QS <- QS_curve(P_vec, QS_env)
   QS <- as.data.frame(do.call(rbind, QS))
   QS <- QS[, 2]
-  print(length(QS))
   
   QD <- QD_curve(P_vec, QD_env)
   QD <- as.data.frame(do.call(rbind, QD))
   QD <- QD[, 2]
-  print(length(QD))
   
   slack <- QS - QD
-  
-  # print(c(slack[1], slack[length(slack)]))
-  # print(c(P_vec[1], P_vec[length(P_vec)]))
-  # print(c(QS[1], QS[length(QS)]))
-  # print(c(QD[1], QD[length(QD)]))
-  # 
-  # print(QS[1] - QD[1])
-  # print(QS[length(QS)] - QD[length(QD)])
-  
-  # print(length(QS))
-  # print(length(QD))
-  
   return(slack)
 } 
 
 QSQD_Equilib <- function(interval_P, QS_env, QD_env){
   
   P_E <- uniroot.all(equilib_rootfn,
-              interval_P,
-              lower = min(interval_P),
-              upper = max(interval_P),
-              QS_env = QS_env,
-              QD_env = QD_env)
+                     interval_P,
+                     lower = min(interval_P),
+                     upper = max(interval_P),
+                     QS_env = QS_env,
+                     QD_env = QD_env)
   
   QS_vec <- QS_at_P(P_E, QS_env)
   
   return(QS_vec)
   
 }
-#=============================================================
-# Tech adoption
-#=============================================================
-
 
 
 #=============================================================
@@ -142,6 +166,7 @@ m_A <- log(2)
 cv_A <- 0.2
 s_A <- m_A * cv_A
 N <- 40
+lq_bounds <- NULL
 #-------------------------------------------------------------
 # Demand
 #-------------------------------------------------------------
@@ -150,7 +175,7 @@ a_e <- 1.5 / 0.17
 gamma_D <- 1.05
 N_D <- 20
 #=============================================================
-P_vec <- seq(200, 3500, length.out = 50)
+P_vec <- seq(200, 3500, length.out = 200)
 #=============================================================
 # P <- 1800
 # QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
@@ -161,6 +186,7 @@ QS_env[["yCeil"]] <- yCeil
 QS_env[["m_A"]] <- m_A
 QS_env[["s_A"]] <- s_A
 QS_env[["N"]] <- N
+QS_env[["adopt_list"]] <- NULL
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
@@ -194,21 +220,38 @@ gg <- gg + geom_line(lwd = 1)
 gg <- gg + coord_cartesian(ylim = c(0, 3000))
 gg <- gg + theme(legend.title = element_blank())
 gg
-
-
-
 #=============================================================
 #=============================================================
+delta <- 1.1
+P_1 <- 2400
+which_tech <- "baseline"
+adopt_list <- list(delta, P_1, which_tech)
+QS_env[["adopt_list"]] <- adopt_list
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
 
-function(P_0, P_1, delta){
-  alpha_switch <- (log(P_0) - log(P_1)) / (delta / P_1 - 1 / P_0)
-  
-  
-}
+df_plot <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+gg <- gg + geom_point()
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg
 
 
+which_tech <- "new"
+adopt_list <- list(delta, P_1, which_tech)
+QS_env[["adopt_list"]] <- adopt_list
+QS_env[["mu_alpha"]] <- mu_alpha * delta
+QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * delta)
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
 
-
+df_plot <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg
 
 
 
