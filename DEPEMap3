@@ -10,99 +10,119 @@ library(tidyverse)
 #=============================================================
 # Tech adoption
 #=============================================================
-get_adopt_range <- function(P_0, P_1, delta, yCeil, which_tech, graph_on = F, quietly = T){
-  
-  new_factor <- delta * P_0 / P_1
-  ly_switch <- (log(P_0) - log(P_1)) / (new_factor - 1)
-  a_little <- 0.01
-  ly_switch_plus_e <- ly_switch + a_little
-  
-  R_0 <- yCeil * exp(ly_switch_plus_e) * P_0
-  R_1 <- yCeil * exp(factor * ly_switch_plus_e) * P_1
-  diff_NR1NR0 <- R_1 - R_0
-  
+get_adopt_range <- function(delta_tech, delta_P, quietly = T){
+  # delta_tech <- .9
+  # delta_P <- 0.95 # Must be > delta_tech?
+  ratio_deltas <- delta_tech / delta_P
+  ly_switch <- -log(delta_P) / (ratio_deltas - 1)
+  #if(delta_P > 1){
+  if(ratio_deltas < 1){
+    tech_is_pro_poor <- T
+  }else{
+    tech_is_pro_poor <- F
+  }
   if(ly_switch > -1 & ly_switch < 0){
-    if(diff_NR1NR0 < 0){
-      if(!quietly){print("Tech is pro-poor")}
-      tech_is_pro_poor <- T
-    }else{
-      if(!quietly){print("Tech is not pro-poor")}
-      tech_is_pro_poor <- F
-    }
-    
-  }else{
-    if(!quietly){"ly_switch not on interval (-1, 0)"}
-    tech_is_pro_poor <- NA
-  }
-  
-  
-  if(!is.na(tech_is_pro_poor)){
     if(tech_is_pro_poor){
-      ly_adopt_bounds <- c(-1, ly_switch)
-      if(which_tech == "baseline"){
-        ly_QS_bounds <- c(ly_switch, 0)
-      }
-      if(which_tech == "new"){
-        ly_QS_bounds <- ly_adopt_bounds
-      }
-      
+      adopt_bounds <- c(-1, ly_switch)
     }else{
-      ly_adopt_bounds <- c(ly_switch, 0)
-      if(which_tech == "baseline"){
-        ly_QS_bounds <- c(-1, ly_switch)
-      }
-      if(which_tech == "new"){
-        ly_QS_bounds <- ly_adopt_bounds
-      }
-      
-      
+      adopt_bounds <- c(ly_switch, 0)
     }
-    
   }else{
-    if(diff_NR1NR0 > 0){
-      ly_adopt_range <- c(-1, 0)
-      if(which_tech == "baseline"){
-        ly_QS_bounds <- NA
+    if(ly_switch < -1){
+      if(tech_is_pro_poor){
+        adopt_bounds <- NA  
+      }else{
+        adopt_bounds <- c(-1, 0)
       }
-      if(which_tech == "new"){
-        ly_QS_bounds <- ly_adopt_bounds
+    }
+    if(ly_switch > 0){
+      if(tech_is_pro_poor){
+        adopt_bounds <- c(-1, 0)
+      }else{
+        adopt_bounds <- NA
       }
-      
-    }else{
-      ly_adopt_range <- NA
-      if(which_tech == "baseline"){
-        ly_QS_bounds <- c(-1, 0)
-      }
-      if(which_tech == "new"){
-        ly_QS_bounds <- ly_adopt_bounds
-      }
-      
     }
   }
   
-  #--  
+  if(!quietly){
+    print("Adoption log yield (normalized) bounds:")
+    print(adopt_bounds)
+    print("ly_switch:")
+    print(ly_switch)
+    if(tech_is_pro_poor){
+      print("Tech is pro-poor")
+    }else{
+      print("Tech is not pro-poor")
+    }
+  }
   
-  if(graph_on){
+  out_list <- list(adopt_bounds, tech_is_pro_poor)
+  return(out_list)
+}    
+
+
+graph_diffNR1NR0 <- function(delta_tech, delta_P, yCeil){
     ly0_vec <- seq(-1, 0, length.out = 25)
-    R_0 <- yCeil * exp(ly0_vec) * P_0
-    R_1 <- yCeil * exp(delta * ly0_vec * P_0 / P_1) * P_1
-    #plot(r_vec, R_1 - R_0)
+    
+    ratio_deltas <- delta_tech / delta_P
+    ly_switch <- -log(delta_P) / (ratio_deltas - 1)
+    
+    R_0 <- yCeil * exp(ly0_vec)
+    R_1 <- yCeil * exp(ly0_vec * delta_tech / delta_P) * delta_P
     diff_NR1NR0 <- R_1 - R_0
-    df_plot <- data.frame(ly0_vec, diff_NR0NR1)
+    df_plot <- data.frame(ly0_vec, diff_NR1NR0)
     gg <- ggplot(df_plot, aes(x = ly0_vec, y = diff_NR1NR0))
     gg <- gg + geom_line()
     gg <- gg + geom_hline(yintercept = 0, color = "violet", size = 1)
-    gg <- gg + labs(x = "Log yield index", y = "Diff. in net rev. / ha. (new - baseline)")
+#    gg <- gg + geom_vline(xintercept = ly_switch, color = "violet", size = 1)
+    gg <- gg + labs(x = "Log yield index", y = expression("Diff. in net rev. ("*ha.^-1 ~Price^-1*")"))
     gg
     
-  }
-  #--
-  
-  out_list <- list(ly_QS_bounds, ly_adopt_bounds, ly_switch, tech_is_proo_poor)
-  return(out_list)
-  
 }
 
+
+# delta_tech <- 1.1
+# delta_P <- 1.03
+# out <- get_adopt_range(delta_tech, delta_P, quietly = T)
+# adopt_bounds <- out[[1]]
+# tech_is_pro_poor <- out[[2]]
+# adopt_bounds
+# tech_is_pro_poor
+# graph_diffNR1NR0(delta_tech, delta_P, yCeil)
+
+get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech){
+  if(which_tech == "baseline"){
+    zero_adoption <- F
+    full_adoption <- F
+    if(is.na(adopt_bounds)){
+      lq_bounds <- c(-1, 0)
+      zero_adoption <- T
+    }
+    if(adopt_bounds[1] == -1 & adopt_bounds[2] == 0){
+        lq_bounds <- NA
+        full_adoption <- T
+    }
+      
+    if(zero_adoption == F & full_adoption == F){
+      if(tech_is_pro_poor){
+        lq_lower <- adopt_bounds[2]
+        lq_upper <- 0
+      }else{
+        lq_lower <- -1
+        lq_upper <- adopt_bounds[1]
+      }
+      lq_bounds <- c(lq_lower, lq_upper)
+      
+    }
+    
+  }
+
+  if(which_tech == "new"){
+    lq_bounds <- adopt_bounds
+  }
+  
+  return(lq_bounds)
+}
 
 #=============================================================
 # Supply function
@@ -114,7 +134,7 @@ QS_at_P <- function(P, QS_env){
   m_A <- QS_env[["m_A"]]
   s_A <- QS_env[["s_A"]]
   N <- QS_env[["N"]]
-  adopt_list <- QS_env[["adopt_list"]]
+  lq_bounds <- QS_env[["lq_bounds"]]
 
   m_y <- log(yCeil) + mu_alpha / P
   s_y <- sig_alpha / P
@@ -125,27 +145,21 @@ QS_at_P <- function(P, QS_env){
   mu_q <- mu_y * mu_A
   
   s_q <- s_A + s_y
-  
+
   supply_is_zero <- F
-  if(is.null(adopt_list)){
+  if(is.null(lq_bounds)){
     lq_lower <- -1
     lq_upper <- 0
   }else{
-    delta <- adopt_list[[1]]
-    P_1 <- adopt_list[[2]]
-    P_0 <- P
-    which_tech <- adopt_list[[3]]
-    out_list <- get_adopt_range(P_0, P_1, delta, yCeil, which_tech, graph_on = F, quietly = T)
-    lq_bounds <- out_list[[1]]
     if(is.na(lq_bounds)){
       supply_is_zero <- T
     }else{
       lq_lower <- lq_bounds[1]
       lq_upper <- lq_bounds[2]
     }
+    
   }
   
-
   if(supply_is_zero){
     mkt_particip <- 0
     QS <- 0
@@ -232,23 +246,26 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
 # Supply
 #-------------------------------------------------------------
 mu_alpha <- -1000
-cv_alpha <- 0.4
+cv_alpha <- 0.6
 sig_alpha <- abs(mu_alpha * cv_alpha)
 yCeil <- 44
 m_A <- log(2)
-cv_A <- 0.2
+cv_A <- 0.8
 s_A <- m_A * cv_A
 N <- 40
 lq_bounds <- NULL
 #-------------------------------------------------------------
 # Demand
 #-------------------------------------------------------------
+# QD <- N_D * P_output / (P * gamma_D) * a_e
+QD_obs <- 900 # observed demand
+P_E_obs <- 2300 # observed equilibrium price
 P_output <- 23500
-a_e <- 1.5 / 0.17
 gamma_D <- 1.05
-N_D <- 20
+N_D <- 3
+a_e <- QD_obs / (N_D * P_output) * P_E_obs * gamma_D
 #=============================================================
-P_vec <- seq(200, 3500, length.out = 200)
+P_vec <- seq(200, 5000, length.out = 50)
 #=============================================================
 # P <- 1800
 # QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
@@ -259,7 +276,7 @@ QS_env[["yCeil"]] <- yCeil
 QS_env[["m_A"]] <- m_A
 QS_env[["s_A"]] <- s_A
 QS_env[["N"]] <- N
-QS_env[["adopt_list"]] <- NULL
+QS_env[["lq_bounds"]] <- NULL
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
@@ -281,57 +298,134 @@ df_plot <- df_QS
 # gg <- gg + geom_line()
 # gg
 
-interval_P <- c(200, 3000)
-equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
-
 df_plot <- merge(df_QS, df_QD)
 df_plot$`Market Participation` <- NULL
 df_plot <- df_plot %>% gather(Type, `Quantity (MT)`, Demand:Supply)
 
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1)
-gg <- gg + coord_cartesian(ylim = c(0, 3000))
+gg <- gg + coord_cartesian(ylim = c(0, 2000))
 gg <- gg + theme(legend.title = element_blank())
 gg
+
+interval_P <- c(200, 3000)
+equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
+equilib_vec
 #=============================================================
 #=============================================================
-delta <- 1.1
-P_1 <- 2300
+#=============================================================
+#=============================================================
+#=============================================================
+# Technology adoption analysis
+#=============================================================
+#=============================================================
+#=============================================================
+# delta_tech <- 1.1
+# delta_P <- 1.03
+delta_tech <- 1.11
+delta_P <- 1.03 # Must be > delta_tech?
+graph_diffNR1NR0(delta_tech, delta_P, yCeil)
+
 which_tech <- "baseline"
-adopt_list <- list(delta, P_1, which_tech)
-QS_env[["adopt_list"]] <- adopt_list
+out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
+adopt_bounds <- out_list[[1]]
+tech_is_pro_poor <- out_list[[2]]
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+QS_env[["lq_bounds"]] <- lq_bounds
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+df_QS_0 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_QS_0$Tech <- "Baseline"
+QS_env_0 <- QS_env
 
-df_plot <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+
+df_plot <- df_QS_0
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
 gg <- gg + geom_line()
-gg <- gg + geom_vline(xintercept = P_1 / delta, color = "violet", size = 1)
+#gg <- gg + geom_vline(xintercept = P_1 / delta_tech, color = "violet", size = 1)
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
-
 
 which_tech <- "new"
-adopt_list <- list(delta, P_1, which_tech)
-QS_env[["adopt_list"]] <- adopt_list
-QS_env[["mu_alpha"]] <- mu_alpha * delta
-QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * delta)
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+QS_env[["lq_bounds"]] <- lq_bounds
+QS_env[["mu_alpha"]] <- mu_alpha * delta_tech
+QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * delta_tech)
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+df_QS_1 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_QS_1$Tech <- "Small Granule\nSupply"
+QS_env_1 <- QS_env
 
-df_plot <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_plot <- df_QS_1
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
 gg <- gg + geom_line()
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
 
+df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
+df_plot <- df_QS_1_0
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg
 
 
+eff_enhance <- 1.1
+df_QD_0 <- df_QD
+colnames(df_QD_0)[2] <- "Quantity (MT)"
+df_QD_0$Type <- "Baseline Demand"
+
+QD_env_0 <- QD_env
+QD_env_1 <- QD_env
+QD_env_1[["a_e"]] <- a_e * eff_enhance
+list_QD_curve <- QD_curve(P_vec, QD_env_1)
+df_QD_1 <- as.data.frame(do.call(rbind, list_QD_curve))
+colnames(df_QD_1) <- c("Price (Baht / MT)", "Quantity (MT)")
+df_QD_0$Type <- "Small Granule\nDemand"
+
+df_QD_1_0 <- rbind(df_QD_0, df_QD_1)
+
+df_QS_QD <- subset(df_QS_1_0, Item != "Market Participation")
+df_QS_QD$Item <- NULL
+colnames(df_QS_QD)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD$Type <- paste(df_QS_QD$Type, "Supply")
+df_QS_QD <- rbind(df_QS_QD, df_QD_1_0)
+
+df_plot <- df_QS_QD
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1)
+gg <- gg + theme(legend.title = element_blank())
+gg <- gg + coord_cartesian(ylim = c(0, 800))
+gg
 
 
+interval_P <- c(500, 5000)
+equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
+equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
+equilib_vec_0
+equilib_vec_1
 
+
+P_E_0 <- equilib_vec_0[1]
+P_E_1 <- equilib_vec_1[1]
+QD_0 <- equilib_vec_0[2]
+QD_1 <- equilib_vec_1[2]
+Mkt_Part_0 <- equilib_vec_0[3]
+Mkt_Part_1 <- equilib_vec_1[3]
+
+CD_0 <- QD_0 * P_E_0
+CD_1 <- QD_1 * P_E_1
+CD_tot <- CD_0 + CD_1
+CD_0
+CD_1
+CD_tot
+
+Q_output_ethanol <- QD_0 * MT_to_kl_0 + QD_1 * MT_to_kl_1
+R <- P_output * Q_output_ethanol
+NR <- R - CD_tot
 #=============================================================
 #=============================================================
 
