@@ -62,22 +62,22 @@ get_adopt_range <- function(delta_tech, delta_P, quietly = T){
 
 
 graph_diffNR1NR0 <- function(delta_tech, delta_P, yCeil){
-    ly0_vec <- seq(-1, 0, length.out = 25)
-    
-    ratio_deltas <- delta_tech / delta_P
-    ly_switch <- -log(delta_P) / (ratio_deltas - 1)
-    
-    R_0 <- yCeil * exp(ly0_vec)
-    R_1 <- yCeil * exp(ly0_vec * delta_tech / delta_P) * delta_P
-    diff_NR1NR0 <- R_1 - R_0
-    df_plot <- data.frame(ly0_vec, diff_NR1NR0)
-    gg <- ggplot(df_plot, aes(x = ly0_vec, y = diff_NR1NR0))
-    gg <- gg + geom_line()
-    gg <- gg + geom_hline(yintercept = 0, color = "violet", size = 1)
-#    gg <- gg + geom_vline(xintercept = ly_switch, color = "violet", size = 1)
-    gg <- gg + labs(x = "Log yield index", y = expression("Diff. in net rev. ("*ha.^-1 ~Price^-1*")"))
-    gg
-    
+  ly0_vec <- seq(-1, 0, length.out = 25)
+  
+  ratio_deltas <- delta_tech / delta_P
+  ly_switch <- -log(delta_P) / (ratio_deltas - 1)
+  
+  R_0 <- yCeil * exp(ly0_vec)
+  R_1 <- yCeil * exp(ly0_vec * delta_tech / delta_P) * delta_P
+  diff_NR1NR0 <- R_1 - R_0
+  df_plot <- data.frame(ly0_vec, diff_NR1NR0)
+  gg <- ggplot(df_plot, aes(x = ly0_vec, y = diff_NR1NR0))
+  gg <- gg + geom_line()
+  gg <- gg + geom_hline(yintercept = 0, color = "violet", size = 1)
+  #    gg <- gg + geom_vline(xintercept = ly_switch, color = "violet", size = 1)
+  gg <- gg + labs(x = "Log yield index", y = expression("Diff. in net rev. ("*ha.^-1 ~Price^-1*")"))
+  gg
+  
 }
 
 
@@ -99,10 +99,10 @@ get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech){
       zero_adoption <- T
     }
     if(adopt_bounds[1] == -1 & adopt_bounds[2] == 0){
-        lq_bounds <- NA
-        full_adoption <- T
+      lq_bounds <- NA
+      full_adoption <- T
     }
-      
+    
     if(zero_adoption == F & full_adoption == F){
       if(tech_is_pro_poor){
         lq_lower <- adopt_bounds[2]
@@ -116,7 +116,7 @@ get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech){
     }
     
   }
-
+  
   if(which_tech == "new"){
     lq_bounds <- adopt_bounds
   }
@@ -135,7 +135,7 @@ QS_at_P <- function(P, QS_env){
   s_A <- QS_env[["s_A"]]
   N <- QS_env[["N"]]
   lq_bounds <- QS_env[["lq_bounds"]]
-
+  
   m_y <- log(yCeil) + mu_alpha / P
   s_y <- sig_alpha / P
   mu_y <- exp(m_y + s_y^2 / 2)
@@ -145,7 +145,7 @@ QS_at_P <- function(P, QS_env){
   mu_q <- mu_y * mu_A
   
   s_q <- s_A + s_y
-
+  
   supply_is_zero <- F
   if(is.null(lq_bounds)){
     lq_lower <- -1
@@ -189,10 +189,11 @@ QS_curve <- function(P_vec, QS_env){
 #=============================================================
 QD_at_P <- function(P, QD_env){
   P_output <- QD_env[["P_output"]]
-  a_e <- QD_env[["a_e"]] 
+  a_DEM <- QD_env[["a_DEM"]]
+  kl_per_MT <- QD_env[["kl_per_MT"]]
   gamma_D <- QD_env[["gamma_D"]]
   N_D <- QD_env[["N_D"]]
-  QD <- N_D * P_output / (P * gamma_D) * a_e
+  QD <- N_D * P_output / (P * gamma_D) * a_DEM * kl_per_MT
   out_vec <- c(P, QD)
   return(out_vec)
 }
@@ -262,8 +263,10 @@ QD_obs <- 900 # observed demand
 P_E_obs <- 2300 # observed equilibrium price
 P_output <- 23500
 gamma_D <- 1.05
-N_D <- 3
-a_e <- QD_obs / (N_D * P_output) * P_E_obs * gamma_D
+N_D <- 1
+kl_per_MT_0 <- 1 / 6
+a_DEM <- QD_obs / (N_D * P_output * kl_per_MT_0) * P_E_obs * gamma_D
+C_process_per_kL <- 9000
 #=============================================================
 P_vec <- seq(200, 5000, length.out = 50)
 #=============================================================
@@ -283,7 +286,8 @@ colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
 
 QD_env <- list()
 QD_env[["P_output"]] <- P_output
-QD_env[["a_e"]] <- a_e
+QD_env[["a_DEM"]] <- a_DEM
+QD_env[["kl_per_MT"]] <- kl_per_MT_0
 QD_env[["gamma_D"]] <- gamma_D
 QD_env[["N_D"]] <- N_D
 list_QD_curve <- QD_curve(P_vec, QD_env)
@@ -304,6 +308,8 @@ df_plot <- df_plot %>% gather(Type, `Quantity (MT)`, Demand:Supply)
 
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
+gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + coord_cartesian(ylim = c(0, 2000))
 gg <- gg + theme(legend.title = element_blank())
 gg
@@ -311,6 +317,13 @@ gg
 interval_P <- c(200, 3000)
 equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
 equilib_vec
+P_E_sq <- equilib_vec[1]
+Q_E_sq <- equilib_vec[2]
+Mkt_Part_sq <- equilib_vec[3]
+C_sq <- P_E_sq * Q_E_sq + kl_per_MT_0 * Q_E_sq * C_process_per_kL
+R_sq <- P_output * Q_E_sq * kl_per_MT_0
+NR_sq <- R_sq - C_sq
+NR_sq
 #=============================================================
 #=============================================================
 #=============================================================
@@ -336,16 +349,16 @@ list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
 df_QS_0 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
-df_QS_0$Tech <- "Baseline"
+df_QS_0$Tech <- "Baseline\nSupply"
 QS_env_0 <- QS_env
 
+# df_plot <- df_QS_0
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+# gg <- gg + geom_line()
+# #gg <- gg + geom_vline(xintercept = P_1 / delta_tech, color = "violet", size = 1)
+# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+# gg
 
-df_plot <- df_QS_0
-gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
-gg <- gg + geom_line()
-#gg <- gg + geom_vline(xintercept = P_1 / delta_tech, color = "violet", size = 1)
-gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-gg
 
 which_tech <- "new"
 lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
@@ -359,47 +372,86 @@ df_QS_1 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
 df_QS_1$Tech <- "Small Granule\nSupply"
 QS_env_1 <- QS_env
 
-df_plot <- df_QS_1
-gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
-gg <- gg + geom_line()
-gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-gg
+# df_plot <- df_QS_1
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+# gg <- gg + geom_line()
+# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+# gg
 
 df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
 df_plot <- df_QS_1_0
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
-gg <- gg + geom_line()
+gg <- gg + geom_line(lwd = 1.1)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
+gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
 
 
-eff_enhance <- 1.1
 df_QD_0 <- df_QD
 colnames(df_QD_0)[2] <- "Quantity (MT)"
-df_QD_0$Type <- "Baseline Demand"
-
+df_QD_0$Type <- "Baseline\nDemand"
 QD_env_0 <- QD_env
 QD_env_1 <- QD_env
-QD_env_1[["a_e"]] <- a_e * eff_enhance
+kl_per_MT_1 <- kl_per_MT_0 * 1.15
+QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
 list_QD_curve <- QD_curve(P_vec, QD_env_1)
 df_QD_1 <- as.data.frame(do.call(rbind, list_QD_curve))
 colnames(df_QD_1) <- c("Price (Baht / MT)", "Quantity (MT)")
-df_QD_0$Type <- "Small Granule\nDemand"
-
+df_QD_1$Type <- "Small Granule\nDemand"
 df_QD_1_0 <- rbind(df_QD_0, df_QD_1)
 
-df_QS_QD <- subset(df_QS_1_0, Item != "Market Participation")
-df_QS_QD$Item <- NULL
-colnames(df_QS_QD)[2:3] <- c("Quantity (MT)", "Type")
-df_QS_QD$Type <- paste(df_QS_QD$Type, "Supply")
-df_QS_QD <- rbind(df_QS_QD, df_QD_1_0)
 
+df_QS_0 <- subset(df_QS_0, Item != "Market Participation")
+df_QS_0$Item <- NULL
+colnames(df_QS_0)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD_0 <- rbind(df_QS_0, df_QD_0)
+df_plot <- df_QS_QD_0
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.1)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank())
+gg <- gg + coord_cartesian(ylim = c(0, 800))
+gg 
+gg_baseline <- gg
+
+df_QS_1 <- subset(df_QS_1, Item != "Market Participation")
+df_QS_1$Item <- NULL
+colnames(df_QS_1)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD_1 <- rbind(df_QS_1, df_QD_1)
+df_plot <- df_QS_QD_1
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.1)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 2, altCol = T, runTsne = T)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank())
+gg <- gg + coord_cartesian(ylim = c(1, 800))
+gg 
+gg_new <- gg
+
+df_QS_composite <- df_QS_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(Value))
+df_QS_composite$Type <- "Composite Supply"
+df_QD_composite <- df_QD_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(`Quantity (MT)`))
+df_QD_composite$Type <- "Composite Demand"
+df_QS_QD <- rbind(df_QS_composite, df_QD_composite)
 df_plot <- df_QS_QD
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
-gg <- gg + geom_line(lwd = 1)
-gg <- gg + theme(legend.title = element_blank())
-gg <- gg + coord_cartesian(ylim = c(0, 800))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + labs(title = "After release")
+distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 legend.position = "bottom")
+gg <- gg + coord_cartesian(ylim = c(0, 1500))
 gg
+gg_composite <- gg
+
+library(patchwork)
+gg_all <- gg_composite + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths = c(2, 1))
+gg_all
 
 
 interval_P <- c(500, 5000)
@@ -411,25 +463,104 @@ equilib_vec_1
 
 P_E_0 <- equilib_vec_0[1]
 P_E_1 <- equilib_vec_1[1]
-QD_0 <- equilib_vec_0[2]
-QD_1 <- equilib_vec_1[2]
+Q_E_0 <- equilib_vec_0[2]
+Q_E_1 <- equilib_vec_1[2]
+Q_E_tot <- Q_E_0 + Q_E_1
 Mkt_Part_0 <- equilib_vec_0[3]
 Mkt_Part_1 <- equilib_vec_1[3]
 
-CD_0 <- QD_0 * P_E_0
-CD_1 <- QD_1 * P_E_1
+
+CD_0 <- Q_E_0 * P_E_0 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
+CD_1 <- Q_E_1 * P_E_1 + Q_E_0 * kl_per_MT_0 * C_process_per_kL
 CD_tot <- CD_0 + CD_1
-CD_0
-CD_1
 CD_tot
 
 
-MT_to_kl_0 <- 1 / 6 #1 / 5.5 # 1 / 6 - Thierry (2014)
-Q_output_ethanol <- QD_0 * MT_to_kl_0 + QD_1 * MT_to_kl_1
+Q_output_ethanol <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
 R <- P_output * Q_output_ethanol
-NR <- R - CD_tot
+NR_ar <- R - CD_tot
 #=============================================================
 #=============================================================
+
+
+
+
+
+kl_per_MT_1 <- kl_per_MT_0 * 1.15
+QD_env_0 <- QD_env_sq
+QD_env_1 <- QD_env_sq
+QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
+QS_env_0 <- QS_env_sq
+QS_env_1 <- QS_env_sq
+interval_P <- c(500, 5000)
+
+
+res <- 5
+delta_tech_vec <- seq(1.01, 1.15, length.out = res)
+delta_P_vec <- seq(1.01, 1.15, length.out = res)
+
+for(i in 1:res){
+  delta_tech <- delta_tech_vec[i]
+for(j in 1:res){
+  delta_P <- delta_P_vec[j] # Must be > delta_tech?
+  #graph_diffNR1NR0(delta_tech, delta_P, yCeil)
+  out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
+  adopt_bounds <- out_list[[1]]
+  tech_is_pro_poor <- out_list[[2]]
+  #--
+  which_tech <- "baseline"
+  lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+  QS_env_0[["lq_bounds"]] <- lq_bounds
+  #--
+  which_tech <- "new"
+  lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+  QS_env_1[["lq_bounds"]] <- lq_bounds
+  QS_env_1[["mu_alpha"]] <- mu_alpha * delta_tech
+  QS_env_1[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * delta_tech)
+  #--
+  equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
+  equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
+  equilib_vec_0
+  equilib_vec_1
+  
+  
+  P_E_0 <- equilib_vec_0[1]
+  P_E_1 <- equilib_vec_1[1]
+  Q_E_0 <- equilib_vec_0[2]
+  Q_E_1 <- equilib_vec_1[2]
+  Q_E_tot <- Q_E_0 + Q_E_1
+  Mkt_Part_0 <- equilib_vec_0[3]
+  Mkt_Part_1 <- equilib_vec_1[3]
+  
+  
+  CD_0 <- Q_E_0 * P_E_0 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
+  CD_1 <- Q_E_1 * P_E_1 + Q_E_0 * kl_per_MT_0 * C_process_per_kL
+  CD_tot <- CD_0 + CD_1
+  CD_tot
+  
+  
+  Q_output_ethanol <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
+  R <- P_output * Q_output_ethanol
+  NR_ar <- R - CD_tot
+  
+  
+}  
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # # Ethanol demand
