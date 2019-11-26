@@ -423,6 +423,8 @@ CD_0
 CD_1
 CD_tot
 
+
+MT_to_kl_0 <- 1 / 6 #1 / 5.5 # 1 / 6 - Thierry (2014)
 Q_output_ethanol <- QD_0 * MT_to_kl_0 + QD_1 * MT_to_kl_1
 R <- P_output * Q_output_ethanol
 NR <- R - CD_tot
@@ -430,4 +432,79 @@ NR <- R - CD_tot
 #=============================================================
 
 
+# # Ethanol demand
+# P_ethanol_lcu_kL_statQuo <- 23500 #https://www.ceicdata.com/en/thailand/biofuel-reference-price/reference-price-ethanol-price-
+# MTRootsPerkLEthanol_statQuo <- 6 # 6 - Thierry (2014)
+# mu_Q_ethanol_kL_day_statQuo <- 200 # 150 -Thierry (2014) but hay also 8 new plants with 560 max cap
+# mu_Q_root_MT_day_ethanol_statQuo <- mu_Q_ethanol_kL_day_statQuo * MTRootsPerkLEthanol_statQuo
+# mu_cost_process_ethanol_lcu_kL_statQuo <- 9000 # 8806 Thierry (2014)
+# mu_cost_process_ethanol_lcu_MTRoots_statQuo <- mu_cost_process_ethanol_lcu_kL_statQuo / MTRootsPerkLEthanol_statQuo
+# cv_cost_process_ethanol_lcu_MTRoots_statQuo <- 0.08
+# N_D_factry_ethanol_statQuo <- 40 #33 # 25 plus 8 under construction Thierry (2014)
+# m_yCeil_factry_ethanol_statQuo <- log(mu_Q_ethanol_kL_day_statQuo * 1.5)
+# cv_lyCeil_factry_ethanol_statQuo <- 0.1 #0.15
+# # Starch demand
+# P_starch_lcu_MT_statQuo <- 14000
+# MTRootsPerMTStarch_statQuo <- 4.21 #Thierry interview
+# Q_root_MT_day_starch_statQuo <- 1200
+# Q_starch_MT_day_statQuo <- Q_root_MT_day_starch_statQuo / MTRootsPerMTStarch_statQuo
+# N_D_factry_starch_statQuo <- 10
+# cv_factryEfficiency_starch_statQuo <- 0.12
+# m_yCeil_factry_starch_statQuo <- log(Q_starch_MT_day_statQuo * 1.5)
+# cv_lyCeil_factry_starch_statQuo <- 0.5
+# #----------------------------------
+# N_D <- N_D_factry_ethanol_statQuo
+# P_rev_per_output_DEM_statQuo <- P_ethanol_lcu_kL_statQuo
+# beta_DEM_statQuo <- MTRootsPerkLEthanol_statQuo
+# mu_P_fdstkCost_per_output_DEM_statQuo <- NULL #In functions here input P_rev_output_SUP
+# cv_P_fdstkCost_per_output_DEM_statQuo <- 0
+# mu_P_procCost_per_output_DEM_statQuo <- mu_cost_process_ethanol_lcu_MTRoots_statQuo
+# cv_P_procCost_per_output_DEM_statQuo <- cv_cost_process_ethanol_lcu_MTRoots_statQuo
+# m_yCeil_DEM_statQuo <- m_yCeil_factry_ethanol_statQuo
+# cv_lyCeil_DEM_statQuo <- cv_lyCeil_factry_ethanol_statQuo
+# s2_yCeil_DEM_statQuo <- (m_yCeil_DEM_statQuo * cv_lyCeil_DEM_statQuo)^2
+# m_A_DEM_statQuo <- 0
+# cv_lA_DEM_statQuo <- 0
+# s2_A_DEM_statQuo <- (m_A_DEM_statQuo * cv_lA_DEM_statQuo)^2
+# #==================================
+# # Supply side parameters
+# N_S_farm_statQuo <- 100
+# mu_cost_per_farmProduct_statQuo <- 1500 #850 Thierry (2014)
+# cv_cost_per_farmProduct_statQuo <- 0.2 #0.15 surmise
+# m_yCeil_farm_statQuo <- log(45) #log(43.8375)
+# cv_lyCeil_farm_statQuo <- 0
+# s2_yCeil_farm_statQuo <- (m_yCeil_farm_statQuo * cv_lyCeil_farm_statQuo)^2
+# m_A_farm_statQuo <- log(2) #log(1.25) # log(4.673574) Thierry data, 0.5-2 Thierry (2014)
+# cv_lA_farm_statQuo <- 0.55 #0.5466573 Thierry data
+# s2_A_farm_statQuo <- (m_A_farm_statQuo * cv_lA_farm_statQuo)^2
+# #----------------------------------
+# N_S <- N_S_farm_statQuo
+# beta_SUP_statQuo <- 1
+# mu_P_fdstkCost_per_output_SUP_statQuo <- mu_cost_per_farmProduct_statQuo
+# cv_P_fdstkCost_per_output_SUP_statQuo <- cv_cost_per_farmProduct_statQuo
+# mu_P_procCost_per_output_SUP_statQuo <- 0
+# cv_P_procCost_per_output_SUP_statQuo <- 0
+# m_yCeil_SUP_statQuo <- m_yCeil_farm_statQuo
+# cv_lyCeil_SUP_statQuo <- cv_lyCeil_farm_statQuo
+# s2_yCeil_SUP_statQuo <- (m_yCeil_SUP_statQuo * cv_lyCeil_SUP_statQuo)^2
+# m_A_SUP_statQuo <- m_A_farm_statQuo
+# cv_lA_SUP_statQuo <- cv_lA_farm_statQuo
+# s2_A_SUP_statQuo <- (m_A_SUP_statQuo * cv_lA_SUP_statQuo)^2
+# #==================================
+# l_credit_statusQuo <- 0
+# #==================================
+# df_table <- data.frame(Ethanol_price_lcu_kL = P_ethanol_lcu_kL_statQuo,
+#                        Number_factories = N_D,
+#                        Productivity_MTrootsTokL = 1 / beta_DEM_statQuo,
+#                        Mean_processing_cost = mu_cost_process_ethanol_lcu_kL_statQuo,
+#                        CV_processing_cost = cv_cost_process_ethanol_lcu_MTRoots_statQuo,
+#                        Mean_logged_maxcapacity = m_yCeil_DEM_statQuo,
+#                        CV_logged_maxcapacity = cv_lyCeil_DEM_statQuo,
+#                        Number_farms = N_S,
+#                        Mean_cost_per_farmProduct = mu_cost_per_farmProduct_statQuo,
+#                        CV_cost_per_farmProduct = cv_cost_per_farmProduct_statQuo,
+#                        Mean_logged_maxyield = m_yCeil_SUP_statQuo,
+#                        CV_logged_maxyield = cv_lyCeil_SUP_statQuo,
+#                        Mean_logged_area = m_A_SUP_statQuo,
+#                        CV_logged_area = cv_lA_SUP_statQuo)
 
