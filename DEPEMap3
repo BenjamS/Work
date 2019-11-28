@@ -1,12 +1,135 @@
 # library(lamW)
 library(rootSolve)
 library(tidyverse)
+library(fields)
+
 #=============================================================
 #=============================================================
 #=============================================================
 # Define functions
 #=============================================================
 #=============================================================
+#=============================================================
+#=============================================================
+# Map plotting
+# Function to create divergent color ramp with specific color attached to specific midpoint
+DivMapPal <- function(inMat, midval, start.color = "magenta", end.color = "cyan", mid.color = "khaki2"){
+  ramp1 <- colorRampPalette(c(start.color,mid.color))
+  ramp2 <- colorRampPalette(c(mid.color,end.color))
+  # now specify the number of values on either side of "mid.value"
+  minval <- min(inMat[!(is.na(inMat))])
+  maxval <- max(inMat[!(is.na(inMat))])
+  scaleFactr <- 10^(-(floor(log10(maxval)) - 2))
+  max.breaks <- round((maxval - midval) * scaleFactr)
+  min.breaks <- round((midval - minval) * scaleFactr)
+  #mid.break <- round(midval * scaleFactr)
+  num.breaks <- max(max.breaks, min.breaks)
+  low.ramp <- ramp1(num.breaks)
+  high.ramp <- ramp2(num.breaks)
+  # now create a combined ramp from the higher values of "low.ramp" and
+  # the lower values of "high.ramp", with the longer one using all values
+  # high.ramp starts at 2 to avoid duplicating zero
+  if(midval > maxval){
+    out_DivMapPalette <- low.ramp[(num.breaks - min.breaks):num.breaks]
+    
+  }else{
+    out_DivMapPalette <- c(low.ramp[(num.breaks - min.breaks):num.breaks], high.ramp[2:max.breaks])
+    
+  }
+  return(out_DivMapPalette)
+}
+
+
+plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL, 
+                          ylab = NULL, levels = NULL, zlim = NULL, graphics.reset = NULL, 
+                          labcex = 0.6, method = "flattest", imgCol, add.legend = TRUE,
+                          cntrCol = par("fg"), cntrLty = par("lty"), cntrLwd = par("lwd"),
+                          imgBigplot, imgSmallplot, ...)
+{
+  # bigplot <- imgBigplot
+  # smallplot <- imgSmallplot
+  obj <- x
+  old.par <- par(no.readonly = TRUE)
+  if (is.na(match(type, c("b", "c", "C", "I", "p")))) {
+    stop("plot type does not match b, C, I, or p.")
+  }
+  if (is.null(zlim)) {
+    zlim = range(obj$z, na.rm = TRUE)
+  }
+  if (is.null(graphics.reset) & (type == "b")) {
+    graphics.reset <- TRUE
+  }
+  else {
+    graphics.reset <- FALSE
+  }
+  if (graphics.reset) {
+    on.exit(par(old.par))
+  }
+  if (is.null(xlab)) {
+    if (is.null(obj$xlab)) 
+      xlab <- "X"
+    else xlab <- obj$xlab
+  }
+  if (is.null(ylab)) {
+    if (is.null(obj$ylab)) 
+      ylab <- "Y"
+    else ylab <- obj$ylab
+  }
+  if (is.null(zlab)) {
+    if (is.null(obj$zlab)) 
+      zlab <- "Z"
+    else zlab <- obj$zlab
+  }
+  if (is.null(main)) 
+    if (!is.null(obj$main)) 
+      main <- obj$main
+  if (type == "b") 
+    set.panel(1, 2, TRUE)
+  if (type == "p" | type == "b") {
+    if (type == "b") {
+      add.legend <- FALSE
+      old.mar <- par()$mar
+      par(mar = c(0, 5, 0, 0))
+    }
+    drape.plot(obj, xlab = xlab, ylab = ylab, zlab = zlab, 
+               zlim = zlim, add.legend = add.legend, ...)
+    if (!is.null(main)) 
+      title(main)
+  }
+  if (type == "I") {
+    image.plot(obj$x, obj$y, obj$z, xlab = xlab, ylab = ylab, 
+               zlim = zlim, col = imgCol,
+               bigplot = imgBigplot, smallplot = imgSmallplot,...)
+    if ((!is.null(main)) & type != "b") 
+      title(main)
+  }
+  if (type == "c") {
+    if (is.null(levels)) 
+      levels <- pretty(obj$z[!is.na(obj$z)], 5)
+    contour(obj$x, obj$y, obj$z, levels = levels, labcex = labcex, 
+            method = method, col = cntrCol, lty = cntrLty, lwd = cntrLwd, ...)
+    if ((!is.null(main)) & type != "b") 
+      title(main)
+  }
+  if (type == "b" | type == "C") {
+    if (type == "b") {
+      par(mar = old.mar)
+    }
+    image.plot(obj$x, obj$y, obj$z, xlab = xlab, ylab = ylab,
+               zlim = zlim,
+               graphics.reset = graphics.reset,
+               col = imgCol,
+               bigplot = imgBigplot, smallplot = imgSmallplot,...)
+    if (is.null(levels)) 
+      levels <- pretty(obj$z[!is.na(obj$z)], 5)
+    contour(obj$x, obj$y, obj$z, add = TRUE, levels = levels, 
+            labcex = labcex, method = method,
+            col = cntrCol, lty = cntrLty, lwd = cntrLwd, ...)
+    if ((!is.null(main)) & type != "b") 
+      title(main)
+  }
+  invisible()
+}
 #=============================================================
 # Tech adoption
 #=============================================================
@@ -16,11 +139,13 @@ get_adopt_range <- function(delta_tech, delta_P, quietly = T){
   ratio_deltas <- delta_tech / delta_P
   ly_switch <- -log(delta_P) / (ratio_deltas - 1)
   #if(delta_P > 1){
+  #--
   if(ratio_deltas < 1){
     tech_is_pro_poor <- T
   }else{
     tech_is_pro_poor <- F
   }
+  #--
   if(ly_switch > -1 & ly_switch < 0){
     if(tech_is_pro_poor){
       adopt_bounds <- c(-1, ly_switch)
@@ -43,6 +168,14 @@ get_adopt_range <- function(delta_tech, delta_P, quietly = T){
       }
     }
   }
+  #--
+  zero_or_full <- NA
+  if(adopt_bounds[1] == -1 & adopt_bounds[2] == 0){
+    zero_or_full <- "Full adoption"
+  }
+  if(is.na(adopt_bounds)){
+    zero_or_full <- "Zero adoption"
+  }
   
   if(!quietly){
     print("Adoption log yield (normalized) bounds:")
@@ -54,9 +187,10 @@ get_adopt_range <- function(delta_tech, delta_P, quietly = T){
     }else{
       print("Tech is not pro-poor")
     }
+    print(zero_or_full)
   }
-  
-  out_list <- list(adopt_bounds, tech_is_pro_poor)
+  #--
+  out_list <- list(adopt_bounds, tech_is_pro_poor, ly_switch, zero_or_full)
   return(out_list)
 }    
 
@@ -90,20 +224,17 @@ graph_diffNR1NR0 <- function(delta_tech, delta_P, yCeil){
 # tech_is_pro_poor
 # graph_diffNR1NR0(delta_tech, delta_P, yCeil)
 
-get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech){
+get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full){
   if(which_tech == "baseline"){
-    zero_adoption <- F
-    full_adoption <- F
-    if(is.na(adopt_bounds)){
-      lq_bounds <- c(-1, 0)
-      zero_adoption <- T
-    }
-    if(adopt_bounds[1] == -1 & adopt_bounds[2] == 0){
-      lq_bounds <- NA
-      full_adoption <- T
-    }
-    
-    if(zero_adoption == F & full_adoption == F){
+    if(!is.na(zero_or_full)){
+      if(zero_or_full == "Zero adoption"){
+        lq_bounds <- c(-1, 0)
+      }
+      if(zero_or_full == "Full adoption"){
+        lq_bounds <- NA
+      }
+      
+    }else{
       if(tech_is_pro_poor){
         lq_lower <- adopt_bounds[2]
         lq_upper <- 0
@@ -216,6 +347,7 @@ equilib_rootfn <- function(P_vec, QS_env, QD_env){
   QD <- QD[, 2]
   
   slack <- QS - QD
+  
   return(slack)
 } 
 
@@ -227,8 +359,6 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
                      upper = max(interval_P),
                      QS_env = QS_env,
                      QD_env = QD_env)
-  
-  QS_vec <- QS_at_P(P_E, QS_env)
   
   return(QS_vec)
   
@@ -280,6 +410,7 @@ QS_env[["m_A"]] <- m_A
 QS_env[["s_A"]] <- s_A
 QS_env[["N"]] <- N
 QS_env[["lq_bounds"]] <- NULL
+QS_env_sq <- QS_env
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
@@ -290,6 +421,7 @@ QD_env[["a_DEM"]] <- a_DEM
 QD_env[["kl_per_MT"]] <- kl_per_MT_0
 QD_env[["gamma_D"]] <- gamma_D
 QD_env[["N_D"]] <- N_D
+QD_env_sq <- QD_env
 list_QD_curve <- QD_curve(P_vec, QD_env)
 df_QD <- as.data.frame(do.call(rbind, list_QD_curve))
 colnames(df_QD) <- c("Price (Baht / MT)", "Demand")
@@ -324,6 +456,7 @@ C_sq <- P_E_sq * Q_E_sq + kl_per_MT_0 * Q_E_sq * C_process_per_kL
 R_sq <- P_output * Q_E_sq * kl_per_MT_0
 NR_sq <- R_sq - C_sq
 NR_sq
+Q_output_ethanol_sq <- kl_per_MT_0 * Q_E_sq
 #=============================================================
 #=============================================================
 #=============================================================
@@ -335,15 +468,20 @@ NR_sq
 #=============================================================
 # delta_tech <- 1.1
 # delta_P <- 1.03
-delta_tech <- 1.11
-delta_P <- 1.03 # Must be > delta_tech?
+# delta_tech <- 1.11
+# delta_P <- 1.03 # Must be > delta_tech?
+delta_tech <- 1.08
+delta_P <- 1.01
+ratio_deltas <- delta_tech / delta_P
 graph_diffNR1NR0(delta_tech, delta_P, yCeil)
 
-which_tech <- "baseline"
 out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
 adopt_bounds <- out_list[[1]]
 tech_is_pro_poor <- out_list[[2]]
-lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+zero_or_full <- out_list[[4]]
+which_tech <- "baseline"
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+QS_env <- QS_env_sq
 QS_env[["lq_bounds"]] <- lq_bounds
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
@@ -352,19 +490,20 @@ df_QS_0 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
 df_QS_0$Tech <- "Baseline\nSupply"
 QS_env_0 <- QS_env
 
-# df_plot <- df_QS_0
-# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
-# gg <- gg + geom_line()
-# #gg <- gg + geom_vline(xintercept = P_1 / delta_tech, color = "violet", size = 1)
-# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-# gg
+df_plot <- df_QS_0
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+gg <- gg + geom_line()
+#gg <- gg + geom_vline(xintercept = P_1 / delta_tech, color = "violet", size = 1)
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg
 
 
 which_tech <- "new"
-lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+QS_env <- QS_env_sq
 QS_env[["lq_bounds"]] <- lq_bounds
-QS_env[["mu_alpha"]] <- mu_alpha * delta_tech
-QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * delta_tech)
+QS_env[["mu_alpha"]] <- mu_alpha * ratio_deltas
+QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * ratio_deltas)
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
@@ -372,17 +511,20 @@ df_QS_1 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
 df_QS_1$Tech <- "Small Granule\nSupply"
 QS_env_1 <- QS_env
 
-# df_plot <- df_QS_1
-# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
-# gg <- gg + geom_line()
-# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-# gg
+df_plot <- df_QS_1
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+gg <- gg + geom_line()
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg
+
+
 
 df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
 df_plot <- df_QS_1_0
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
 gg <- gg + geom_line(lwd = 1.1)
-distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 20)
+distinct_colors <- sample(length(distinct_colors), 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
@@ -391,8 +533,8 @@ gg
 df_QD_0 <- df_QD
 colnames(df_QD_0)[2] <- "Quantity (MT)"
 df_QD_0$Type <- "Baseline\nDemand"
-QD_env_0 <- QD_env
-QD_env_1 <- QD_env
+QD_env_0 <- QD_env_sq
+QD_env_1 <- QD_env_sq
 kl_per_MT_1 <- kl_per_MT_0 * 1.15
 QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
 list_QD_curve <- QD_curve(P_vec, QD_env_1)
@@ -424,7 +566,8 @@ df_QS_QD_1 <- rbind(df_QS_1, df_QD_1)
 df_plot <- df_QS_QD_1
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1.1)
-distinct_colors <- randomcoloR::distinctColorPalette(k = 2, altCol = T, runTsne = T)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 20)
+distinct_colors <- sample(length(distinct_colors), 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + theme(legend.title = element_blank(),
                  axis.title.y = element_blank())
@@ -441,7 +584,8 @@ df_plot <- df_QS_QD
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1.1)
 gg <- gg + labs(title = "After release")
-distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
+distinct_colors <- randomcoloR::distinctColorPalette(k = 20)
+distinct_colors <- sample(length(distinct_colors), 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + theme(legend.title = element_blank(),
                  legend.position = "bottom")
@@ -454,7 +598,7 @@ gg_all <- gg_composite + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths =
 gg_all
 
 
-interval_P <- c(500, 5000)
+interval_P <- c(500, 10000)
 equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
 equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
 equilib_vec_0
@@ -476,86 +620,190 @@ CD_tot <- CD_0 + CD_1
 CD_tot
 
 
-Q_output_ethanol <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
-R <- P_output * Q_output_ethanol
+Q_output_ethanol_ar <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
+R <- P_output * Q_output_ethanol_ar
 NR_ar <- R - CD_tot
+NR_ar
 #=============================================================
 #=============================================================
 
-
-
-
-
-kl_per_MT_1 <- kl_per_MT_0 * 1.15
+kl_efficiency_gain <- 1.5
+kl_per_MT_1 <- kl_per_MT_0 * kl_efficiency_gain
 QD_env_0 <- QD_env_sq
 QD_env_1 <- QD_env_sq
 QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
 QS_env_0 <- QS_env_sq
 QS_env_1 <- QS_env_sq
-interval_P <- c(500, 5000)
+interval_P <- c(200, 1.5 * 10^8)
 
-
-res <- 5
-delta_tech_vec <- seq(1.01, 1.15, length.out = res)
-delta_P_vec <- seq(1.01, 1.15, length.out = res)
-
+res <- 40
+max_delta_tech <- 1.5
+delta_tech_vec <- seq(1.01, max_delta_tech, length.out = res)
+delta_P_vec <- seq(1.01, max_delta_tech, length.out = res)
+mat_NR_diff <- matrix(NA, res, res)
+mat_ly_switch <- matrix(NA, res, res)
+mat_adoptRate <- matrix(NA, res, res)
+mat_Q_ethanol <- matrix(NA, res, res)
 for(i in 1:res){
   delta_tech <- delta_tech_vec[i]
-for(j in 1:res){
-  delta_P <- delta_P_vec[j] # Must be > delta_tech?
-  #graph_diffNR1NR0(delta_tech, delta_P, yCeil)
-  out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
-  adopt_bounds <- out_list[[1]]
-  tech_is_pro_poor <- out_list[[2]]
-  #--
-  which_tech <- "baseline"
-  lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
-  QS_env_0[["lq_bounds"]] <- lq_bounds
-  #--
-  which_tech <- "new"
-  lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
-  QS_env_1[["lq_bounds"]] <- lq_bounds
-  QS_env_1[["mu_alpha"]] <- mu_alpha * delta_tech
-  QS_env_1[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * delta_tech)
-  #--
-  equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
-  equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
-  equilib_vec_0
-  equilib_vec_1
-  
-  
-  P_E_0 <- equilib_vec_0[1]
-  P_E_1 <- equilib_vec_1[1]
-  Q_E_0 <- equilib_vec_0[2]
-  Q_E_1 <- equilib_vec_1[2]
-  Q_E_tot <- Q_E_0 + Q_E_1
-  Mkt_Part_0 <- equilib_vec_0[3]
-  Mkt_Part_1 <- equilib_vec_1[3]
-  
-  
-  CD_0 <- Q_E_0 * P_E_0 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
-  CD_1 <- Q_E_1 * P_E_1 + Q_E_0 * kl_per_MT_0 * C_process_per_kL
-  CD_tot <- CD_0 + CD_1
-  CD_tot
-  
-  
-  Q_output_ethanol <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
-  R <- P_output * Q_output_ethanol
-  NR_ar <- R - CD_tot
-  
-  
-}  
+  for(j in 1:res){
+    print(c(i, j))
+    delta_P <- delta_P_vec[j] # Must be > delta_tech?
+    #graph_diffNR1NR0(delta_tech, delta_P, yCeil)
+    out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
+    adopt_bounds <- out_list[[1]]
+    tech_is_pro_poor <- out_list[[2]]
+    ly_switch <- out_list[[3]]
+    zero_or_full <- out_list[[4]]
+    #--
+    which_tech <- "baseline"
+    lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+    QS_env_0[["lq_bounds"]] <- lq_bounds
+    #--
+    which_tech <- "new"
+    ratio_deltas <- delta_tech / delta_P
+    lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
+    QS_env_1[["lq_bounds"]] <- lq_bounds
+    QS_env_1[["mu_alpha"]] <- mu_alpha * ratio_deltas
+    QS_env_1[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * ratio_deltas)
+    #--
+    if(is.na(zero_or_full)){
+      equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
+      equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
+    }else{
+      if(zero_or_full == "Zero adoption"){
+        equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
+        equilib_vec_1 <- NA
+      }
+      if(zero_or_full == "Full adoption"){
+        equilib_vec_0 <- NA
+        equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
+      }
+      
+    }
+    #--
+    if(!is.na(equilib_vec_0)){
+      P_E_0 <- equilib_vec_0[1]
+      Q_E_0 <- equilib_vec_0[2]
+      Mkt_Part_0 <- equilib_vec_0[3]
+    }else{
+      P_E_0 <- 0
+      Q_E_0 <- 0
+      Mkt_Part_0 <- 0
+    }
+    
+    if(!is.na(equilib_vec_1)){
+      P_E_1 <- equilib_vec_1[1]
+      Q_E_1 <- equilib_vec_1[2]
+      Mkt_Part_1 <- equilib_vec_1[3]
+    }else{
+      P_E_1 <- 0
+      Q_E_1 <- 0
+      Mkt_Part_1 <- 0
+    }
+    
+    Q_E_tot <- Q_E_0 + Q_E_1
+    Mkt_Part_tot <- Mkt_Part_0 + Mkt_Part_1
+    CD_0 <- Q_E_0 * P_E_0 + Q_E_0 * kl_per_MT_0 * C_process_per_kL
+    CD_1 <- Q_E_1 * P_E_1 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
+    CD_tot <- CD_0 + CD_1
+    CD_tot
+    #--
+    Q_output_ethanol <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
+    R <- P_output * Q_output_ethanol
+    NR_ar <- R - CD_tot
+    #--
+    adopt_rate <- Mkt_Part_1 / Mkt_Part_tot
+    #--
+    mat_NR_diff[i, j] <- NR_ar - NR_sq
+    mat_ly_switch[i, j] <- ly_switch
+    mat_adoptRate[i, j] <- adopt_rate
+    mat_Q_ethanol[i, j] <- Q_output_ethanol
+  }  
   
 }
 
 
 
+image(mat_NR_diff)
+image(mat_adoptRate)
+
+
+imgBigplot = c(0.1, 0.81, 0.15, 0.85)
+imgSmallplot = c(0.9, 0.93, .2, .8)
+xtick_labs <- delta_tech_vec
+ytick_labs <- delta_P_vec
+inMat <- mat_NR_diff
+midval <- 0
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "cyan",
+                             end.color = "darkmagenta",
+                             mid.color = "khaki2")
+
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plotSurface2(surface, type = "C",
+             xlab = "delta tech",
+             ylab = "delta P", labcex = 1,
+             levels = seq(0, 10^5, 200),
+             imgCol = this_mapPalette, method = "flattest",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+#axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("change in tech", 4, line = 2.5)
+#axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("change in price", 3, line = 2.5)
+title(main = "Factory Net Revenue Difference Map (Baht / MT Root)", cex.main = 1, line = 4)
 
 
 
 
 
+inMat <- mat_adoptRate
+midval <- 0.50
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "cyan",
+                             end.color = "darkmagenta",
+                             mid.color = "khaki2")
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plotSurface2(surface, type = "C",
+             xlab = "delta tech",
+             ylab = "delta P", labcex = 1,
+             levels = seq(0, 10^5, 200),
+             imgCol = this_mapPalette, method = "flattest",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+#axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("change in tech", 4, line = 2.5)
+#axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("change in price", 3, line = 2.5)
+title(main = "Adoption rate", cex.main = 1, line = 4)
 
+
+inMat <- mat_Q_ethanol
+midval <- Q_output_ethanol_sq
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "cyan",
+                             end.color = "darkmagenta",
+                             mid.color = "khaki2")
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plotSurface2(surface, type = "C",
+             xlab = "delta tech",
+             ylab = "delta P", labcex = 1,
+             levels = seq(0, 10^5, 200),
+             imgCol = this_mapPalette, method = "flattest",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+#axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("change in tech", 4, line = 2.5)
+#axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("change in price", 3, line = 2.5)
+title(main = "Ethanol output (kL)", cex.main = 1, line = 4)
 
 
 
