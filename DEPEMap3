@@ -133,14 +133,14 @@ plotSurface2 <- function (x, main = NULL, type = "C", zlab = NULL, xlab = NULL,
 #=============================================================
 # Tech adoption
 #=============================================================
-get_adopt_range <- function(delta_tech, delta_P, quietly = T){
-  # delta_tech <- .9
-  # delta_P <- 0.95 # Must be > delta_tech?
-  ratio_deltas <- delta_tech / delta_P
-  ly_switch <- -log(delta_P) / (ratio_deltas - 1)
+get_adopt_range <- function(delta_h, delta_P, quietly = T){
+  # delta_h <- .9
+  # delta_P <- 0.95 # Must be > delta_h?
+  deltas <- delta_h * delta_P
+  ly_switch <- log(delta_P) / (1 - 1 / deltas)
   #if(delta_P > 1){
   #--
-  if(ratio_deltas < 1){
+  if(deltas > 1){
     tech_is_pro_poor <- T
   }else{
     tech_is_pro_poor <- F
@@ -195,14 +195,14 @@ get_adopt_range <- function(delta_tech, delta_P, quietly = T){
 }    
 
 
-graph_diffNR1NR0 <- function(delta_tech, delta_P, yCeil){
+graph_diffNR1NR0 <- function(delta_h, delta_P, yCeil){
   ly0_vec <- seq(-1, 0, length.out = 25)
   
-  ratio_deltas <- delta_tech / delta_P
-  ly_switch <- -log(delta_P) / (ratio_deltas - 1)
+  deltas <- delta_h * delta_P
+  ly_switch <- log(delta_P) / (1 - 1 / deltas)
   
   R_0 <- yCeil * exp(ly0_vec)
-  R_1 <- yCeil * exp(ly0_vec * delta_tech / delta_P) * delta_P
+  R_1 <- yCeil * exp(ly0_vec / deltas) * delta_P
   diff_NR1NR0 <- R_1 - R_0
   df_plot <- data.frame(ly0_vec, diff_NR1NR0)
   gg <- ggplot(df_plot, aes(x = ly0_vec, y = diff_NR1NR0))
@@ -215,14 +215,14 @@ graph_diffNR1NR0 <- function(delta_tech, delta_P, yCeil){
 }
 
 
-# delta_tech <- 1.1
+# delta_h <- 1.1
 # delta_P <- 1.03
-# out <- get_adopt_range(delta_tech, delta_P, quietly = T)
+# out <- get_adopt_range(delta_h, delta_P, quietly = T)
 # adopt_bounds <- out[[1]]
 # tech_is_pro_poor <- out[[2]]
 # adopt_bounds
 # tech_is_pro_poor
-# graph_diffNR1NR0(delta_tech, delta_P, yCeil)
+# graph_diffNR1NR0(delta_h, delta_P, yCeil)
 
 get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full){
   if(which_tech == "baseline"){
@@ -318,13 +318,57 @@ QS_curve <- function(P_vec, QS_env){
 #=============================================================
 # Demand curve
 #=============================================================
+Q_NR_hm1_firm <- function(gamma, P_output, yCeil, C = NULL, C_per_Q = NULL, A = 1, quietly = T){
+  
+  if((is.null(C_per_Q) & is.null(C)) | (!is.null(C_per_Q) & !is.null(C))){
+    print("Both C_per_Q and C can't be NULL/not NULL. Choose one or the other.")
+  }
+  
+  gamma = gamma_DEM
+  P_output = P_output_DEM_squo
+  yCeil = yCeil_DEM_squo
+  C = C_DEM_squo
+  C_per_Q = C_per_Q_DEM_squo
+  A = 1
+  
+  if(!is.null(C)){
+    arg <- -C * gamma / (yCeil * P_output)
+    Q <- A * yCeil * exp(lamW::lambertWm1(arg))
+    #Q <- A * yCeil * exp(VGAM::lambertW(arg))
+    #L <- Q * P_output - C * gamma
+    NR <- Q * P_output - C
+    
+  }
+  
+  if(!is.null(C_per_Q)){
+    alpha <- -C_per_Q * gamma
+    Q <- A * yCeil * exp(alpha / P_output)
+    #L <- Q * (P_output - C_per_Q * gamma)
+    NR <- Q * (P_output - C_per_Q)
+    
+  }
+  
+  outvec <- c(Q, NR)
+  
+  if(!quietly){
+    print("Q and NR:")
+    print(outvec)
+  }
+  
+  return(outvec)
+}
+
 QD_at_P <- function(P, QD_env){
-  P_output <- QD_env[["P_output"]]
+  P_output_DEM <- QD_env[["P_output_DEM"]]
   a_DEM <- QD_env[["a_DEM"]]
-  kl_per_MT <- QD_env[["kl_per_MT"]]
-  gamma_D <- QD_env[["gamma_D"]]
-  N_D <- QD_env[["N_D"]]
-  QD <- N_D * P_output / (P * gamma_D) * a_DEM * kl_per_MT
+  gamma_DEM <- QD_env[["gamma_DEM"]]
+  yCeil_DEM <- QD_env[["yCeil_DEM"]]
+  C_DEM <- QD_env[["C_DEM"]]
+
+  Q_output_DEM <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM, yCeil_DEM, C_DEM)[1]
+  common_factor <- P_output_DEM * Q_output_DEM / gamma_DEM
+  QD <- sqrt(a_DEM / P * common_factor)
+
   out_vec <- c(P, QD)
   return(out_vec)
 }
@@ -360,11 +404,10 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
                      QS_env = QS_env,
                      QD_env = QD_env)
   
+  QS_vec <- QS_at_P(P_E, QS_env)
   return(QS_vec)
   
 }
-
-
 #=============================================================
 #=============================================================
 #=============================================================
@@ -376,12 +419,15 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
 #-------------------------------------------------------------
 # Supply
 #-------------------------------------------------------------
-mu_alpha <- -1000
-cv_alpha <- 0.6
+C_per_Q_at_mu <- 1900
+gamma_at_mu <- 1
+h_at_mu <- -0.75
+mu_alpha <- C_per_Q_at_mu / h_at_mu * gamma_at_mu
+cv_alpha <- 0.11
 sig_alpha <- abs(mu_alpha * cv_alpha)
 yCeil <- 44
 m_A <- log(2)
-cv_A <- 0.8
+cv_A <- 0.15
 s_A <- m_A * cv_A
 N <- 40
 lq_bounds <- NULL
@@ -389,16 +435,36 @@ lq_bounds <- NULL
 # Demand
 #-------------------------------------------------------------
 # QD <- N_D * P_output / (P * gamma_D) * a_e
-QD_obs <- 900 # observed demand
-P_E_obs <- 2300 # observed equilibrium price
-P_output <- 23500
-gamma_D <- 1.05
-N_D <- 1
-kl_per_MT_0 <- 1 / 6
-a_DEM <- QD_obs / (N_D * P_output * kl_per_MT_0) * P_E_obs * gamma_D
-C_process_per_kL <- 9000
+P_E_squo <- 2100 # observed equilibrium price
+Q_E_squo <- 480 # observed demand (equilibrium qty)
+kl_per_MT_squo <- 1 / 6
+#Q_output_DEM_squo <- 200 # ethanol kl
+Q_output_DEM_squo <- Q_E_squo * kl_per_MT_squo
+P_output_DEM_squo <- 22300
+C_process_per_kL_squo <- 9000
+C_fdstk_squo <- Q_E_squo * P_E_squo
+C_process_squo <- C_process_per_kL_squo * Q_output_DEM_squo
+C_DEM_squo <- C_fdstk_squo + C_process_squo
+C_per_Q_DEM_squo <- C_DEM_squo / Q_output_DEM_squo
+C_DEM_squo <- C_per_Q_DEM_squo * Q_output_DEM_squo
+yCeil_DEM_squo <- 210
+gamma_DEM <- -log(Q_output_DEM_squo / yCeil_DEM_squo) * P_output_DEM_squo / C_per_Q_DEM_squo
+print(paste("gamma_DEM =", round(gamma_DEM, 2)))
+#---
+#Check
+outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_squo, C_DEM_squo, quietly = F)
+Q_output_DEM_squo * P_output_DEM_squo - C_DEM_squo
+#---
+#common_factor <- QD_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
+common_factor <- Q_output_DEM_squo * P_output_DEM_squo / gamma_DEM
+a_root_squo <- Q_E_squo^2 * P_E_squo / common_factor
+#a_root_squo <- QD_squo * P_E_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
+a_proc_squo <- Q_E_squo^2 * (C_process_per_kL_squo / kl_per_MT_squo) / common_factor
+#-------------------------------------------------------------
+kl_per_MT_1 <- 1.15 * kl_per_MT_squo
+a_root_1 <- Q_E_squo * P_E_squo * gamma_DEM / (P_output_DEM_squo * kl_per_MT_1)
 #=============================================================
-P_vec <- seq(200, 5000, length.out = 50)
+P_vec <- seq(200, 5500, length.out = 50)
 #=============================================================
 # P <- 1800
 # QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
@@ -410,21 +476,23 @@ QS_env[["m_A"]] <- m_A
 QS_env[["s_A"]] <- s_A
 QS_env[["N"]] <- N
 QS_env[["lq_bounds"]] <- NULL
-QS_env_sq <- QS_env
+QS_env_squo <- QS_env
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
-colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+colnames(df_QS) <- c("Price (Baht / MT)", "Baseline\nSupply", "Market Participation")
 
 QD_env <- list()
-QD_env[["P_output"]] <- P_output
-QD_env[["a_DEM"]] <- a_DEM
-QD_env[["kl_per_MT"]] <- kl_per_MT_0
-QD_env[["gamma_D"]] <- gamma_D
-QD_env[["N_D"]] <- N_D
-QD_env_sq <- QD_env
+QD_env[["P_output_DEM"]] <- P_output_DEM_squo
+QD_env[["a_DEM"]] <- a_root_squo
+QD_env[["gamma_DEM"]] <- gamma_DEM
+QD_env[["P_output_DEM"]] <- P_output_DEM_squo
+QD_env[["yCeil_DEM"]] <- yCeil_DEM_squo
+QD_env[["C_DEM"]] <- C_DEM_squo
+
+QD_env_squo <- QD_env
 list_QD_curve <- QD_curve(P_vec, QD_env)
 df_QD <- as.data.frame(do.call(rbind, list_QD_curve))
-colnames(df_QD) <- c("Price (Baht / MT)", "Demand")
+colnames(df_QD) <- c("Price (Baht / MT)", "Baseline\nDemand")
 df_plot <- df_QS
 # gg <- ggplot(df_plot, aes(x = Price, y = Supply))
 # gg <- gg + geom_line()
@@ -438,25 +506,24 @@ df_plot <- merge(df_QS, df_QD)
 df_plot$`Market Participation` <- NULL
 df_plot <- df_plot %>% gather(Type, `Quantity (MT)`, Demand:Supply)
 
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 20)
+distinct_colors <- sample(bag_of_colors, 2)
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1)
-distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + coord_cartesian(ylim = c(0, 2000))
-gg <- gg + theme(legend.title = element_blank())
+gg <- gg + theme(legend.title = element_blank(),
+                 legend.position = "bottom")
+gg <- gg + coord_cartesian(ylim = c(0, 800), xlim = c(0, 3000))
+gg <- gg + labs(title = "Status quo equilibrium")
 gg
+gg_eq <- gg
 
-interval_P <- c(200, 3000)
+interval_P <- c(200, 10000)
 equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
 equilib_vec
-P_E_sq <- equilib_vec[1]
-Q_E_sq <- equilib_vec[2]
-Mkt_Part_sq <- equilib_vec[3]
-C_sq <- P_E_sq * Q_E_sq + kl_per_MT_0 * Q_E_sq * C_process_per_kL
-R_sq <- P_output * Q_E_sq * kl_per_MT_0
-NR_sq <- R_sq - C_sq
-NR_sq
-Q_output_ethanol_sq <- kl_per_MT_0 * Q_E_sq
+
+
 #=============================================================
 #=============================================================
 #=============================================================
@@ -466,22 +533,22 @@ Q_output_ethanol_sq <- kl_per_MT_0 * Q_E_sq
 #=============================================================
 #=============================================================
 #=============================================================
-# delta_tech <- 1.1
+# delta_h <- 1.1
 # delta_P <- 1.03
-# delta_tech <- 1.11
-# delta_P <- 1.03 # Must be > delta_tech?
-delta_tech <- 1.08
-delta_P <- 1.01
-ratio_deltas <- delta_tech / delta_P
-graph_diffNR1NR0(delta_tech, delta_P, yCeil)
+# delta_h <- 1.11
+# delta_P <- 1.03 # Must be > delta_h?
+delta_h <- 0.95
+delta_P <- 1.02
+deltas <- delta_h * delta_P
+graph_diffNR1NR0(delta_h, delta_P, yCeil)
 
-out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
+out_list <- get_adopt_range(delta_h, delta_P, quietly = F)
 adopt_bounds <- out_list[[1]]
 tech_is_pro_poor <- out_list[[2]]
 zero_or_full <- out_list[[4]]
 which_tech <- "baseline"
 lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
-QS_env <- QS_env_sq
+QS_env <- QS_env_squo
 QS_env[["lq_bounds"]] <- lq_bounds
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
@@ -493,17 +560,17 @@ QS_env_0 <- QS_env
 df_plot <- df_QS_0
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
 gg <- gg + geom_line()
-#gg <- gg + geom_vline(xintercept = P_1 / delta_tech, color = "violet", size = 1)
+#gg <- gg + geom_vline(xintercept = P_1 / delta_h, color = "violet", size = 1)
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
 
 
 which_tech <- "new"
 lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
-QS_env <- QS_env_sq
+QS_env <- QS_env_squo
 QS_env[["lq_bounds"]] <- lq_bounds
-QS_env[["mu_alpha"]] <- mu_alpha * ratio_deltas
-QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * ratio_deltas)
+QS_env[["mu_alpha"]] <- mu_alpha / deltas
+QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha / deltas)
 list_QS_curve <- QS_curve(P_vec, QS_env)
 df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
 colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
@@ -517,14 +584,11 @@ gg <- gg + geom_line()
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
 
-
-
 df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
 df_plot <- df_QS_1_0
+distinct_colors <- sample(bag_of_colors, 2)
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
 gg <- gg + geom_line(lwd = 1.1)
-distinct_colors <- randomcoloR::distinctColorPalette(k = 20)
-distinct_colors <- sample(length(distinct_colors), 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
 gg
@@ -533,9 +597,8 @@ gg
 df_QD_0 <- df_QD
 colnames(df_QD_0)[2] <- "Quantity (MT)"
 df_QD_0$Type <- "Baseline\nDemand"
-QD_env_0 <- QD_env_sq
-QD_env_1 <- QD_env_sq
-kl_per_MT_1 <- kl_per_MT_0 * 1.15
+QD_env_0 <- QD_env_squo
+QD_env_1 <- QD_env_squo
 QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
 list_QD_curve <- QD_curve(P_vec, QD_env_1)
 df_QD_1 <- as.data.frame(do.call(rbind, list_QD_curve))
@@ -549,13 +612,15 @@ df_QS_0$Item <- NULL
 colnames(df_QS_0)[2:3] <- c("Quantity (MT)", "Type")
 df_QS_QD_0 <- rbind(df_QS_0, df_QD_0)
 df_plot <- df_QS_QD_0
+distinct_colors <- sample(bag_of_colors, 2)
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1.1)
-distinct_colors <- randomcoloR::distinctColorPalette(k = 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + theme(legend.title = element_blank(),
-                 axis.title.y = element_blank())
-gg <- gg + coord_cartesian(ylim = c(0, 800))
+                 axis.title.y = element_blank(),
+                 axis.title.x = element_blank())
+gg <- gg + coord_cartesian(ylim = c(0, 1500), xlim = c(0, 5500))
+gg <- gg + labs(title = "Equilibrium after release")
 gg 
 gg_baseline <- gg
 
@@ -564,14 +629,13 @@ df_QS_1$Item <- NULL
 colnames(df_QS_1)[2:3] <- c("Quantity (MT)", "Type")
 df_QS_QD_1 <- rbind(df_QS_1, df_QD_1)
 df_plot <- df_QS_QD_1
+distinct_colors <- sample(bag_of_colors, 2)
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1.1)
-distinct_colors <- randomcoloR::distinctColorPalette(k = 20)
-distinct_colors <- sample(length(distinct_colors), 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + theme(legend.title = element_blank(),
                  axis.title.y = element_blank())
-gg <- gg + coord_cartesian(ylim = c(1, 800))
+gg <- gg + coord_cartesian(ylim = c(1, 1500), xlim = c(0, 5500))
 gg 
 gg_new <- gg
 
@@ -581,11 +645,10 @@ df_QD_composite <- df_QD_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Qu
 df_QD_composite$Type <- "Composite Demand"
 df_QS_QD <- rbind(df_QS_composite, df_QD_composite)
 df_plot <- df_QS_QD
+distinct_colors <- sample(bag_of_colors, 2)
 gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
 gg <- gg + geom_line(lwd = 1.1)
 gg <- gg + labs(title = "After release")
-distinct_colors <- randomcoloR::distinctColorPalette(k = 20)
-distinct_colors <- sample(length(distinct_colors), 2)
 gg <- gg + scale_color_manual(values = distinct_colors)
 gg <- gg + theme(legend.title = element_blank(),
                  legend.position = "bottom")
@@ -594,9 +657,8 @@ gg
 gg_composite <- gg
 
 library(patchwork)
-gg_all <- gg_composite + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths = c(2, 1))
+gg_all <- gg_eq + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths = c(2, 1))
 gg_all
-
 
 interval_P <- c(500, 10000)
 equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
@@ -604,53 +666,52 @@ equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
 equilib_vec_0
 equilib_vec_1
 
-
-P_E_0 <- equilib_vec_0[1]
-P_E_1 <- equilib_vec_1[1]
-Q_E_0 <- equilib_vec_0[2]
-Q_E_1 <- equilib_vec_1[2]
-Q_E_tot <- Q_E_0 + Q_E_1
-Mkt_Part_0 <- equilib_vec_0[3]
-Mkt_Part_1 <- equilib_vec_1[3]
-
-
-CD_0 <- Q_E_0 * P_E_0 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
-CD_1 <- Q_E_1 * P_E_1 + Q_E_0 * kl_per_MT_0 * C_process_per_kL
-CD_tot <- CD_0 + CD_1
-CD_tot
+if(length(equilib_vec_0) > 3){
+  mkt_part_0 <- equilib_vec_0[5]
+  mkt_part_0_b <- equilib_vec_0[6]
+}else{
+  mkt_part_0 <- equilib_vec_0[3]
+  }
+if(length(equilib_vec_1) > 3){
+  mkt_part_1 <- equilib_vec_1[5]
+  mkt_part_1_b <- equilib_vec_1[6]
+}else{
+  mkt_part_1 <- equilib_vec_1[3]
+}
 
 
-Q_output_ethanol_ar <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
-R <- P_output * Q_output_ethanol_ar
-NR_ar <- R - CD_tot
-NR_ar
+adoption_rate <- mkt_part_1 / (mkt_part_1 + mkt_part_0)
+adoption_rate
+
+
+
+
+
+
 #=============================================================
 #=============================================================
-
-kl_efficiency_gain <- 1.5
-kl_per_MT_1 <- kl_per_MT_0 * kl_efficiency_gain
-QD_env_0 <- QD_env_sq
-QD_env_1 <- QD_env_sq
-QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
-QS_env_0 <- QS_env_sq
-QS_env_1 <- QS_env_sq
+QD_env_0 <- QD_env_squo
+QD_env_1 <- QD_env_squo
+QS_env_0 <- QS_env_squo
+QS_env_1 <- QS_env_squo
 interval_P <- c(200, 1.5 * 10^8)
 
-res <- 40
-max_delta_tech <- 1.5
-delta_tech_vec <- seq(1.01, max_delta_tech, length.out = res)
-delta_P_vec <- seq(1.01, max_delta_tech, length.out = res)
+res <- 10
+min_delta_h <- 0.9
+max_delta_P <- 1.1
+delta_h_vec <- seq(min_delta_h, 0, length.out = res)
+delta_P_vec <- seq(1, max_delta_P, length.out = res)
 mat_NR_diff <- matrix(NA, res, res)
 mat_ly_switch <- matrix(NA, res, res)
 mat_adoptRate <- matrix(NA, res, res)
-mat_Q_ethanol <- matrix(NA, res, res)
+#mat_Q_ethanol <- matrix(NA, res, res)
 for(i in 1:res){
-  delta_tech <- delta_tech_vec[i]
+  delta_h <- delta_h_vec[i]
   for(j in 1:res){
     print(c(i, j))
-    delta_P <- delta_P_vec[j] # Must be > delta_tech?
-    #graph_diffNR1NR0(delta_tech, delta_P, yCeil)
-    out_list <- get_adopt_range(delta_tech, delta_P, quietly = F)
+    delta_P <- delta_P_vec[j] # Must be > delta_h?
+    #graph_diffNR1NR0(delta_h, delta_P, yCeil)
+    out_list <- get_adopt_range(delta_h, delta_P, quietly = F)
     adopt_bounds <- out_list[[1]]
     tech_is_pro_poor <- out_list[[2]]
     ly_switch <- out_list[[3]]
@@ -661,11 +722,11 @@ for(i in 1:res){
     QS_env_0[["lq_bounds"]] <- lq_bounds
     #--
     which_tech <- "new"
-    ratio_deltas <- delta_tech / delta_P
+    deltas <- delta_h * delta_P
     lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech)
     QS_env_1[["lq_bounds"]] <- lq_bounds
-    QS_env_1[["mu_alpha"]] <- mu_alpha * ratio_deltas
-    QS_env_1[["sig_alpha"]] <- abs(cv_alpha * mu_alpha * ratio_deltas)
+    QS_env_1[["mu_alpha"]] <- mu_alpha / deltas
+    QS_env_1[["sig_alpha"]] <- abs(cv_alpha * mu_alpha / deltas)
     #--
     if(is.na(zero_or_full)){
       equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
@@ -704,60 +765,32 @@ for(i in 1:res){
     
     Q_E_tot <- Q_E_0 + Q_E_1
     Mkt_Part_tot <- Mkt_Part_0 + Mkt_Part_1
-    CD_0 <- Q_E_0 * P_E_0 + Q_E_0 * kl_per_MT_0 * C_process_per_kL
-    CD_1 <- Q_E_1 * P_E_1 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
-    CD_tot <- CD_0 + CD_1
-    CD_tot
+    # CD_0 <- Q_E_0 * P_E_0 + Q_E_0 * kl_per_MT_squo * C_process_per_kL
+    # CD_1 <- Q_E_1 * P_E_1 + Q_E_1 * kl_per_MT_1 * C_process_per_kL
+    # CD_tot <- CD_0 + CD_1
+    # CD_tot
     #--
-    Q_output_ethanol <- Q_E_0 * kl_per_MT_0 + Q_E_1 * kl_per_MT_1
-    R <- P_output * Q_output_ethanol
-    NR_ar <- R - CD_tot
+    # Q_output_ethanol <- Q_E_0 * kl_per_MT_squo + Q_E_1 * kl_per_MT_1
+    # R <- P_output * Q_output_ethanol
+    # NR_ar <- R - CD_tot
     #--
     adopt_rate <- Mkt_Part_1 / Mkt_Part_tot
     #--
-    mat_NR_diff[i, j] <- NR_ar - NR_sq
+    #mat_NR_diff[i, j] <- NR_ar - NR_squo
     mat_ly_switch[i, j] <- ly_switch
     mat_adoptRate[i, j] <- adopt_rate
-    mat_Q_ethanol[i, j] <- Q_output_ethanol
+    #mat_Q_ethanol[i, j] <- Q_output_ethanol
   }  
   
 }
 
-
-
-image(mat_NR_diff)
-image(mat_adoptRate)
-
+# image(mat_NR_diff)
+# image(mat_adoptRate)
 
 imgBigplot = c(0.1, 0.81, 0.15, 0.85)
 imgSmallplot = c(0.9, 0.93, .2, .8)
-xtick_labs <- delta_tech_vec
+xtick_labs <- delta_h_vec
 ytick_labs <- delta_P_vec
-inMat <- mat_NR_diff
-midval <- 0
-this_mapPalette <- DivMapPal(inMat, midval,
-                             start.color = "cyan",
-                             end.color = "darkmagenta",
-                             mid.color = "khaki2")
-
-surface <- list(x = xtick_labs,
-                y = ytick_labs,
-                z = inMat)
-plotSurface2(surface, type = "C",
-             xlab = "delta tech",
-             ylab = "delta P", labcex = 1,
-             levels = seq(0, 10^5, 200),
-             imgCol = this_mapPalette, method = "flattest",
-             cntrLwd = 2,
-             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
-#axis(4, at = ytick_labs, labels = pct_chng_vec)
-mtext("change in tech", 4, line = 2.5)
-#axis(3, at = xtick_labs, labels = pct_chng_vec)
-mtext("change in price", 3, line = 2.5)
-title(main = "Factory Net Revenue Difference Map (Baht / MT Root)", cex.main = 1, line = 4)
-
-
-
 
 
 inMat <- mat_adoptRate
@@ -783,8 +816,52 @@ mtext("change in price", 3, line = 2.5)
 title(main = "Adoption rate", cex.main = 1, line = 4)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+inMat <- mat_NR_diff
+midval <- 0
+this_mapPalette <- DivMapPal(inMat, midval,
+                             start.color = "cyan",
+                             end.color = "darkmagenta",
+                             mid.color = "khaki2")
+
+surface <- list(x = xtick_labs,
+                y = ytick_labs,
+                z = inMat)
+plotSurface2(surface, type = "C",
+             xlab = "delta tech",
+             ylab = "delta P", labcex = 1,
+             levels = seq(0, 10^5, 200),
+             imgCol = this_mapPalette, method = "flattest",
+             cntrLwd = 2,
+             imgBigplot = imgBigplot, imgSmallplot = imgSmallplot)
+#axis(4, at = ytick_labs, labels = pct_chng_vec)
+mtext("change in tech", 4, line = 2.5)
+#axis(3, at = xtick_labs, labels = pct_chng_vec)
+mtext("change in price", 3, line = 2.5)
+title(main = "Factory Net Revenue Difference Map (Baht / MT Root)", cex.main = 1, line = 4)
+
+
 inMat <- mat_Q_ethanol
-midval <- Q_output_ethanol_sq
+midval <- Q_output_ethanol_squo
 this_mapPalette <- DivMapPal(inMat, midval,
                              start.color = "cyan",
                              end.color = "darkmagenta",
