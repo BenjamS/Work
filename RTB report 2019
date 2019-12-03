@@ -1,5 +1,5 @@
 ---
-title: "Assessing cassava supply response to price"
+title: "A summary of the economic risks of small granule cassava release in Thailand"
 author: "Benjamin Schiek"
 date: "`r Sys.time()`"
 header-includes:
@@ -35,6 +35,23 @@ library(ggrepel)
 
 # Introduction
 
+Things to think about before investing in small granule research.
+
+* Unclear supply response to price (Graphics, India lit)
+* Higher price goes hand in hand with higher price volatility (Graphic, lit)
+* Factory and farm expectations of the baseline variety harvest price and small granule premium offered by the factory must converge, otherwise market chaos will result.
+
+Assuming that cassava farmers are price responsive and willing to take on the risk of a higher value variety (or that risk pooling mechanisms have been established to secure this), the factory and farm population must, at planting time, agree upon a single expected bareline variety harvest price, and upon the small granule premium that farmers could hope to receive over and above the baseline price. Divergent expectations of the baseline harvest price and/or of the small granule premium offered by the factory will result in market chaos. 
+
+* Additionally, if farmers are especially risk averse, the factory may need to guarantee the premium such that farmers feel confident that they will receive it even if the baseline root price falls below expectations.
+
+* Release of a new variety splits production into two camps.
+
+* Modeling suggests that small granule cassava is not pro-poor, in the sense that the upper percentiles of the farm population would find it most appealing. The lower percentiles have no incentive to adopt unless the premium is exceptionally high.
+
+* Conclusion: can determine the premium necessary to achieve the adoption rate necessary to secure a desired inflow of small granule feedstock.
+
+# Supply response to price
 (Problems with existing yield models)
 (Things we want the function to do - positive supply response (but this might come from expanded area) - inverse relation between farm size and "TFP" (output per unit cost))
 
