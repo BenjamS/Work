@@ -1,7 +1,9 @@
 ---
-title: "A summary of the economic risks of small granule cassava release in Thailand"
+title: "Potential economic risks of small granule cassava release in Thailand"
 author: "Benjamin Schiek"
 date: "`r Sys.time()`"
+bibliography: Small Granule Risk Survey.bib
+biblio-style: apalike
 header-includes:
   - \usepackage{float}
   - \floatplacement{figure}{H}
@@ -23,10 +25,295 @@ library(patchwork)
 library(kableExtra)
 library(xtable)
 library(ggrepel)
+library(rootSolve)
 #========================================================================
 # Define functions
 #========================================================================
+#=============================================================
+# Tech adoption
+#=============================================================
+get_adopt_range <- function(delta_h, delta_P, quietly = T){
+  # delta_h <- .9
+  # delta_P <- 0.95 # Must be > delta_h?
+  deltas <- delta_h * delta_P
+  ly_switch <- log(delta_P) / (1 - 1 / deltas)
+  #if(delta_P > 1){
+  #--
+  if(deltas > 1){
+    tech_is_pro_poor <- T
+  }else{
+    tech_is_pro_poor <- F
+  }
+  #--
+  if(ly_switch > -1 & ly_switch < 0){
+    if(tech_is_pro_poor){
+      adopt_bounds <- c(-1, ly_switch)
+    }else{
+      adopt_bounds <- c(ly_switch, 0)
+    }
+  }else{
+    if(ly_switch < -1){
+      if(tech_is_pro_poor){
+        adopt_bounds <- NA  
+      }else{
+        adopt_bounds <- c(-1, 0)
+      }
+    }
+    if(ly_switch > 0){
+      if(tech_is_pro_poor){
+        adopt_bounds <- c(-1, 0)
+      }else{
+        adopt_bounds <- NA
+      }
+    }
+  }
+  #--
+  zero_or_full <- NA
+  if(adopt_bounds[1] == -1 & adopt_bounds[2] == 0){
+    zero_or_full <- "Full adoption"
+  }
+  if(is.na(adopt_bounds)){
+    zero_or_full <- "Zero adoption"
+  }
+  
+  if(!quietly){
+    print("Adoption log yield (normalized) bounds:")
+    print(adopt_bounds)
+    print("ly_switch:")
+    print(ly_switch)
+    if(tech_is_pro_poor){
+      print("Tech is pro-poor")
+    }else{
+      print("Tech is not pro-poor")
+    }
+    print(zero_or_full)
+  }
+  #--
+  out_list <- list(adopt_bounds, tech_is_pro_poor, ly_switch, zero_or_full)
+  return(out_list)
+}    
 
+
+graph_diffNR1NR0 <- function(delta_h, delta_P, yCeil){
+  ly0_vec <- seq(-1, 0, length.out = 25)
+  
+  deltas <- delta_h * delta_P
+  ly_switch <- log(delta_P) / (1 - 1 / deltas)
+  
+  R_0 <- yCeil * exp(ly0_vec)
+  R_1 <- yCeil * exp(ly0_vec / deltas) * delta_P
+  diff_NR1NR0 <- R_1 - R_0
+  df_plot <- data.frame(ly0_vec, diff_NR1NR0)
+  gg <- ggplot(df_plot, aes(x = ly0_vec, y = diff_NR1NR0))
+  gg <- gg + geom_line()
+  gg <- gg + geom_hline(yintercept = 0, color = "violet", size = 1)
+  #    gg <- gg + geom_vline(xintercept = ly_switch, color = "violet", size = 1)
+  gg <- gg + labs(x = "Log yield index", y = expression("Diff. in net rev. ("*ha.^-1 ~Price^-1*")"))
+  gg
+  
+}
+
+
+# delta_h <- 1.1
+# delta_P <- 1.03
+# out <- get_adopt_range(delta_h, delta_P, quietly = T)
+# adopt_bounds <- out[[1]]
+# tech_is_pro_poor <- out[[2]]
+# adopt_bounds
+# tech_is_pro_poor
+# graph_diffNR1NR0(delta_h, delta_P, yCeil)
+
+get_lq_bounds <- function(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full){
+  if(which_tech == "baseline"){
+    if(!is.na(zero_or_full)){
+      if(zero_or_full == "Zero adoption"){
+        lq_bounds <- c(-1, 0)
+      }
+      if(zero_or_full == "Full adoption"){
+        lq_bounds <- NA
+      }
+      
+    }else{
+      if(tech_is_pro_poor){
+        lq_lower <- adopt_bounds[2]
+        lq_upper <- 0
+      }else{
+        lq_lower <- -1
+        lq_upper <- adopt_bounds[1]
+      }
+      lq_bounds <- c(lq_lower, lq_upper)
+      
+    }
+    
+  }
+  
+  if(which_tech == "new"){
+    lq_bounds <- adopt_bounds
+  }
+  
+  return(lq_bounds)
+}
+
+#=============================================================
+# Supply function
+#=============================================================
+QS_at_P <- function(P, QS_env){
+  mu_alpha <- QS_env[["mu_alpha"]]
+  sig_alpha <- QS_env[["sig_alpha"]]
+  yCeil <- QS_env[["yCeil"]]
+  m_A <- QS_env[["m_A"]]
+  s_A <- QS_env[["s_A"]]
+  N <- QS_env[["N"]]
+  lq_bounds <- QS_env[["lq_bounds"]]
+  
+  m_y <- log(yCeil) + mu_alpha / P
+  s_y <- sig_alpha / P
+  mu_y <- exp(m_y + s_y^2 / 2)
+  
+  mu_A <- exp(m_A + s_A^2 / 2)
+  
+  mu_q <- mu_y * mu_A
+  
+  s_q <- s_A + s_y
+  
+  supply_is_zero <- F
+  if(is.null(lq_bounds)){
+    lq_lower <- -1
+    lq_upper <- 0
+  }else{
+    if(is.na(lq_bounds)){
+      supply_is_zero <- T
+    }else{
+      lq_lower <- lq_bounds[1]
+      lq_upper <- lq_bounds[2]
+    }
+    
+  }
+  
+  if(supply_is_zero){
+    mkt_particip <- 0
+    QS <- 0
+  }else{
+    u_upper <- (lq_upper - mu_alpha / P) / s_q
+    u_lower <- (lq_lower - mu_alpha / P) / s_q
+    
+    theta_upper <- u_upper - s_q
+    theta_lower <- u_lower - s_q
+    
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    mkt_particip <- N_upper - N_lower
+    QS <- N * mu_q * mkt_particip
+  }
+  out_vec <- c(P, QS, mkt_particip)
+  
+  return(out_vec)
+}
+#-------------------------------------------------------------
+QS_curve <- function(P_vec, QS_env){
+  list_out <- purrr::map(P_vec, QS_at_P, QS_env)
+  return(list_out)
+}
+#=============================================================
+# Demand curve
+#=============================================================
+Q_NR_hm1_firm <- function(gamma, P_output, yCeil, C = NULL, C_per_Q = NULL, A = 1, quietly = T){
+  
+  if((is.null(C_per_Q) & is.null(C)) | (!is.null(C_per_Q) & !is.null(C))){
+    print("Both C_per_Q and C can't be NULL/not NULL. Choose one or the other.")
+  }
+  
+  gamma = gamma_DEM
+  P_output = P_output_DEM_squo
+  yCeil = yCeil_DEM_squo
+  C = C_DEM_squo
+  C_per_Q = C_per_Q_DEM_squo
+  A = 1
+  
+  if(!is.null(C)){
+    arg <- -C * gamma / (yCeil * P_output)
+    Q <- A * yCeil * exp(lamW::lambertWm1(arg))
+    #Q <- A * yCeil * exp(VGAM::lambertW(arg))
+    #L <- Q * P_output - C * gamma
+    NR <- Q * P_output - C
+    
+  }
+  
+  if(!is.null(C_per_Q)){
+    alpha <- -C_per_Q * gamma
+    Q <- A * yCeil * exp(alpha / P_output)
+    #L <- Q * (P_output - C_per_Q * gamma)
+    NR <- Q * (P_output - C_per_Q)
+    
+  }
+  
+  outvec <- c(Q, NR)
+  
+  if(!quietly){
+    print("Q and NR:")
+    print(outvec)
+  }
+  
+  return(outvec)
+}
+
+QD_at_P <- function(P, QD_env){
+  P_output_DEM <- QD_env[["P_output_DEM"]]
+  a_DEM <- QD_env[["a_DEM"]]
+  gamma_DEM <- QD_env[["gamma_DEM"]]
+  yCeil_DEM <- QD_env[["yCeil_DEM"]]
+  C_DEM <- QD_env[["C_DEM"]]
+  
+  Q_output_DEM <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM, yCeil_DEM, C_DEM)[1]
+  common_factor <- P_output_DEM * Q_output_DEM / gamma_DEM
+  QD <- sqrt(a_DEM / P * common_factor)
+  
+  out_vec <- c(P, QD)
+  return(out_vec)
+}
+#-------------------------------------------------------------
+QD_curve <- function(P_vec, QD_env){
+  list_out <- purrr::map(P_vec, QD_at_P, QD_env)
+  return(list_out)
+}
+#=============================================================
+# Equilibrium
+#=============================================================
+equilib_rootfn <- function(P_vec, QS_env, QD_env){
+  
+  QS <- QS_curve(P_vec, QS_env)
+  QS <- as.data.frame(do.call(rbind, QS))
+  QS <- QS[, 2]
+  
+  QD <- QD_curve(P_vec, QD_env)
+  QD <- as.data.frame(do.call(rbind, QD))
+  QD <- QD[, 2]
+  
+  slack <- QS - QD
+  
+  return(slack)
+} 
+
+QSQD_Equilib <- function(interval_P, QS_env, QD_env){
+  
+  P_E <- uniroot.all(equilib_rootfn,
+                     interval_P,
+                     lower = min(interval_P),
+                     upper = max(interval_P),
+                     QS_env = QS_env,
+                     QD_env = QD_env)
+  
+  QS_vec <- QS_at_P(P_E, QS_env)
+  return(QS_vec)
+  
+}
+#=============================================================
+#=============================================================
+#=============================================================
+# End function definitions
+#=============================================================
+#=============================================================
+#=============================================================
 #yStar
 
 
@@ -34,6 +321,18 @@ library(ggrepel)
 
 
 # Introduction
+
+
+"Yield elasticities are smaller and less stable than acreage elasticities" [@rao1989agricultural].
+
+
+"no notable price response on the part of agricultural production.... More important is the fact that agricultural production evidently reacts more strongly to certain types of government activity in rural areas (road building, establishment of markets, degree of literacy) than to price increases" [@schafer1987farm].
+
+"output price volatility acts as a disincentive. Depending on the crop, the results show that own-price supply elasticities range from about 0.05 to 0.40. Output price volatility, however, has negative correlations with crop supply, implying that farmers shift land, other inputs, and yield-improving investments to crops with less volatile prices" [@haile2015worldwide].
+
+
+
+
 
 Things to think about before investing in small granule research.
 
@@ -164,13 +463,25 @@ There is a clear correlation between price and production in the case of rice. F
 ```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:supply_response}Production response to price (FAO).", echo=FALSE}
 
 df_plot <- df_price
-df_plot$`Gross Production Value (current SLC)` <- NULL
-df_plot <- df_plot %>% gather(Type, Value, `Area harvested ('000 Ha)`:`Yield (MT)`)
-gg <- ggplot(df_plot, aes(x = Value, y = `Price (Baht / MT)`, label = Year))
+df_plot_rice <- subset(df_plot, Item == "Rice, paddy")
+gg <- ggplot(df_plot_rice, aes(x = `Production ('000 MT)`, y = `Price (Baht / MT)`, label = Year))
 gg <- gg + geom_point()
 gg <- gg + geom_text_repel()
-gg <- gg + facet_grid(Type~Item, scales = "free_y")
+gg <- gg + theme(axis.text = element_blank(),
+                 axis.ticks = element_blank())
+gg <- gg + labs(title = "Thai rice production-price relation")
 gg
+
+df_plot_cassava <- subset(df_plot, Item == "Cassava")
+gg <- ggplot(df_plot_cassava, aes(x = `Production ('000 MT)`, y = `Price (Baht / MT)`, label = Year))
+gg <- gg + geom_point()
+gg <- gg + geom_text_repel()
+gg <- gg + theme(axis.text = element_blank(),
+                 axis.ticks = element_blank())
+gg <- gg + labs(title = "Thai cassava production-price relation")
+gg
+
+
 
 
 
@@ -181,12 +492,116 @@ There is some correlation between yield and price (Figure \ref{fig:yield_respons
 
 ```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:yield_response}Area response to price (FAO).", echo=FALSE}
 
-df_plot <- subset(df_price, Item == "Rice, paddy")
-# df_plot$lPrice <- log(df_price$Price)
-# df_plot$`lYield (MT)` <- log(df_plot$`Yield (MT)`)
-gg <- ggplot(df_plot, aes(x = `Yield (MT)`, y = `Area harvested ('000 Ha)`, label = Year))
-gg <- gg + geom_point()
-gg <- gg + geom_text_repel()
+ExportData_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv")
+ExportData_raw <- subset(ExportData_raw, Item.Code != 2928)
+ExportData_raw$Area.Code <- NULL
+ExportData_raw$Element.Code <-NULL
+ExportData_raw$Item <- as.character(ExportData_raw$Item)
+ExportData_raw$Element <- as.character(ExportData_raw$Element)
+ExportData_raw$Area <- as.character(ExportData_raw$Area)
+u <- colnames(ExportData_raw)
+ExportData_raw <- ExportData_raw[, -grep("F", u)]
+colnames(ExportData_raw)[6:ncol(ExportData_raw)] <- as.character(c(1961:2016))
+ExportData_raw <- gather(ExportData_raw,Year,Value,`1961`:`2016`)
+rm(u)
+#----------------------------------
+#unique(ExportData_raw$Item)
+# which(unique(ExportData_raw$Item) == "Rice")
+# unique(ExportData_raw$Item)[105]
+#unique(ExportData_raw$Item)[grep("Rubber",unique(ExportData_raw$Item))]
+ExportData <- subset(ExportData_raw, Element %in% c("Export Quantity", "Export Value"))
+ExportData <-  subset(ExportData, Area %in% c("World"))
+#ExportData <- subset(ExportData, Item %in% c("Sorghum", "Maize", "Wheat", "Cassava Equivalent") | Item.Code %in% c(30))
+# ExportData <- subset(ExportData, Item %in% c("Maize", "Cassava dried",
+#                         "Coffee, green", "Wheat", "Bananas", "Plantains",
+#                         "Potatoes", "Cassava Equivalent", "Cocoa, beans", "Wool, greasy",
+#                         "Beans, dry", "Cotton lint", "Silk", "Apples", "Oil, soybean",
+#                         "Rubber, natural", "Rice"))
+
+ExportData <- subset(ExportData, Item %in% c("Maize", "Cassava dried", "Flour, wheat", "Starch, cassava",
+                                             "Coffee, green", "Coffee, roasted", "Wheat", "Bananas", "Plantains",
+                                             "Potatoes", "Cassava Equivalent", "Cocoa, beans", "Wool, greasy",
+                                             "Beans, dry", "Cotton lint", "Silk", "Apples", "Soybeans", "Oil, soybean",
+                                             "Rubber, natural", "Rice", "Cocoa, butter"))
+
+
+#ExportData <- subset(ExportData, Item %in% c("Barley", "Maize","Cassava dried","Coffee, green","Flour, wheat" ,"Bananas and plantains","Pulses","Coffee, roasted","Millet","Rye","Wheat","Sorghum","Potatoes","Starch, cassava","Cassava Equivalent") | Item.Code %in% c(30,1955))
+#ExportData <-  subset(ExportData, Area %in% c("Thailand","United States of America", "World"))
+#ExportData <- subset(ExportData, Item %in% c("Maize","Cassava Equivalent","Wheat","Sorghum", "Barley") | Item.Code %in% c(30,1955))
+#ExportData <- subset(ExportData, Item %in% c("Wheat","Maize","Millet","Rye","Sorghum") | Item.Code %in% c(30))
+#ExportData <- subset(ExportData, Item %in% c("Wheat","Maize","Barley","Sorghum", "Cassava Equivalent") | Item.Code %in% c(30,1955))
+#ExportData <- subset(ExportData, Item %in% c("Cassava Equivalent","Maize","Sorghum", "Wheat") | Item.Code %in% c(30,1955))
+ExportData$Item.Code <- NULL
+#ExportData <- subset(ExportData_raw, Item %in% c("Cassava Equivalent", "Cereals"))
+#ExportData <- subset(ExportData_raw,Item %in% c("Cassava dried","Flour, maize","Flour, wheat","Sorghum","Starch, cassava"))
+#----------------------------------
+ExportData$Unit <- NULL
+ExportData$Value[which(is.na(ExportData$Value))] <- 0
+ExportData_wide <- spread(ExportData, Element, Value)
+ExportData_wide <- ExportData_wide[order(ExportData_wide$Area, ExportData_wide$Year),]
+ExportData_wide$`Price` <- NA
+ExportData_wide$`Price` <- 1000 * as.numeric(ExportData_wide$`Export Value`) / as.numeric(ExportData_wide$`Export Quantity`)
+#ExportData_wide$`Export Quantity` <- NULL
+#ExportData_wide$`Export Value` <- NULL
+ExportData_wide$Year <- as.integer(ExportData_wide$Year)
+
+u <- ExportData_wide$Item
+ExportData_wide$Item[grep("Rice", u)] <- "Rice"
+ExportData_wide$Item[grep("Sugar", u)] <- "Sugar"
+#ExportData_wide$Item[grep("Maize", u)] <- "Corn"
+ExportData_wide$Item[grep("Beans", u)] <- "Beans"
+ExportData_wide$Item[grep("Oil, soybean", u)] <- "Soybean oil"
+ExportData_wide$Item[grep("Cassava dried", u)] <- "Dried cassava"
+ExportData_wide$Item[grep("Starch, cassava", u)] <- "Cassava starch"
+ExportData_wide$Item[grep("Flour, wheat", u)] <- "Wheat flour"
+ExportData_wide$Item[grep("Wool", u)] <- "Wool"
+
+
+rm(u)
+
+ExportData_wide <- ExportData_wide %>% gather(Var, Value, `Export Quantity`:Price)
+
+FaoPrice_wide_allYrs <- spread(ExportData_wide, Item, Value)
+FaoPrice_wide_allYrs$Area <- NULL
+# u <- colnames(FaoPrice_wide_allYrs)[2:ncol(FaoPrice_wide_allYrs)]
+# colnames(FaoPrice_wide_allYrs)[2:ncol(FaoPrice_wide_allYrs)] <- paste(u,"Price")
+# rm(u)
+#---------------------------------
+FaoPrice_wide <- subset(FaoPrice_wide_allYrs,Year %in% c(1974:2008))
+#FaoPrice_wide$t <- c(1:nrow(FaoPrice_wide))
+#FaoPrice_wide <- FaoPrice_wide[,c(1,ncol(FaoPrice_wide),2:(ncol(FaoPrice_wide)-1))]
+#mod <- lm(log(`Corn Price`) ~ t,FaoPrice_wide)
+#mod <- lm(log(`Wheat Price`) ~ t,FaoPrice_wide)
+#summary(mod)
+#?lm
+gathercols <- colnames(FaoPrice_wide)[c(3:ncol(FaoPrice_wide))]
+FaoPrice_long <- gather_(FaoPrice_wide, "Item", "Value", gathercols)
+FaoPrice_long <- FaoPrice_long %>% spread(Var, Value)
+
+FaoPrice_long$lPrice <- log(FaoPrice_long$Price)
+gg <- ggplot(FaoPrice_long,aes(x = Year, y = Price, group = Item, color = Item)) + geom_line()
+gg
+
+df_mu_sd <- FaoPrice_long %>% group_by(Item) %>% summarise(mu = mean(Price), 
+                                                           sd = sd(Price), `Export Qty.` = mean(`Export Quantity`), 
+                                                           `Export Value\n(1000 USD)` = mean(`Export Value`))
+df_mu_sd$lmu <- log(df_mu_sd$mu)
+df_mu_sd$lsd <- log(df_mu_sd$sd)
+df_mu_sd$lQty <- log(df_mu_sd$`Export Qty.`)
+mod <- lm(lmu ~ lsd, df_mu_sd)
+#summary(mod)
+yint <- round(mod$coefficients[1], 2)
+slope <- round(mod$coefficients[2], 2)
+
+gg <- ggplot(df_mu_sd, aes(x = lsd, y = lmu)) + geom_point(aes(size = `Export Value\n(1000 USD)`))
+#gg <- gg + geom_text(aes(label = Item), angle = 0, hjust=-0.1, vjust=0, size = 5)
+gg <- gg + geom_text_repel(aes(label = Item), size = 5)
+#gg <- gg + geom_abline(intercept = mod$coefficients[1], slope = mod$coefficients[2])
+gg <- gg + ggtitle(paste0("Slope = ", as.character(slope), "  Y intercept = ", as.character(yint))) + theme(plot.title = element_text(size=12))
+gg <- gg + labs(x = "Nat. Log(standard deviation of price)", y = "Nat. Log(mean price)",
+                caption = "Source: Author's calculation using Faostat series 1974-2008.\n'Price' = World Export Value / World Export Qty.")
+#gg <- gg + labs(caption = "Source: Authors' creation using Faostat series 1974-2008. 'Price' = World Export Value / World Export Qty.")
+#gg <- gg + stat_smooth(method = lm, se = FALSE)
 gg
 
 ```
@@ -195,38 +610,284 @@ gg
 
 The other manner of increasing production is to expand area. However, there is no clear relation between price and area. If any relation at all, it is that area is inelastic with respect to price (Figure \ref{fig:area_response}).
 
+[@chaisinboon2011factors]
 
-```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:area_response}Area response to price (FAO).", echo=FALSE}
+To refer to variable: `r max(df$x)`
 
-df_plot <- df_price
-gg <- ggplot(df_plot, aes(x = `Area harvested ('000 Ha)`, y = `Price (Baht / MT)`, label = Year))
-gg <- gg + geom_point()
-gg <- gg + geom_text_repel()
+```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:x}.", echo=FALSE}
+
+#=============================================================
+#=============================================================
+# Define parameters
+#-------------------------------------------------------------
+# Supply
+#-------------------------------------------------------------
+C_per_Q_at_mu <- 1900
+gamma_at_mu <- 1
+h_at_mu <- -0.75
+mu_alpha <- C_per_Q_at_mu / h_at_mu * gamma_at_mu
+cv_alpha <- 0.11
+sig_alpha <- abs(mu_alpha * cv_alpha)
+yCeil <- 44
+m_A <- log(2)
+cv_A <- 0.15
+s_A <- m_A * cv_A
+N <- 40
+lq_bounds <- NULL
+#-------------------------------------------------------------
+# Demand
+#-------------------------------------------------------------
+# QD <- N_D * P_output / (P * gamma_D) * a_e
+P_E_squo <- 2100 # observed equilibrium price
+Q_E_squo <- 480 # observed demand (equilibrium qty)
+kl_per_MT_squo <- 1 / 6
+#Q_output_DEM_squo <- 200 # ethanol kl
+Q_output_DEM_squo <- Q_E_squo * kl_per_MT_squo
+P_output_DEM_squo <- 22300
+C_process_per_kL_squo <- 9000
+C_fdstk_squo <- Q_E_squo * P_E_squo
+C_process_squo <- C_process_per_kL_squo * Q_output_DEM_squo
+C_DEM_squo <- C_fdstk_squo + C_process_squo
+C_per_Q_DEM_squo <- C_DEM_squo / Q_output_DEM_squo
+C_DEM_squo <- C_per_Q_DEM_squo * Q_output_DEM_squo
+yCeil_DEM_squo <- 210
+gamma_DEM <- -log(Q_output_DEM_squo / yCeil_DEM_squo) * P_output_DEM_squo / C_per_Q_DEM_squo
+#print(paste("gamma_DEM =", round(gamma_DEM, 2)))
+#---
+#Check
+#outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_squo, C_DEM_squo, quietly = F)
+#Q_output_DEM_squo * P_output_DEM_squo - C_DEM_squo
+#---
+#common_factor <- QD_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
+common_factor <- Q_output_DEM_squo * P_output_DEM_squo / gamma_DEM
+a_root_squo <- Q_E_squo^2 * P_E_squo / common_factor
+#a_root_squo <- QD_squo * P_E_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
+a_proc_squo <- Q_E_squo^2 * (C_process_per_kL_squo / kl_per_MT_squo) / common_factor
+#-------------------------------------------------------------
+kl_per_MT_1 <- 1.15 * kl_per_MT_squo
+a_root_1 <- Q_E_squo * P_E_squo * gamma_DEM / (P_output_DEM_squo * kl_per_MT_1)
+#=============================================================
+P_vec <- seq(200, 7500, length.out = 50)
+#=============================================================
+# P <- 1800
+# QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
+QS_env <- list()
+QS_env[["mu_alpha"]] <- mu_alpha
+QS_env[["sig_alpha"]] <- sig_alpha
+QS_env[["yCeil"]] <- yCeil
+QS_env[["m_A"]] <- m_A
+QS_env[["s_A"]] <- s_A
+QS_env[["N"]] <- N
+QS_env[["lq_bounds"]] <- NULL
+QS_env_squo <- QS_env
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Baseline\nSupply", "Market Participation")
+
+QD_env <- list()
+QD_env[["P_output_DEM"]] <- P_output_DEM_squo
+QD_env[["a_DEM"]] <- a_root_squo
+QD_env[["gamma_DEM"]] <- gamma_DEM
+QD_env[["P_output_DEM"]] <- P_output_DEM_squo
+QD_env[["yCeil_DEM"]] <- yCeil_DEM_squo
+QD_env[["C_DEM"]] <- C_DEM_squo
+
+QD_env_squo <- QD_env
+list_QD_curve <- QD_curve(P_vec, QD_env)
+df_QD <- as.data.frame(do.call(rbind, list_QD_curve))
+colnames(df_QD) <- c("Price (Baht / MT)", "Baseline\nDemand")
+df_plot <- df_QS
+# gg <- ggplot(df_plot, aes(x = Price, y = Supply))
+# gg <- gg + geom_line()
+# gg
+# df_plot <- df_QD
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Demand))
+# gg <- gg + geom_line()
+# gg
+
+df_plot <- merge(df_QS, df_QD)
+df_plot$`Market Participation` <- NULL
+df_plot <- df_plot %>% gather(Type, `Quantity (MT)`, `Baseline\nDemand`:`Baseline\nSupply`)
+
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 20)
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + coord_cartesian(ylim = c(0, 2000))
+gg <- gg + theme(legend.title = element_blank(),
+                 legend.position = "bottom")
+gg <- gg + coord_cartesian(ylim = c(0, 800), xlim = c(0, 3000))
+gg <- gg + labs(title = "Status quo equilibrium")
+#gg
+gg_eq <- gg
+
+interval_P <- c(200, 10000)
+equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
+#equilib_vec
+
+
+#=============================================================
+#=============================================================
+#=============================================================
+#=============================================================
+#=============================================================
+# Technology adoption analysis
+#=============================================================
+#=============================================================
+#=============================================================
+delta_h <- 0.95
+delta_P <- 1.02
+deltas <- delta_h * delta_P
+#graph_diffNR1NR0(delta_h, delta_P, yCeil)
+
+out_list <- get_adopt_range(delta_h, delta_P, quietly = T)
+adopt_bounds <- out_list[[1]]
+tech_is_pro_poor <- out_list[[2]]
+zero_or_full <- out_list[[4]]
+which_tech <- "baseline"
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+QS_env <- QS_env_squo
+QS_env[["lq_bounds"]] <- lq_bounds
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+df_QS_0 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_QS_0$Tech <- "Baseline\nSupply"
+QS_env_0 <- QS_env
+
+# df_plot <- df_QS_0
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+# gg <- gg + geom_line()
+# #gg <- gg + geom_vline(xintercept = P_1 / delta_h, color = "violet", size = 1)
+# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+# gg
+
+
+which_tech <- "new"
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+QS_env <- QS_env_squo
+QS_env[["lq_bounds"]] <- lq_bounds
+QS_env[["mu_alpha"]] <- mu_alpha / deltas
+QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha / deltas)
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+df_QS_1 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_QS_1$Tech <- "Small Granule\nSupply"
+QS_env_1 <- QS_env
+
+# df_plot <- df_QS_1
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+# gg <- gg + geom_line()
+# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+# gg
+
+df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
+df_plot <- df_QS_1_0
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg <- gg + theme(axis.title.y = element_blank())
 gg
+
+
+df_QD_0 <- df_QD
+colnames(df_QD_0)[2] <- "Quantity (MT)"
+df_QD_0$Type <- "Baseline\nDemand"
+QD_env_0 <- QD_env_squo
+QD_env_1 <- QD_env_squo
+QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
+list_QD_curve <- QD_curve(P_vec, QD_env_1)
+df_QD_1 <- as.data.frame(do.call(rbind, list_QD_curve))
+colnames(df_QD_1) <- c("Price (Baht / MT)", "Quantity (MT)")
+df_QD_1$Type <- "Small Granule\nDemand"
+df_QD_1_0 <- rbind(df_QD_0, df_QD_1)
+
+
+df_QS_0 <- subset(df_QS_0, Item != "Market Participation")
+df_QS_0$Item <- NULL
+colnames(df_QS_0)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD_0 <- rbind(df_QS_0, df_QD_0)
+df_plot <- df_QS_QD_0
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank(),
+                 axis.title.x = element_blank())
+gg <- gg + coord_cartesian(ylim = c(0, 1500), xlim = c(0, 5500))
+gg <- gg + labs(title = "Equilibrium after release")
+#gg 
+gg_baseline <- gg
+
+df_QS_1 <- subset(df_QS_1, Item != "Market Participation")
+df_QS_1$Item <- NULL
+colnames(df_QS_1)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD_1 <- rbind(df_QS_1, df_QD_1)
+df_plot <- df_QS_QD_1
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank())
+gg <- gg + coord_cartesian(ylim = c(1, 1500), xlim = c(0, 5500))
+#gg 
+gg_new <- gg
+
+# df_QS_composite <- df_QS_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(Value))
+# df_QS_composite$Type <- "Composite Supply"
+# df_QD_composite <- df_QD_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(`Quantity (MT)`))
+# df_QD_composite$Type <- "Composite Demand"
+# df_QS_QD <- rbind(df_QS_composite, df_QD_composite)
+# df_plot <- df_QS_QD
+# distinct_colors <- sample(bag_of_colors, 2)
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+# gg <- gg + geom_line(lwd = 1.1)
+# gg <- gg + labs(title = "After release")
+# gg <- gg + scale_color_manual(values = distinct_colors)
+# gg <- gg + theme(legend.title = element_blank(),
+#                  legend.position = "bottom")
+# gg <- gg + coord_cartesian(ylim = c(0, 1500))
+# gg
+# gg_composite <- gg
+
+gg_eq + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths = c(2, 1))
+
+interval_P <- c(500, 10000)
+equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
+equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
+# equilib_vec_0
+# equilib_vec_1
+
+if(length(equilib_vec_0) > 3){
+  mkt_part_0 <- equilib_vec_0[5]
+  mkt_part_0_b <- equilib_vec_0[6]
+}else{
+  mkt_part_0 <- equilib_vec_0[3]
+}
+if(length(equilib_vec_1) > 3){
+  mkt_part_1 <- equilib_vec_1[5]
+  mkt_part_1_b <- equilib_vec_1[6]
+}else{
+  mkt_part_1 <- equilib_vec_1[3]
+}
+
+
+# adoption_rate <- mkt_part_1 / (mkt_part_1 + mkt_part_0)
+# adoption_rate
+
+
+
 
 ```
 
-# The new model
 
+\pagebreak
 
-
-
-# Appendix
-
-\begin{equation}
-\mathcal{L} = APy - C + \lambda_C (\bar{C} - C)
-\end{equation}
-
-\begin{equation}
-y = e^{\frac{\tilde{C} (1 + \lambda_C / A)}{P h}}
-\end{equation}
-
-\begin{equation}
-\eta_{y,P}
-\end{equation}
-
-\begin{equation}
-\eta_{y,A}, \eta_{\nu, A}
-\end{equation}
-
+# References
 
