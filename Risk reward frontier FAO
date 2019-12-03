@@ -1,0 +1,124 @@
+#Updated 11-08-2017
+#setwd("~/")
+setwd('D:/OneDrive - CGIAR/Documents')
+options(warn = -1); options(scipen = 999)
+library(reshape)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(zoo)
+#Read in raw FAO trade data
+#----------------------------------
+ExportData_raw <- read.csv("Trade_Crops_Livestock_E_All_Data.csv")
+ExportData_raw <- subset(ExportData_raw, Item.Code != 2928)
+ExportData_raw$Area.Code <- NULL
+ExportData_raw$Element.Code <-NULL
+ExportData_raw$Item <- as.character(ExportData_raw$Item)
+ExportData_raw$Element <- as.character(ExportData_raw$Element)
+ExportData_raw$Area <- as.character(ExportData_raw$Area)
+u <- colnames(ExportData_raw)
+ExportData_raw <- ExportData_raw[, -grep("F", u)]
+colnames(ExportData_raw)[6:ncol(ExportData_raw)] <- as.character(c(1961:2013))
+ExportData_raw <- gather(ExportData_raw,Year,Value,`1961`:`2013`)
+rm(u)
+#----------------------------------
+#unique(ExportData_raw$Item)
+# which(unique(ExportData_raw$Item) == "Rice")
+# unique(ExportData_raw$Item)[105]
+#unique(ExportData_raw$Item)[grep("Rubber",unique(ExportData_raw$Item))]
+ExportData <- subset(ExportData_raw, Element %in% c("Export Quantity", "Export Value"))
+ExportData <-  subset(ExportData, Area %in% c("World"))
+#ExportData <- subset(ExportData, Item %in% c("Sorghum", "Maize", "Wheat", "Cassava Equivalent") | Item.Code %in% c(30))
+# ExportData <- subset(ExportData, Item %in% c("Maize", "Cassava dried",
+#                         "Coffee, green", "Wheat", "Bananas", "Plantains",
+#                         "Potatoes", "Cassava Equivalent", "Cocoa, beans", "Wool, greasy",
+#                         "Beans, dry", "Cotton lint", "Silk", "Apples", "Oil, soybean",
+#                         "Rubber, natural", "Rice"))
+
+ExportData <- subset(ExportData, Item %in% c("Maize", "Cassava dried", "Flour, wheat", "Starch, cassava",
+                                             "Coffee, green", "Coffee, roasted", "Wheat", "Bananas", "Plantains",
+                                             "Potatoes", "Cassava Equivalent", "Cocoa, beans", "Wool, greasy",
+                                             "Beans, dry", "Cotton lint", "Silk", "Apples", "Soybeans", "Oil, soybean",
+                                             "Rubber, natural", "Rice", "Cocoa, butter"))
+
+
+#ExportData <- subset(ExportData, Item %in% c("Barley", "Maize","Cassava dried","Coffee, green","Flour, wheat" ,"Bananas and plantains","Pulses","Coffee, roasted","Millet","Rye","Wheat","Sorghum","Potatoes","Starch, cassava","Cassava Equivalent") | Item.Code %in% c(30,1955))
+#ExportData <-  subset(ExportData, Area %in% c("Thailand","United States of America", "World"))
+#ExportData <- subset(ExportData, Item %in% c("Maize","Cassava Equivalent","Wheat","Sorghum", "Barley") | Item.Code %in% c(30,1955))
+#ExportData <- subset(ExportData, Item %in% c("Wheat","Maize","Millet","Rye","Sorghum") | Item.Code %in% c(30))
+#ExportData <- subset(ExportData, Item %in% c("Wheat","Maize","Barley","Sorghum", "Cassava Equivalent") | Item.Code %in% c(30,1955))
+#ExportData <- subset(ExportData, Item %in% c("Cassava Equivalent","Maize","Sorghum", "Wheat") | Item.Code %in% c(30,1955))
+ExportData$Item.Code <- NULL
+#ExportData <- subset(ExportData_raw, Item %in% c("Cassava Equivalent", "Cereals"))
+#ExportData <- subset(ExportData_raw,Item %in% c("Cassava dried","Flour, maize","Flour, wheat","Sorghum","Starch, cassava"))
+#----------------------------------
+ExportData$Unit <- NULL
+ExportData$Value[which(is.na(ExportData$Value))] <- 0
+ExportData_wide <- spread(ExportData, Element, Value)
+ExportData_wide <- ExportData_wide[order(ExportData_wide$Area, ExportData_wide$Year),]
+ExportData_wide$`Price` <- NA
+ExportData_wide$`Price` <- 1000 * as.numeric(ExportData_wide$`Export Value`) / as.numeric(ExportData_wide$`Export Quantity`)
+#ExportData_wide$`Export Quantity` <- NULL
+#ExportData_wide$`Export Value` <- NULL
+ExportData_wide$Year <- as.integer(ExportData_wide$Year)
+
+u <- ExportData_wide$Item
+ExportData_wide$Item[grep("Rice", u)] <- "Rice"
+ExportData_wide$Item[grep("Sugar", u)] <- "Sugar"
+#ExportData_wide$Item[grep("Maize", u)] <- "Corn"
+ExportData_wide$Item[grep("Beans", u)] <- "Beans"
+ExportData_wide$Item[grep("Oil, soybean", u)] <- "Soybean oil"
+ExportData_wide$Item[grep("Cassava dried", u)] <- "Dried cassava"
+ExportData_wide$Item[grep("Starch, cassava", u)] <- "Cassava starch"
+ExportData_wide$Item[grep("Flour, wheat", u)] <- "Wheat flour"
+ExportData_wide$Item[grep("Wool", u)] <- "Wool"
+
+
+rm(u)
+
+ExportData_wide <- ExportData_wide %>% gather(Var, Value, `Export Quantity`:Price)
+
+FaoPrice_wide_allYrs <- spread(ExportData_wide, Item, Value)
+FaoPrice_wide_allYrs$Area <- NULL
+# u <- colnames(FaoPrice_wide_allYrs)[2:ncol(FaoPrice_wide_allYrs)]
+# colnames(FaoPrice_wide_allYrs)[2:ncol(FaoPrice_wide_allYrs)] <- paste(u,"Price")
+# rm(u)
+#---------------------------------
+FaoPrice_wide <- subset(FaoPrice_wide_allYrs,Year %in% c(1974:2008))
+#FaoPrice_wide$t <- c(1:nrow(FaoPrice_wide))
+#FaoPrice_wide <- FaoPrice_wide[,c(1,ncol(FaoPrice_wide),2:(ncol(FaoPrice_wide)-1))]
+#mod <- lm(log(`Corn Price`) ~ t,FaoPrice_wide)
+#mod <- lm(log(`Wheat Price`) ~ t,FaoPrice_wide)
+#summary(mod)
+#?lm
+gathercols <- colnames(FaoPrice_wide)[c(3:ncol(FaoPrice_wide))]
+FaoPrice_long <- gather_(FaoPrice_wide, "Item", "Value", gathercols)
+FaoPrice_long <- FaoPrice_long %>% spread(Var, Value)
+
+gg <- ggplot(FaoPrice_long,aes(x = Year, y = Price, group = Item, color = Item)) + geom_line()
+gg
+
+df_mu_sd <- FaoPrice_long %>% group_by(Item) %>% summarise(mu = mean(Price), 
+                                                           sd = sd(Price), `Export Qty.` = mean(`Export Quantity`), 
+                                                           `Export Value (1000 USD)` = mean(`Export Value`))
+df_mu_sd$lmu <- log(df_mu_sd$mu)
+df_mu_sd$lsd <- log(df_mu_sd$sd)
+df_mu_sd$lQty <- log(df_mu_sd$`Export Qty.`)
+mod <- lm(lmu ~ lsd, df_mu_sd)
+#summary(mod)
+yint <- round(mod$coefficients[1], 2)
+slope <- round(mod$coefficients[2], 2)
+
+library(ggrepel)
+gg <- ggplot(df_mu_sd, aes(x = lsd, y = lmu)) + geom_point(aes(size = `Export Value (1000 USD)`))
+#gg <- gg + geom_text(aes(label = Item), angle = 0, hjust=-0.1, vjust=0, size = 5)
+gg <- gg + geom_text_repel(aes(label = Item), size = 5)
+#gg <- gg + geom_abline(intercept = mod$coefficients[1], slope = mod$coefficients[2])
+gg <- gg + ggtitle(paste0("Slope = ", as.character(slope), "  Y intercept = ", as.character(yint))) + theme(plot.title = element_text(size=12))
+gg <- gg + xlab("Nat. Log(standard deviation of price)") + ylab("Nat. Log(mean price)")
+#gg <- gg + labs(caption = "Source: Authors' creation using Faostat series 1974-2008. 'Price' = World Export Value / World Export Qty.")
+#gg <- gg + stat_smooth(method = lm, se = FALSE)
+gg
+
+ggsave("risk reward frontier.pdf")
+#=======================
