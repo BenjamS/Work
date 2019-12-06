@@ -332,7 +332,7 @@ Since the small granule uptake strategy rests entirely on the assumption that ca
 
 On the one hand, numerous studies have found that agricultural production, in the aggregate, is unresponsive to price movements^[It is, however, responsive to changes in human and physical capital (infrastructural improvements, education, etc.)]. The explanation offered for this is that aggregate agricultural production is limited by price-invariant physical constraints such as land availability and biophysical yield ceilings [@schafer1987farm; @rao1989agricultural]. Haile, Kalkuhl, and von Braun point to another culprit: high price volatility [-@haile2015worldwide]. It is a little recognized, but plain empirical fact, that higher prices go hand in hand with higher volatility (Figure \ref{fig:riskReward}).^[Note in figure \ref{fig:riskReward} that this is true for distinct crops as well as for distinct intermediate products issuing from a single given crop.] For risk-averse small farmers, a high price is not enough. They must also have assurances that the associated increase in risk will be offset via price floors, insurance, and or other risk pooling mechanisms.
 
-On the other hand, these same studies conclude that farmers _are_ responsive to changes in crop prices _relative to one another_. In a parallel vein, Chaisinboon and Chontanawat found significant responsiveness among Thai cassava farmers to changes in the prices of different cassava products---chips, pellets, starch, and ethanol---relative to one another [-@chaisinboon2011factors]. In South East Asia generally, this is corroborated by recent evidence of small farmers switching betweeen crops as well as between different end uses of a single given crop in response to relative price movements [@newby].
+On the other hand, these same studies conclude that farmers _are_ responsive to changes in crop prices _relative to one another_. In a parallel vein, Chaisinboon and Chontanawat found significant responsiveness among Thai cassava farmers to changes in the prices of different cassava products---chips, pellets, starch, and ethanol---relative to one another [-@chaisinboon2011factors]. In South East Asia generally, this is corroborated by recent evidence of small farmers switching betweeen crops as well as between different end uses of a single given crop in response to relative price movements [@newby2018].
 
 # Modeled supply response to small granule
 
@@ -340,7 +340,15 @@ Experiments conducted in 2016 found that using small granule cassava instead of 
 
 Under weak economic assumptions^[1) Farms and factories want to maximize their net income given land and budget constraints; 2) farms and factories have a positive supply response to increases in the price of their product; 3) marginal returns to farm and factory inputs are diminishing; 4) farm yields follow a lognormal distribution. The model also depends upon several technical factory and farm parameters. See appendix for mathematical details.], the precise supply response to release of small granule cassava depends upon the expected small granule root yield loss relative to the baseline variety, the expected baseline root harvest price, and the expected premium paid out by the factory over and above the baseline price.^[Farmers and factories must generally agree upon these three pieces of information, or else market chaos will ensue.]
 
-Based on this model, the new market equilibrium given a `delta_y_pct` percent drop in yield and a CE factories will want to know how much of a premium they must pay to achieve a certain level of small granule cassava feedstock.
+Clearly, if the small granule premium offered by the factory is high enough, cassava farmers will begin to split into two populations: those who switch to small granule, and those who remain with the baseline variety. However, careful economic modeling is required to determine the precise premium required to achieve a precise level of small granule adoption. A factory may want to know, for example, the minimum premium they must offer in order to secure 100% adoption.
+
+This is also important because the modeling indicates that prices can shift considerably when the producing population is pulled in different directions. And this is reflected empirically. Newby [-@newby2018] has recently documented root price swings of 100% or more in South East Asia as farmers allocate land and resources between competing uses in response to price signals.
+
+The status quo market equilibrium is displayed on the left side of Figure \ref{fig:mktEquilib}. The righthand panel 
+
+Based on this model, the new market equilibrium given a `delta_y_pct` percent drop in yield 
+
+and a CE factories will want to know how much of a premium they must pay to achieve a certain level of small granule cassava feedstock.
 
 
 based on information presented by Sriroth et al. [-@sriroth2010promise]
