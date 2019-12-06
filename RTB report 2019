@@ -1,5 +1,5 @@
 ---
-title: "Potential economic risks of small granule cassava release in Thailand"
+title: "Economic challenges to the uptake of lower yielding small granule cassava"
 author: "Benjamin Schiek"
 date: "`r Sys.time()`"
 bibliography: Small Granule Risk Survey.bib
@@ -320,17 +320,45 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
 ```
 
 
-# Introduction
+# Introduction: economic agency matters
+
+Technological breakthroughs in bioethanol extraction procedures have been cause for a lot of optimism surrounding cassava ethanol (CE) production over the past ten years. Sriroth et al. [-@sriroth2010promise], for example, calculated that, given new factory techniques, the world could enjoy CE output of 15 billion liters per year---*if* only cassava yields could be nudged upwards by just 5 MT/ha. However, this is a big *if* that ignores the economic dimension of the problem. During the green revolution, neglect of the economic dimension may have been justified, as free market incentives were largely overriden by government programs (such as Masagana 99 for rice in the Philippines). But in today's free market environments, production is as much a function of prices as it is of biophysical parameters.
+
+The question of economic agency is especially pertinent in the case of small granule cassava, which offers a factory efficiency gain but is lower yielding than the baseline industrial root variety. The only reason cassava farmers would want to switch to small granule cassava is if they could expect to receive a premium over and above the basline root price high enough to compensate for the yield loss.
+
+# Empirical evidence of cassava farm price responsiveness
+
+Since the small granule uptake strategy rests entirely on the assumption that cassava farmers are price responsive, it is worth taking a moment to examine the empirical evidence behind this assumption. A cursory look at the FAO data reveals some correlation between the cassava farm gate price and production; but the picture is inconclusive when compared to the tight relation observed in the rice supply curve (Figure \ref{fig:supplyCurves}). What does the literature have to say?
+
+On the one hand, numerous studies have found that agricultural production, in the aggregate, is unresponsive to price movements^[It is, however, responsive to changes in human and physical capital (infrastructural improvements, education, etc.)]. The explanation offered for this is that aggregate agricultural production is limited by price-invariant physical constraints such as land availability and biophysical yield ceilings [@schafer1987farm; @rao1989agricultural]. Haile, Kalkuhl, and von Braun point to another culprit: high price volatility [-@haile2015worldwide]. It is a little recognized, but plain empirical fact, that higher prices go hand in hand with higher volatility (Figure \ref{fig:riskReward}).^[Note in figure \ref{fig:riskReward} that this is true for distinct crops as well as for distinct intermediate products issuing from a single given crop.] For risk-averse small farmers, a high price is not enough. They must also have assurances that the associated increase in risk will be offset via price floors, insurance, and or other risk pooling mechanisms.
+
+On the other hand, these same studies conclude that farmers _are_ responsive to changes in crop prices _relative to one another_. In a parallel vein, Chaisinboon and Chontanawat found significant responsiveness among Thai cassava farmers to changes in the prices of different cassava products---chips, pellets, starch, and ethanol---relative to one another [-@chaisinboon2011factors]. In South East Asia generally, this is corroborated by recent evidence of small farmers switching betweeen crops as well as between different end uses of a single given crop in response to relative price movements [@newby].
+
+# Modeled supply response to small granule
+
+Experiments conducted in 2016 found that using small granule cassava instead of the baseline root variety resulted in a 14% increase in Simultaneous Liquefaction, Saccharification, and Fermentation CE production [@TranSLSFdata]. However, small granule cassava is also known to be lower yielding than the baseline variety. This means that farmers will not adopt small granule cassava unless CE factories pay them a sufficiently higher price to compensate for the yield loss relative to the baseline variety.
+
+Under weak economic assumptions^[1) Farms and factories want to maximize their net income given land and budget constraints; 2) farms and factories have a positive supply response to increases in the price of their product; 3) marginal returns to farm and factory inputs are diminishing; 4) farm yields follow a lognormal distribution. The model also depends upon several technical factory and farm parameters. See appendix for mathematical details.], the precise supply response to release of small granule cassava depends upon the expected small granule root yield loss relative to the baseline variety, the expected baseline root harvest price, and the expected premium paid out by the factory over and above the baseline price.^[Farmers and factories must generally agree upon these three pieces of information, or else market chaos will ensue.]
+
+Based on this model, the new market equilibrium given a `delta_y_pct` percent drop in yield and a CE factories will want to know how much of a premium they must pay to achieve a certain level of small granule cassava feedstock.
 
 
-"Yield elasticities are smaller and less stable than acreage elasticities" [@rao1989agricultural].
+based on information presented by Sriroth et al. [-@sriroth2010promise]
+In a 2016 Thai cassava ethanol (CE) factory trial, a switch to small granule cassava chip feedstock increased Simultaneous Liquefaction, Saccharification, and Fermentation (SLSF) ethanol production by 14% over the baseline cassava chip feedstock (Tranh 2016 pers. comm.).  
+
+The supply response for traditional cash crops like soybean, rice, and maize tends to come in the form of increased planted area rather than yield, because the farmers of such crops are already achieving yields near the biophysical maximum [@rao1989agricultural]. In the case of cassava, however, which is relatively new on the industrial scene, yields are still low with respect to their biophysical potential; and so the supply response is composed of adjustments both to yield (through better management, increased expenditure on inputs, etc.) and area.
+
+Below, the yield component of the supply response to a hypothetical release of small granule cassava is modeled based on a set of weak assumptions.^[] 
 
 
-"no notable price response on the part of agricultural production.... More important is the fact that agricultural production evidently reacts more strongly to certain types of government activity in rural areas (road building, establishment of markets, degree of literacy) than to price increases" [@schafer1987farm].
-
-"output price volatility acts as a disincentive. Depending on the crop, the results show that own-price supply elasticities range from about 0.05 to 0.40. Output price volatility, however, has negative correlations with crop supply, implying that farmers shift land, other inputs, and yield-improving investments to crops with less volatile prices" [@haile2015worldwide].
 
 
+
+ Whereas these conventional approaches assume arbitrarily shaped 
+supply and demand functions, DEPEMap builds up supply and demand curves from their underlying distributions of factor endowments. 
+
+ different from existing impact assessment models not 
+because it makes new claims or modifications to existing theory, but because it is built up from an explicit application of the theory, in particular the microeconomic axioms of 1) 
 
 
 
@@ -612,6 +640,8 @@ The other manner of increasing production is to expand area. However, there is n
 
 [@chaisinboon2011factors]
 
+
+
 To refer to variable: `r max(df$x)`
 
 ```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:x}.", echo=FALSE}
@@ -638,8 +668,8 @@ lq_bounds <- NULL
 # Demand
 #-------------------------------------------------------------
 # QD <- N_D * P_output / (P * gamma_D) * a_e
-P_E_squo <- 2100 # observed equilibrium price
-Q_E_squo <- 480 # observed demand (equilibrium qty)
+P_E_squo <- 2000 # observed equilibrium price
+Q_E_squo <- 350 # observed demand (equilibrium qty)
 kl_per_MT_squo <- 1 / 6
 #Q_output_DEM_squo <- 200 # ethanol kl
 Q_output_DEM_squo <- Q_E_squo * kl_per_MT_squo
@@ -650,7 +680,7 @@ C_process_squo <- C_process_per_kL_squo * Q_output_DEM_squo
 C_DEM_squo <- C_fdstk_squo + C_process_squo
 C_per_Q_DEM_squo <- C_DEM_squo / Q_output_DEM_squo
 C_DEM_squo <- C_per_Q_DEM_squo * Q_output_DEM_squo
-yCeil_DEM_squo <- 210
+yCeil_DEM_squo <- 150
 gamma_DEM <- -log(Q_output_DEM_squo / yCeil_DEM_squo) * P_output_DEM_squo / C_per_Q_DEM_squo
 #print(paste("gamma_DEM =", round(gamma_DEM, 2)))
 #---
@@ -664,7 +694,7 @@ a_root_squo <- Q_E_squo^2 * P_E_squo / common_factor
 #a_root_squo <- QD_squo * P_E_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
 a_proc_squo <- Q_E_squo^2 * (C_process_per_kL_squo / kl_per_MT_squo) / common_factor
 #-------------------------------------------------------------
-kl_per_MT_1 <- 1.15 * kl_per_MT_squo
+kl_per_MT_1 <- 1.14 * kl_per_MT_squo
 a_root_1 <- Q_E_squo * P_E_squo * gamma_DEM / (P_output_DEM_squo * kl_per_MT_1)
 #=============================================================
 P_vec <- seq(200, 7500, length.out = 50)
@@ -736,8 +766,8 @@ equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
 #=============================================================
 #=============================================================
 #=============================================================
-delta_h <- 0.95
-delta_P <- 1.02
+delta_h <- 1 / 1.10
+delta_P <- 1.03
 deltas <- delta_h * delta_P
 #graph_diffNR1NR0(delta_h, delta_P, yCeil)
 
