@@ -223,16 +223,20 @@ Q_NR_hm1_firm <- function(gamma, P_output, yCeil, C = NULL, C_per_Q = NULL, A = 
     print("Both C_per_Q and C can't be NULL/not NULL. Choose one or the other.")
   }
   
-  gamma = gamma_DEM
-  P_output = P_output_DEM_squo
-  yCeil = yCeil_DEM_squo
-  C = C_DEM_squo
-  C_per_Q = C_per_Q_DEM_squo
-  A = 1
+  # gamma = gamma_DEM
+  # P_output = P_output_DEM_squo
+  # yCeil = yCeil_DEM_squo
+  # C = C_DEM_squo
+  # C_per_Q = C_per_Q_DEM_squo
+  # A = 1
+  # 
+  # yCeil = yCeil_DEM_new
+
   
   if(!is.null(C)){
     arg <- -C * gamma / (yCeil * P_output)
     Q <- A * yCeil * exp(lamW::lambertWm1(arg))
+    #Q <- A * yCeil * exp(lamW::lambertW0(arg))
     #Q <- A * yCeil * exp(VGAM::lambertW(arg))
     #L <- Q * P_output - C * gamma
     NR <- Q * P_output - C
@@ -256,55 +260,113 @@ Q_NR_hm1_firm <- function(gamma, P_output, yCeil, C = NULL, C_per_Q = NULL, A = 
   
   return(outvec)
 }
+#-------------------------------------------------------------
+QD_input_mix <- function(P, QD_rootfn_env){
 
-QD_at_P <- function(P, QD_env){
-  P_output_DEM <- QD_env[["P_output_DEM"]]
-  a_DEM <- QD_env[["a_DEM"]]
-  gamma_DEM <- QD_env[["gamma_DEM"]]
-  yCeil_DEM <- QD_env[["yCeil_DEM"]]
-  C_DEM <- QD_env[["C_DEM"]]
+  if(!is.null(QD_rootfn_env[["delta_P"]])){
+    delta_P <- QD_rootfn_env[["delta_P"]]
+    P_alt <- delta_P * P
+    QD_rootfn_env[["P_inputs"]][1:2] <- c(P, delta_P * P)
+  }else{
+    QD_rootfn_env[["P_inputs"]][1] <- P
+  }
   
-  Q_output_DEM <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM, yCeil_DEM, C_DEM)[1]
-  common_factor <- P_output_DEM * Q_output_DEM / gamma_DEM
-  QD <- sqrt(a_DEM / P * common_factor)
-  
-  out_vec <- c(P, QD)
+  n_inputs <- length(QD_rootfn_env[["a_DEM_vec"]])
+  var_solve_vec <- rep(50, n_inputs + 1)
+  out <- nleqslv::nleqslv(var_solve_vec, QD_rootfn, jac = NULL, QD_rootfn_env)
+  QD_inputs <- out[1:n_inputs]
+  QgammaRatio_output <- out[n_inputs + 1]
+  # common_factor <- P_output_DEM * Q_gamma_ratio
+  # QD <- sqrt(a_DEM / P * common_factor)
+  out_vec <- c(P, QD_inputs, QgammaRatio_output)
   return(out_vec)
 }
 #-------------------------------------------------------------
-QD_curve <- function(P_vec, QD_env){
-  list_out <- purrr::map(P_vec, QD_at_P, QD_env)
+QD_curve <- function(P_vec, QD_rootfn_env){
+  list_out <- purrr::map(P_vec, QD_input_mix, QD_rootfn_env)
   return(list_out)
 }
+#-------------------------------------------------------------
+QD_rootfn <- function(var_solve_vec, QD_rootfn_env){
+  
+  a_DEM_vec <- QD_rootfn_env[["a_DEM_vec"]]
+  P_inputs <- QD_rootfn_env[["P_inputs"]]
+  P_output_DEM <- QD_rootfn_env[["P_output_DEM"]]
+  C_DEM <- QD_rootfn_env[["C_DEM"]]
+  #kl_per_MT_vec <- QD_rootfn_env[["kl_per_MT_vec"]]
+  #C_process_per_kL <- QD_rootfn_env[["C_process_per_kl"]]
+
+  n_inputs <- length(a_DEM_vec)
+  QD_vec <- var_solve_vec[1:n_inputs]
+  Q_gamma_ratio <- var_solve_vec[n_inputs + 1]
+  common_factor <- P_output_DEM * Q_gamma_ratio
+  slack_q <- QD_vec - sqrt(a_DEM_vec / P_inputs * common_factor)
+  slack_c <- C_DEM - sum(QD_vec * P_inputs)
+  
+  slack_vec <- c(slack_q, slack_c)
+
+  return(slack_vec)
+
+}
+
+
+# p0 <- 2000
+# p1 <- p0 * 1.04
+# QD_rootfn_env <- list()
+#   QD_rootfn_env[["a_DEM_vec"]] <- c(a_root_squo, a_root_1)
+#   QD_rootfn_env[["P_vec"]] <- c(p0, p1)
+#   QD_rootfn_env[["P_output_DEM"]] <- P_output_DEM_squo
+#   QD_rootfn_env[["C_DEM"]] <- C_DEM_squo
+#   QD_rootfn_env[["kl_per_MT_vec"]] <- c(kl_per_MT_squo, kl_per_MT_1)
+#   QD_rootfn_env[["C_process_per_kl"]] <- C_process_per_kL_squo
+# 
+# QD_vec <- c(50, 50, 50)
+# nleqslv::nleqslv(QD_vec, QD_rootfn, jac = NULL, QD_rootfn_env)
+
 #=============================================================
 # Equilibrium
 #=============================================================
-equilib_rootfn <- function(P_vec, QS_env, QD_env){
+equilib_rootfn <- function(P_vec, QS_env, QD_rootfn_env, which_QD){
   
   QS <- QS_curve(P_vec, QS_env)
   QS <- as.data.frame(do.call(rbind, QS))
   QS <- QS[, 2]
   
-  QD <- QD_curve(P_vec, QD_env)
+  QD <- QD_curve(P_vec, QD_rootfn_env)
   QD <- as.data.frame(do.call(rbind, QD))
-  QD <- QD[, 2]
-  
+  QD <- QD[, which_QD]
+
   slack <- QS - QD
   
   return(slack)
 } 
 
-QSQD_Equilib <- function(interval_P, QS_env, QD_env){
+QSQD_Equilib <- function(interval_P, QS_env, QD_rootfn_env, alt_input){
   
+  if(!is.null(QD_rootfn_env[["delta_P"]])){
+    if(alt_input){
+      which_QD <- 3
+    }else{
+      which_QD <- 2
+    }
+  }else{
+      which_QD <- 2
+  }
+
   P_E <- uniroot.all(equilib_rootfn,
                      interval_P,
                      lower = min(interval_P),
                      upper = max(interval_P),
                      QS_env = QS_env,
-                     QD_env = QD_env)
+                     QD_rootfn_env = QD_rootfn_env,
+                     which_QD = which_QD)
   
   QS_vec <- QS_at_P(P_E, QS_env)
-  return(QS_vec)
+  QD_vec <- QD_input_mix(P_E, QD_rootfn_env)
+  list_equilib <- list()
+  list_equilib[["QS_vec"]] <- QS_vec
+  list_equilib[["QD_vec"]] <- QD_vec
+  return(list_equilib)
   
 }
 #=============================================================
@@ -314,7 +376,6 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
 #=============================================================
 #=============================================================
 #=============================================================
-#yStar
 
 
 ```
@@ -322,7 +383,7 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_env){
 
 # Introduction: economic agency matters
 
-Technological breakthroughs in bioethanol extraction procedures have been cause for a lot of optimism surrounding cassava ethanol (CE) production over the past ten years. Sriroth et al. [-@sriroth2010promise], for example, calculated that, given new factory techniques, the world could enjoy CE output of 15 billion liters per year---*if* only cassava yields could be nudged upwards by just 5 MT/ha. However, this is a big *if* that ignores the economic dimension of the problem. During the green revolution, neglect of the economic dimension may have been justified, as free market incentives were largely overriden by government programs (such as Masagana 99 for rice in the Philippines). But in today's free market environments, production is as much a function of prices as it is of biophysical parameters.
+Technological breakthroughs in bioethanol extraction procedures have been cause for a lot of optimism surrounding cassava ethanol (CE) production over the past ten years. Sriroth et al. [-@sriroth2010promise], for example, calculated that, given new factory techniques, the world could enjoy CE output of 15 billion liters per year---*if* only cassava yields could be nudged upwards by 5 MT/ha. However, this is a big "if" that ignores the economic dimension of the problem. During the green revolution, neglect of the economic dimension may have been justified, as free market incentives were largely overriden by government programs (such as the Masagana 99 rice program in the Philippines). But in today's free market environments, production is as much a function of prices as it is of biophysical parameters.
 
 The question of economic agency is especially pertinent in the case of small granule cassava, which offers a factory efficiency gain but is lower yielding than the baseline industrial root variety. The only reason cassava farmers would want to switch to small granule cassava is if they could expect to receive a premium over and above the basline root price high enough to compensate for the yield loss.
 
@@ -330,28 +391,369 @@ The question of economic agency is especially pertinent in the case of small gra
 
 Since the small granule uptake strategy rests entirely on the assumption that cassava farmers are price responsive, it is worth taking a moment to examine the empirical evidence behind this assumption. A cursory look at the FAO data reveals some correlation between the cassava farm gate price and production; but the picture is inconclusive when compared to the tight relation observed in the rice supply curve (Figure \ref{fig:supplyCurves}). What does the literature have to say?
 
-On the one hand, numerous studies have found that agricultural production, in the aggregate, is unresponsive to price movements^[It is, however, responsive to changes in human and physical capital (infrastructural improvements, education, etc.)]. The explanation offered for this is that aggregate agricultural production is limited by price-invariant physical constraints such as land availability and biophysical yield ceilings [@schafer1987farm; @rao1989agricultural]. Haile, Kalkuhl, and von Braun point to another culprit: high price volatility [-@haile2015worldwide]. It is a little recognized, but plain empirical fact, that higher prices go hand in hand with higher volatility (Figure \ref{fig:riskReward}).^[Note in figure \ref{fig:riskReward} that this is true for distinct crops as well as for distinct intermediate products issuing from a single given crop.] For risk-averse small farmers, a high price is not enough. They must also have assurances that the associated increase in risk will be offset via price floors, insurance, and or other risk pooling mechanisms.
+On the one hand, numerous studies have found that agricultural production, in the aggregate, is unresponsive to price movements^[It is, however, responsive to changes in human and physical capital (infrastructural improvements, education, etc.)]. The explanation offered for this is that aggregate agricultural production is limited by price-invariant physical constraints such as land availability and biophysical yield ceilings [@schafer1987farm; @rao1989agricultural]. Haile, Kalkuhl, and von Braun point to another culprit: high price volatility [-@haile2015worldwide]. It is a little recognized, but plain empirical fact, that higher prices go hand in hand with higher volatility (Figure \ref{fig:riskReward}).^[Note in figure \ref{fig:riskReward} that this is true for distinct crops as well as for distinct intermediate products issuing from a single given crop.] For risk-averse small farmers, a high price is not enough. They must also be assured that the associated increase in risk will be offset via price floors, insurance, and/or other public or private risk pooling mechanisms.
 
 On the other hand, these same studies conclude that farmers _are_ responsive to changes in crop prices _relative to one another_. In a parallel vein, Chaisinboon and Chontanawat found significant responsiveness among Thai cassava farmers to changes in the prices of different cassava products---chips, pellets, starch, and ethanol---relative to one another [-@chaisinboon2011factors]. In South East Asia generally, this is corroborated by recent evidence of small farmers switching betweeen crops as well as between different end uses of a single given crop in response to relative price movements [@newby2018].
 
-# Modeled supply response to small granule
+# Modeling the supply response to release of small granule cassava
 
-Experiments conducted in 2016 found that using small granule cassava instead of the baseline root variety resulted in a 14% increase in Simultaneous Liquefaction, Saccharification, and Fermentation CE production [@TranSLSFdata]. However, small granule cassava is also known to be lower yielding than the baseline variety. This means that farmers will not adopt small granule cassava unless CE factories pay them a sufficiently higher price to compensate for the yield loss relative to the baseline variety.
+```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:x}.", echo=FALSE}
+
+#=============================================================
+#=============================================================
+# Define parameters
+#-------------------------------------------------------------
+# Supply
+#-------------------------------------------------------------
+C_per_Q_at_mu <- 1700
+gamma_at_mu <- 1
+h_at_mu <- -0.75
+mu_alpha <- C_per_Q_at_mu / h_at_mu * gamma_at_mu
+cv_alpha <- 0.11
+sig_alpha <- abs(mu_alpha * cv_alpha)
+yCeil <- 40
+m_A <- log(2)
+cv_A <- 0.15
+s_A <- m_A * cv_A
+N <- 40
+lq_bounds <- NULL
+#-------------------------------------------------------------
+# Demand
+#-------------------------------------------------------------
+# QD <- N_D * P_output / (P * gamma_D) * a_e
+P_E_squo <- 2000 # observed equilibrium price
+Q_E_squo <- 350 # observed demand (equilibrium qty)
+kl_per_MT_squo <- 1 / 6
+#Q_output_DEM_squo <- 200 # ethanol kl
+Q_output_DEM_squo <- Q_E_squo * kl_per_MT_squo
+P_output_DEM_squo <- 22300
+C_proc_per_kL_squo <- 9000
+C_proc_per_MT_squo <- C_process_per_kL_squo / kl_per_MT_squo
+C_fdstk_squo <- Q_E_squo * P_E_squo
+C_process_squo <- C_process_per_kL_squo * Q_output_DEM_squo
+C_DEM_squo <- C_fdstk_squo + C_process_squo
+C_per_Q_DEM_squo <- C_DEM_squo / Q_output_DEM_squo
+C_DEM_squo <- C_per_Q_DEM_squo * Q_output_DEM_squo
+yCeil_DEM_squo <- 150
+gamma_DEM <- -log(Q_output_DEM_squo / yCeil_DEM_squo) * P_output_DEM_squo / C_per_Q_DEM_squo
+#print(paste("gamma_DEM =", round(gamma_DEM, 2)))
+#---
+#Check
+outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil = yCeil_DEM_squo, C_per_Q = C_per_Q_DEM_squo, quietly = T)
+Q_ethanol_squo <- outvec[1]
+NR_squo <- outvec[2]
+#Q_output_DEM_squo * P_output_DEM_squo - C_DEM_squo
+#---
+#common_factor <- QD_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
+common_factor <- Q_output_DEM_squo * P_output_DEM_squo / gamma_DEM
+a_root_squo <- Q_E_squo^2 * (P_E_squo + C_proc_per_MT_squo) / common_factor
+#a_root_squo <- QD_squo * P_E_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
+#a_proc_squo <- Q_E_squo^2 * P_proc_squo / common_factor
+#-------------------------------------------------------------
+small_granule_eff_gain <- 1.14
+kl_per_MT_1 <- small_granule_eff_gain * kl_per_MT_squo
+common_factor_1 <- common_factor * kl_per_MT_1
+a_root_1 <- Q_E_squo^2 * P_E_squo / common_factor_1
+#yCeil_DEM_new <- small_granule_eff_gain * yCeil_DEM_squo
+# Q_gamma_ratio <- Q_output_DEM_squo / gamma_DEM
+# common_factor <- P_output * Q_gamma_ratio
+# P_inputs <- c(P_E_squo, C_process_per_kL_squo)
+# QD_vec <- c(Q_E_squo, Q_E_squo * kl_per_MT_squo)
+# alpha_vec <- QD_vec^2 * P_inputs / common_factor
+
+QD_rootfn_env <- list()
+#a_DEM_vec <- 
+#P_inputs <- c(NA, P_proc_squo)
+#QD_rootfn_env[["delta_P"]] <- NULL
+a_DEM_vec <- c(a_root_squo, a_root_1, a_proc_squo)
+P_inputs <- c(NA, NA, P_proc_squo)
+QD_rootfn_env[["delta_P"]] <- 1.04
+QD_rootfn_env[["a_DEM_vec"]] <- a_DEM_vec
+QD_rootfn_env[["P_inputs"]] <- P_inputs
+QD_rootfn_env[["P_output_DEM"]] <- P_output_DEM_squo
+QD_rootfn_env[["C_DEM"]] <- C_DEM_squo
+P <- P_E_squo
+QD_input_mix(P, QD_rootfn_env)
+#=============================================================
+P_vec <- seq(200, 7500, length.out = 50)
+#=============================================================
+# P <- 1800
+# QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
+QS_env <- list()
+QS_env[["mu_alpha"]] <- mu_alpha
+QS_env[["sig_alpha"]] <- sig_alpha
+QS_env[["yCeil"]] <- yCeil
+QS_env[["m_A"]] <- m_A
+QS_env[["s_A"]] <- s_A
+QS_env[["N"]] <- N
+QS_env[["lq_bounds"]] <- NULL
+QS_env_squo <- QS_env
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Baseline\nSupply", "Market Participation")
+
+Q_output_DEM_squo <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_squo, C_per_Q = C_per_Q_DEM_squo)[1]
+QD_env <- list()
+QD_env[["a_DEM"]] <- a_root_squo
+QD_env[["gamma_DEM"]] <- gamma_DEM
+QD_env[["P_output_DEM"]] <- P_output_DEM_squo
+QD_env[["Q_output_DEM"]] <- Q_output_DEM
+
+QD_env_squo <- QD_env
+list_QD_curve <- QD_curve(P_vec, QD_env)
+df_QD <- as.data.frame(do.call(rbind, list_QD_curve))
+colnames(df_QD) <- c("Price (Baht / MT)", "Baseline\nDemand")
+df_plot <- df_QS
+# gg <- ggplot(df_plot, aes(x = Price, y = Supply))
+# gg <- gg + geom_line()
+# gg
+# df_plot <- df_QD
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Demand))
+# gg <- gg + geom_line()
+# gg
+
+df_plot <- merge(df_QS, df_QD)
+df_plot$`Market Participation` <- NULL
+df_plot <- df_plot %>% gather(Type, `Quantity (MT)`, `Baseline\nDemand`:`Baseline\nSupply`)
+
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 20)
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + coord_cartesian(ylim = c(0, 2000))
+gg <- gg + theme(legend.title = element_blank(),
+                 legend.position = "bottom")
+gg <- gg + coord_cartesian(ylim = c(0, 800), xlim = c(0, 3000))
+gg <- gg + labs(title = "Status quo equilibrium")
+#gg
+gg_eq <- gg
+
+interval_P <- c(200, 10000)
+equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
+#equilib_vec
+P_E_squo <- equilib_vec[1]
+Q_E_squo <- equilib_vec[2]
+mkt_part_squo <- equilib_vec[3]
+#=============================================================
+#=============================================================
+#=============================================================
+#=============================================================
+#=============================================================
+# Technology adoption analysis
+#=============================================================
+#=============================================================
+#=============================================================
+chng_yield <- -0.1
+chng_yield_pct <- 100 * chng_yield
+delta_yield <- 1 + chng_yield
+delta_CperQ <- 1 / delta_yield
+delta_h <- 1 / delta_CperQ
+chng_P <- 0.03
+chng_P_pct <- 100 * chng_P
+delta_P <- 1 + chng_P
+deltas <- delta_h * delta_P
+#graph_diffNR1NR0(delta_h, delta_P, yCeil)
+
+out_list <- get_adopt_range(delta_h, delta_P, quietly = T)
+adopt_bounds <- out_list[[1]]
+tech_is_pro_poor <- out_list[[2]]
+zero_or_full <- out_list[[4]]
+which_tech <- "baseline"
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+QS_env <- QS_env_squo
+QS_env[["lq_bounds"]] <- lq_bounds
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+df_QS_0 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_QS_0$Tech <- "Baseline\nSupply"
+QS_env_0 <- QS_env
+
+# df_plot <- df_QS_0
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+# gg <- gg + geom_line()
+# #gg <- gg + geom_vline(xintercept = P_1 / delta_h, color = "violet", size = 1)
+# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+# gg
+
+
+which_tech <- "new"
+lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
+QS_env <- QS_env_squo
+QS_env[["lq_bounds"]] <- lq_bounds
+QS_env[["mu_alpha"]] <- mu_alpha / deltas
+QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha / deltas)
+list_QS_curve <- QS_curve(P_vec, QS_env)
+df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
+colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
+df_QS_1 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
+df_QS_1$Tech <- "Small Granule\nSupply"
+QS_env_1 <- QS_env
+
+# df_plot <- df_QS_1
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
+# gg <- gg + geom_line()
+# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+# gg
+
+df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
+df_plot <- df_QS_1_0
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
+gg <- gg + theme(axis.title.y = element_blank())
+gg_mktPart_supply <- gg
+
+df_QD_0 <- df_QD
+colnames(df_QD_0)[2] <- "Quantity (MT)"
+df_QD_0$Type <- "Baseline\nDemand"
+QD_env_0 <- QD_env_squo
+QD_env_1 <- QD_env_squo
+Q_output_DEM_1 <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_new, C_per_Q = C_per_Q_DEM_squo)[1]
+QD_env_1[["a_DEM"]] <- a_root_1
+QD_env_1[["Q_output_DEM"]] <- Q_output_DEM_1
+list_QD_curve <- QD_curve(P_vec, QD_env_1)
+df_QD_1 <- as.data.frame(do.call(rbind, list_QD_curve))
+colnames(df_QD_1) <- c("Price (Baht / MT)", "Quantity (MT)")
+df_QD_1$Type <- "Small Granule\nDemand"
+df_QD_1_0 <- rbind(df_QD_0, df_QD_1)
+
+
+df_QS_0 <- subset(df_QS_0, Item != "Market Participation")
+df_QS_0$Item <- NULL
+colnames(df_QS_0)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD_0 <- rbind(df_QS_0, df_QD_0)
+df_plot <- df_QS_QD_0
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank(),
+                 axis.title.x = element_blank())
+gg <- gg + coord_cartesian(ylim = c(0, 1500), xlim = c(0, 5500))
+gg <- gg + labs(title = "Equilibrium after release")
+#gg 
+gg_baseline <- gg
+
+df_QS_1 <- subset(df_QS_1, Item != "Market Participation")
+df_QS_1$Item <- NULL
+colnames(df_QS_1)[2:3] <- c("Quantity (MT)", "Type")
+df_QS_QD_1 <- rbind(df_QS_1, df_QD_1)
+df_plot <- df_QS_QD_1
+distinct_colors <- sample(bag_of_colors, 2)
+gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+gg <- gg + geom_line(lwd = 1.1)
+gg <- gg + scale_color_manual(values = distinct_colors)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.y = element_blank())
+gg <- gg + coord_cartesian(ylim = c(1, 1500), xlim = c(0, 5500))
+#gg 
+gg_new <- gg
+
+# df_QS_composite <- df_QS_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(Value))
+# df_QS_composite$Type <- "Composite Supply"
+# df_QD_composite <- df_QD_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(`Quantity (MT)`))
+# df_QD_composite$Type <- "Composite Demand"
+# df_QS_QD <- rbind(df_QS_composite, df_QD_composite)
+# df_plot <- df_QS_QD
+# distinct_colors <- sample(bag_of_colors, 2)
+# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
+# gg <- gg + geom_line(lwd = 1.1)
+# gg <- gg + labs(title = "After release")
+# gg <- gg + scale_color_manual(values = distinct_colors)
+# gg <- gg + theme(legend.title = element_blank(),
+#                  legend.position = "bottom")
+# gg <- gg + coord_cartesian(ylim = c(0, 1500))
+# gg
+# gg_composite <- gg
+
+gg_eq + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths = c(2, 1))
+
+interval_P <- c(500, 10000)
+equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
+equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
+# equilib_vec_0
+# equilib_vec_1
+#----
+if(length(equilib_vec_0) > 3){
+    P_E_0 <- equilib_vec_0[1]
+  P_E_0_b <- equilib_vec_0[2]
+Q_E_0 <- equilib_vec_0[3]
+Q_E_0_b <- equilib_vec_0[4]
+  mkt_part_0 <- equilib_vec_0[5]
+  mkt_part_0_b <- equilib_vec_0[6]
+}else{
+      P_E_0 <- equilib_vec_0[1]
+      Q_E_0 <- equilib_vec_0[2]
+  mkt_part_0 <- equilib_vec_0[3]
+}
+#----
+if(length(equilib_vec_1) > 3){
+      P_E_1 <- equilib_vec_1[1]
+  P_E_1_b <- equilib_vec_1[2]
+Q_E_1 <- equilib_vec_1[3]
+Q_E_1_b <- equilib_vec_1[4]
+  mkt_part_1 <- equilib_vec_1[5]
+  mkt_part_1_b <- equilib_vec_1[6]
+}else{
+        P_E_1 <- equilib_vec_1[1]
+      Q_E_1 <- equilib_vec_1[2]
+  mkt_part_1 <- equilib_vec_1[3]
+}
+#----
+Q_E_tot <- Q_E_0 + Q_E_1
+adoption_rate <- mkt_part_1 / (mkt_part_1 + mkt_part_0)
+mkt_part_tot <- mkt_part_0 + mkt_part_1
+mkt_part_diff <- mkt_part_tot - mkt_part_squo
+str_part_chng <- ifelse(mkt_part_diff < 0, "down", "up")
+str_part_but_while <- ifelse(mkt_part_diff < 0, "but", "while")
+mktPart_up_or_down <- paste(str_part_chng, mkt_part_diff)
+
+outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_new, C = C_DEM_squo, quietly = T)
+Q_ethanol_tot <- outvec[1]
+Q_ethanol_tot
+NR <- outvec[2]
+NR
+Q_ethanol_0 <- Q_E_0 * kl_per_MT_squo
+Q_ethanol_1 <- Q_E_1 * kl_per_MT_1
+Q_ethanol_tot_check <- Q_ethanol_0 + Q_ethanol_1
+Q_ethanol_tot_check
+C <- P_E_0 * Q_E_0 + P_E_1 * Q_E_1 + C_process_per_kL_squo * (kl_per_MT_1 * Q_E_1 + kl_per_MT_squo * Q_E_0)
+C / Q_ethanol_tot
+R <- Q_ethanol_tot_check * P_output_DEM_squo
+NR_check <- R - C
+NR_check
+
+Q_ethanol_squo / (Q_E_squo * kl_per_MT_squo)
+
+```
+
+Having presented assurances that Thai cassava farmers are price responsive, it is time to turn to the question of small granule adoption in more detail. Experiments conducted in 2016 found that factory use of small granule cassava instead of the baseline root variety resulted in a 14% increase in Simultaneous Liquefaction, Saccharification, and Fermentation CE production [@TranSLSFdata]. However, small granule cassava is also known to be lower yielding than the baseline variety. This means that farmers will not adopt small granule cassava unless CE factories pay them a sufficiently higher price to compensate for the yield loss relative to the baseline variety.
 
 Under weak economic assumptions^[1) Farms and factories want to maximize their net income given land and budget constraints; 2) farms and factories have a positive supply response to increases in the price of their product; 3) marginal returns to farm and factory inputs are diminishing; 4) farm yields follow a lognormal distribution. The model also depends upon several technical factory and farm parameters. See appendix for mathematical details.], the precise supply response to release of small granule cassava depends upon the expected small granule root yield loss relative to the baseline variety, the expected baseline root harvest price, and the expected premium paid out by the factory over and above the baseline price.^[Farmers and factories must generally agree upon these three pieces of information, or else market chaos will ensue.]
 
 Clearly, if the small granule premium offered by the factory is high enough, cassava farmers will begin to split into two populations: those who switch to small granule, and those who remain with the baseline variety. However, careful economic modeling is required to determine the precise premium required to achieve a precise level of small granule adoption. A factory may want to know, for example, the minimum premium they must offer in order to secure 100% adoption.
 
-This is also important because the modeling indicates that prices can shift considerably when the producing population is pulled in different directions. And this is reflected empirically. Newby [-@newby2018] has recently documented root price swings of 100% or more in South East Asia as farmers allocate land and resources between competing uses in response to price signals.
+Moreover, careful modeling is also required to keep track of yield response versus farmer entry/exit into a given market. That is to say, the supply response to a high premium is in part due to new farmers entering the market, and in part due to increased expenditures on inputs and management on farms that were already in the market.^[There is also an area response, not included in the present exercise, but which could be included in future exercises given sufficient interest and support.] One consequence of this is that adoption rates may be misleading. High adoption can go hand in hand with low overall market participation, and vice versa.
 
-The status quo market equilibrium is displayed on the left side of Figure \ref{fig:mktEquilib}. The righthand panel 
+Based on Thai factory and farm information presented by Sriroth et al. [-@sriroth2010promise] and Tran [-@TranPersComm2018], the status quo supply and demand market equilibrium is displayed on the left side of Figure \ref{fig:mktEquilib}. The righthand panel displays the new market equilbria for the baseline and small granule varieties, assuming a `chng_yield_pct`% reduction in yield associated with the small granule variety, and a `chng_P_pct`% premium over and above the baseline root price.
 
-Based on this model, the new market equilibrium given a `delta_y_pct` percent drop in yield 
+At the status quo equilibrium, ethanol output 
 
-and a CE factories will want to know how much of a premium they must pay to achieve a certain level of small granule cassava feedstock.
+The model then indicates that the premium offered in this scenario is sufficient to evoke an equilibrium supply response of `Q_E_1` metric tons (MT) of small granule cassava, and `Q_E_0` MT of the baseline variety. The corresponding equilibrium factory gate prices are `P_E_1` Baht/MT and `P_E_0`, respectively. The corresponding factory output is `Q_E_ethanol` kl of CE, `Qeth_up_or_down` from the status quo CE output.
+
+The estimated adoption rate is `adopt_rate_pct`%, `mktPart_but_while` farm participation in the market is `mkt_part_tot_pct`%, `mktPart_up_or_down` from the status quo participation. The baseline and small granule supply and market participation curves are given in Figure \ref{fig:mktPart_and_supply}. Note how the baseline curves bend back on themselves as the premium increases past a critical point.
 
 
-based on information presented by Sriroth et al. [-@sriroth2010promise]
+
+This is consistent with the evidence recently documented by Newby and Cu Thi [-@newby2018], indicating factory gate price swings of 100% in South East Asia as farmers allocate land and resources between competing uses in response to price signals.
+
+
+
 In a 2016 Thai cassava ethanol (CE) factory trial, a switch to small granule cassava chip feedstock increased Simultaneous Liquefaction, Saccharification, and Fermentation (SLSF) ethanol production by 14% over the baseline cassava chip feedstock (Tranh 2016 pers. comm.).  
 
 The supply response for traditional cash crops like soybean, rice, and maize tends to come in the form of increased planted area rather than yield, because the farmers of such crops are already achieving yields near the biophysical maximum [@rao1989agricultural]. In the case of cassava, however, which is relatively new on the industrial scene, yields are still low with respect to their biophysical potential; and so the supply response is composed of adjustments both to yield (through better management, increased expenditure on inputs, etc.) and area.
@@ -652,277 +1054,7 @@ The other manner of increasing production is to expand area. However, there is n
 
 To refer to variable: `r max(df$x)`
 
-```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:x}.", echo=FALSE}
 
-#=============================================================
-#=============================================================
-# Define parameters
-#-------------------------------------------------------------
-# Supply
-#-------------------------------------------------------------
-C_per_Q_at_mu <- 1900
-gamma_at_mu <- 1
-h_at_mu <- -0.75
-mu_alpha <- C_per_Q_at_mu / h_at_mu * gamma_at_mu
-cv_alpha <- 0.11
-sig_alpha <- abs(mu_alpha * cv_alpha)
-yCeil <- 44
-m_A <- log(2)
-cv_A <- 0.15
-s_A <- m_A * cv_A
-N <- 40
-lq_bounds <- NULL
-#-------------------------------------------------------------
-# Demand
-#-------------------------------------------------------------
-# QD <- N_D * P_output / (P * gamma_D) * a_e
-P_E_squo <- 2000 # observed equilibrium price
-Q_E_squo <- 350 # observed demand (equilibrium qty)
-kl_per_MT_squo <- 1 / 6
-#Q_output_DEM_squo <- 200 # ethanol kl
-Q_output_DEM_squo <- Q_E_squo * kl_per_MT_squo
-P_output_DEM_squo <- 22300
-C_process_per_kL_squo <- 9000
-C_fdstk_squo <- Q_E_squo * P_E_squo
-C_process_squo <- C_process_per_kL_squo * Q_output_DEM_squo
-C_DEM_squo <- C_fdstk_squo + C_process_squo
-C_per_Q_DEM_squo <- C_DEM_squo / Q_output_DEM_squo
-C_DEM_squo <- C_per_Q_DEM_squo * Q_output_DEM_squo
-yCeil_DEM_squo <- 150
-gamma_DEM <- -log(Q_output_DEM_squo / yCeil_DEM_squo) * P_output_DEM_squo / C_per_Q_DEM_squo
-#print(paste("gamma_DEM =", round(gamma_DEM, 2)))
-#---
-#Check
-#outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_squo, C_DEM_squo, quietly = F)
-#Q_output_DEM_squo * P_output_DEM_squo - C_DEM_squo
-#---
-#common_factor <- QD_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
-common_factor <- Q_output_DEM_squo * P_output_DEM_squo / gamma_DEM
-a_root_squo <- Q_E_squo^2 * P_E_squo / common_factor
-#a_root_squo <- QD_squo * P_E_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
-a_proc_squo <- Q_E_squo^2 * (C_process_per_kL_squo / kl_per_MT_squo) / common_factor
-#-------------------------------------------------------------
-kl_per_MT_1 <- 1.14 * kl_per_MT_squo
-a_root_1 <- Q_E_squo * P_E_squo * gamma_DEM / (P_output_DEM_squo * kl_per_MT_1)
-#=============================================================
-P_vec <- seq(200, 7500, length.out = 50)
-#=============================================================
-# P <- 1800
-# QS_at_P(P, mu_alpha, sig_alpha, yCeil, m_A, s_A, N)
-QS_env <- list()
-QS_env[["mu_alpha"]] <- mu_alpha
-QS_env[["sig_alpha"]] <- sig_alpha
-QS_env[["yCeil"]] <- yCeil
-QS_env[["m_A"]] <- m_A
-QS_env[["s_A"]] <- s_A
-QS_env[["N"]] <- N
-QS_env[["lq_bounds"]] <- NULL
-QS_env_squo <- QS_env
-list_QS_curve <- QS_curve(P_vec, QS_env)
-df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
-colnames(df_QS) <- c("Price (Baht / MT)", "Baseline\nSupply", "Market Participation")
-
-QD_env <- list()
-QD_env[["P_output_DEM"]] <- P_output_DEM_squo
-QD_env[["a_DEM"]] <- a_root_squo
-QD_env[["gamma_DEM"]] <- gamma_DEM
-QD_env[["P_output_DEM"]] <- P_output_DEM_squo
-QD_env[["yCeil_DEM"]] <- yCeil_DEM_squo
-QD_env[["C_DEM"]] <- C_DEM_squo
-
-QD_env_squo <- QD_env
-list_QD_curve <- QD_curve(P_vec, QD_env)
-df_QD <- as.data.frame(do.call(rbind, list_QD_curve))
-colnames(df_QD) <- c("Price (Baht / MT)", "Baseline\nDemand")
-df_plot <- df_QS
-# gg <- ggplot(df_plot, aes(x = Price, y = Supply))
-# gg <- gg + geom_line()
-# gg
-# df_plot <- df_QD
-# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Demand))
-# gg <- gg + geom_line()
-# gg
-
-df_plot <- merge(df_QS, df_QD)
-df_plot$`Market Participation` <- NULL
-df_plot <- df_plot %>% gather(Type, `Quantity (MT)`, `Baseline\nDemand`:`Baseline\nSupply`)
-
-bag_of_colors <- randomcoloR::distinctColorPalette(k = 20)
-distinct_colors <- sample(bag_of_colors, 2)
-gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
-gg <- gg + geom_line(lwd = 1)
-gg <- gg + scale_color_manual(values = distinct_colors)
-gg <- gg + coord_cartesian(ylim = c(0, 2000))
-gg <- gg + theme(legend.title = element_blank(),
-                 legend.position = "bottom")
-gg <- gg + coord_cartesian(ylim = c(0, 800), xlim = c(0, 3000))
-gg <- gg + labs(title = "Status quo equilibrium")
-#gg
-gg_eq <- gg
-
-interval_P <- c(200, 10000)
-equilib_vec <- QSQD_Equilib(interval_P, QS_env, QD_env)
-#equilib_vec
-
-
-#=============================================================
-#=============================================================
-#=============================================================
-#=============================================================
-#=============================================================
-# Technology adoption analysis
-#=============================================================
-#=============================================================
-#=============================================================
-delta_h <- 1 / 1.10
-delta_P <- 1.03
-deltas <- delta_h * delta_P
-#graph_diffNR1NR0(delta_h, delta_P, yCeil)
-
-out_list <- get_adopt_range(delta_h, delta_P, quietly = T)
-adopt_bounds <- out_list[[1]]
-tech_is_pro_poor <- out_list[[2]]
-zero_or_full <- out_list[[4]]
-which_tech <- "baseline"
-lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
-QS_env <- QS_env_squo
-QS_env[["lq_bounds"]] <- lq_bounds
-list_QS_curve <- QS_curve(P_vec, QS_env)
-df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
-colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
-df_QS_0 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
-df_QS_0$Tech <- "Baseline\nSupply"
-QS_env_0 <- QS_env
-
-# df_plot <- df_QS_0
-# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
-# gg <- gg + geom_line()
-# #gg <- gg + geom_vline(xintercept = P_1 / delta_h, color = "violet", size = 1)
-# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-# gg
-
-
-which_tech <- "new"
-lq_bounds <- get_lq_bounds(adopt_bounds, tech_is_pro_poor, which_tech, zero_or_full)
-QS_env <- QS_env_squo
-QS_env[["lq_bounds"]] <- lq_bounds
-QS_env[["mu_alpha"]] <- mu_alpha / deltas
-QS_env[["sig_alpha"]] <- abs(cv_alpha * mu_alpha / deltas)
-list_QS_curve <- QS_curve(P_vec, QS_env)
-df_QS <- as.data.frame(do.call(rbind, list_QS_curve))
-colnames(df_QS) <- c("Price (Baht / MT)", "Supply", "Market Participation")
-df_QS_1 <- df_QS %>% gather(Item, Value, Supply:`Market Participation`)
-df_QS_1$Tech <- "Small Granule\nSupply"
-QS_env_1 <- QS_env
-
-# df_plot <- df_QS_1
-# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value))
-# gg <- gg + geom_line()
-# gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-# gg
-
-df_QS_1_0 <- rbind(df_QS_0, df_QS_1)
-df_plot <- df_QS_1_0
-distinct_colors <- sample(bag_of_colors, 2)
-gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = Value, group = Tech, color = Tech))
-gg <- gg + geom_line(lwd = 1.1)
-gg <- gg + scale_color_manual(values = distinct_colors)
-gg <- gg + facet_wrap(~Item, ncol = 1, scales = "free")
-gg <- gg + theme(axis.title.y = element_blank())
-gg
-
-
-df_QD_0 <- df_QD
-colnames(df_QD_0)[2] <- "Quantity (MT)"
-df_QD_0$Type <- "Baseline\nDemand"
-QD_env_0 <- QD_env_squo
-QD_env_1 <- QD_env_squo
-QD_env_1[["kl_per_MT"]] <- kl_per_MT_1
-list_QD_curve <- QD_curve(P_vec, QD_env_1)
-df_QD_1 <- as.data.frame(do.call(rbind, list_QD_curve))
-colnames(df_QD_1) <- c("Price (Baht / MT)", "Quantity (MT)")
-df_QD_1$Type <- "Small Granule\nDemand"
-df_QD_1_0 <- rbind(df_QD_0, df_QD_1)
-
-
-df_QS_0 <- subset(df_QS_0, Item != "Market Participation")
-df_QS_0$Item <- NULL
-colnames(df_QS_0)[2:3] <- c("Quantity (MT)", "Type")
-df_QS_QD_0 <- rbind(df_QS_0, df_QD_0)
-df_plot <- df_QS_QD_0
-distinct_colors <- sample(bag_of_colors, 2)
-gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
-gg <- gg + geom_line(lwd = 1.1)
-gg <- gg + scale_color_manual(values = distinct_colors)
-gg <- gg + theme(legend.title = element_blank(),
-                 axis.title.y = element_blank(),
-                 axis.title.x = element_blank())
-gg <- gg + coord_cartesian(ylim = c(0, 1500), xlim = c(0, 5500))
-gg <- gg + labs(title = "Equilibrium after release")
-#gg 
-gg_baseline <- gg
-
-df_QS_1 <- subset(df_QS_1, Item != "Market Participation")
-df_QS_1$Item <- NULL
-colnames(df_QS_1)[2:3] <- c("Quantity (MT)", "Type")
-df_QS_QD_1 <- rbind(df_QS_1, df_QD_1)
-df_plot <- df_QS_QD_1
-distinct_colors <- sample(bag_of_colors, 2)
-gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
-gg <- gg + geom_line(lwd = 1.1)
-gg <- gg + scale_color_manual(values = distinct_colors)
-gg <- gg + theme(legend.title = element_blank(),
-                 axis.title.y = element_blank())
-gg <- gg + coord_cartesian(ylim = c(1, 1500), xlim = c(0, 5500))
-#gg 
-gg_new <- gg
-
-# df_QS_composite <- df_QS_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(Value))
-# df_QS_composite$Type <- "Composite Supply"
-# df_QD_composite <- df_QD_1_0 %>% group_by(`Price (Baht / MT)`) %>% summarise(`Quantity (MT)` = sum(`Quantity (MT)`))
-# df_QD_composite$Type <- "Composite Demand"
-# df_QS_QD <- rbind(df_QS_composite, df_QD_composite)
-# df_plot <- df_QS_QD
-# distinct_colors <- sample(bag_of_colors, 2)
-# gg <- ggplot(df_plot, aes(x = `Price (Baht / MT)`, y = `Quantity (MT)`, group = Type, color = Type))
-# gg <- gg + geom_line(lwd = 1.1)
-# gg <- gg + labs(title = "After release")
-# gg <- gg + scale_color_manual(values = distinct_colors)
-# gg <- gg + theme(legend.title = element_blank(),
-#                  legend.position = "bottom")
-# gg <- gg + coord_cartesian(ylim = c(0, 1500))
-# gg
-# gg_composite <- gg
-
-gg_eq + (gg_baseline / gg_new) + plot_layout(ncol = 2, widths = c(2, 1))
-
-interval_P <- c(500, 10000)
-equilib_vec_0 <- QSQD_Equilib(interval_P, QS_env_0, QD_env_0)
-equilib_vec_1 <- QSQD_Equilib(interval_P, QS_env_1, QD_env_1)
-# equilib_vec_0
-# equilib_vec_1
-
-if(length(equilib_vec_0) > 3){
-  mkt_part_0 <- equilib_vec_0[5]
-  mkt_part_0_b <- equilib_vec_0[6]
-}else{
-  mkt_part_0 <- equilib_vec_0[3]
-}
-if(length(equilib_vec_1) > 3){
-  mkt_part_1 <- equilib_vec_1[5]
-  mkt_part_1_b <- equilib_vec_1[6]
-}else{
-  mkt_part_1 <- equilib_vec_1[3]
-}
-
-
-# adoption_rate <- mkt_part_1 / (mkt_part_1 + mkt_part_0)
-# adoption_rate
-
-
-
-
-```
 
 
 \pagebreak
