@@ -266,9 +266,9 @@ QD_input_mix <- function(P, QD_rootfn_env){
   if(!is.null(QD_rootfn_env[["delta_P"]])){
     delta_P <- QD_rootfn_env[["delta_P"]]
     P_alt <- delta_P * P
-    QD_rootfn_env[["P_inputs"]][1:2] <- c(P, delta_P * P)
+    QD_rootfn_env[["P_input_vec"]] <- c(P, P_alt)
   }else{
-    QD_rootfn_env[["P_inputs"]][1] <- P
+    QD_rootfn_env[["P_input_vec"]] <- P
   }
   
   n_inputs <- length(QD_rootfn_env[["a_DEM_vec"]])
@@ -290,7 +290,8 @@ QD_curve <- function(P_vec, QD_rootfn_env){
 QD_rootfn <- function(var_solve_vec, QD_rootfn_env){
   
   a_DEM_vec <- QD_rootfn_env[["a_DEM_vec"]]
-  P_inputs <- QD_rootfn_env[["P_inputs"]]
+  P_input_vec <- QD_rootfn_env[["P_input_vec"]]
+  P_proc_vec <- QD_rootfn_env[["P_proc_vec"]]
   P_output_DEM <- QD_rootfn_env[["P_output_DEM"]]
   C_DEM <- QD_rootfn_env[["C_DEM"]]
   #kl_per_MT_vec <- QD_rootfn_env[["kl_per_MT_vec"]]
@@ -300,8 +301,9 @@ QD_rootfn <- function(var_solve_vec, QD_rootfn_env){
   QD_vec <- var_solve_vec[1:n_inputs]
   Q_gamma_ratio <- var_solve_vec[n_inputs + 1]
   common_factor <- P_output_DEM * Q_gamma_ratio
-  slack_q <- QD_vec - sqrt(a_DEM_vec / P_inputs * common_factor)
-  slack_c <- C_DEM - sum(QD_vec * P_inputs)
+  P_input_tot_vec <- P_input_vec + P_proc_vec
+  slack_q <- QD_vec^2 - a_DEM_vec / P_input_tot_vec * common_factor
+  slack_c <- C_DEM - sum(QD_vec * P_input_tot_vec)
   
   slack_vec <- c(slack_q, slack_c)
 
@@ -389,7 +391,7 @@ The question of economic agency is especially pertinent in the case of small gra
 
 # Empirical evidence of cassava farm price responsiveness
 
-Since the small granule uptake strategy rests entirely on the assumption that cassava farmers are price responsive, it is worth taking a moment to examine the empirical evidence behind this assumption. A cursory look at the FAO data reveals some correlation between the cassava farm gate price and production; but the picture is inconclusive when compared to the tight relation observed in the rice supply curve (Figure \ref{fig:supplyCurves}). What does the literature have to say?
+Since the small granule uptake strategy rests entirely on the assumption that cassava farmers are price responsive, it is worth taking a moment to examine the empirical evidence behind this assumption. A cursory look at the FAO data reveals some correlation between the cassava farm gate price and production; but the picture is inconclusive when compared to the tight relation observed in the rice supply curve (Figure \ref{fig:FAOsupplyCurves}). What does the literature have to say?
 
 On the one hand, numerous studies have found that agricultural production, in the aggregate, is unresponsive to price movements^[It is, however, responsive to changes in human and physical capital (infrastructural improvements, education, etc.)]. The explanation offered for this is that aggregate agricultural production is limited by price-invariant physical constraints such as land availability and biophysical yield ceilings [@schafer1987farm; @rao1989agricultural]. Haile, Kalkuhl, and von Braun point to another culprit: high price volatility [-@haile2015worldwide]. It is a little recognized, but plain empirical fact, that higher prices go hand in hand with higher volatility (Figure \ref{fig:riskReward}).^[Note in figure \ref{fig:riskReward} that this is true for distinct crops as well as for distinct intermediate products issuing from a single given crop.] For risk-averse small farmers, a high price is not enough. They must also be assured that the associated increase in risk will be offset via price floors, insurance, and/or other public or private risk pooling mechanisms.
 
@@ -427,16 +429,16 @@ kl_per_MT_squo <- 1 / 6
 #Q_output_DEM_squo <- 200 # ethanol kl
 Q_output_DEM_squo <- Q_E_squo * kl_per_MT_squo
 P_output_DEM_squo <- 22300
-C_proc_per_kL_squo <- 9000
-C_proc_per_MT_squo <- C_process_per_kL_squo / kl_per_MT_squo
-C_fdstk_squo <- Q_E_squo * P_E_squo
-C_process_squo <- C_process_per_kL_squo * Q_output_DEM_squo
-C_DEM_squo <- C_fdstk_squo + C_process_squo
+C_proc_per_kl_squo <- 9000
+C_proc_per_MT_squo <- C_proc_per_kl_squo / kl_per_MT_squo
+C_DEM_squo <- Q_E_squo * (P_E_squo + C_proc_per_kl_squo * kl_per_MT_squo)
+# C_DEM_squo <- Q_E_squo * P_E_squo + C_proc_per_kl_squo * Q_output_DEM_squo
+# C_proc_per_kl_squo * Q_output_DEM_squo
+# C_proc_per_kl_squo * kl_per_MT_squo * Q_E_squo
 C_per_Q_DEM_squo <- C_DEM_squo / Q_output_DEM_squo
-C_DEM_squo <- C_per_Q_DEM_squo * Q_output_DEM_squo
 yCeil_DEM_squo <- 150
 gamma_DEM <- -log(Q_output_DEM_squo / yCeil_DEM_squo) * P_output_DEM_squo / C_per_Q_DEM_squo
-#print(paste("gamma_DEM =", round(gamma_DEM, 2)))
+print(paste("gamma_DEM =", round(gamma_DEM, 2)))
 #---
 #Check
 outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil = yCeil_DEM_squo, C_per_Q = C_per_Q_DEM_squo, quietly = T)
@@ -446,14 +448,18 @@ NR_squo <- outvec[2]
 #---
 #common_factor <- QD_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
 common_factor <- Q_output_DEM_squo * P_output_DEM_squo / gamma_DEM
-a_root_squo <- Q_E_squo^2 * (P_E_squo + C_proc_per_MT_squo) / common_factor
+P_E_tot_squo <- P_E_squo + kl_per_MT_squo * C_proc_per_kl_squo
+a_root_squo <- Q_E_squo^2 * P_E_tot_squo / common_factor
+
+
 #a_root_squo <- QD_squo * P_E_squo * gamma_DEM / (P_output_squo * kl_per_MT_squo)
 #a_proc_squo <- Q_E_squo^2 * P_proc_squo / common_factor
 #-------------------------------------------------------------
 small_granule_eff_gain <- 1.14
 kl_per_MT_1 <- small_granule_eff_gain * kl_per_MT_squo
 common_factor_1 <- common_factor * kl_per_MT_1
-a_root_1 <- Q_E_squo^2 * P_E_squo / common_factor_1
+P_E_tot_1 <- P_E_squo + kl_per_MT_1 * C_proc_per_kl_squo
+a_root_1 <- Q_E_squo^2 * P_E_tot_1 / common_factor_1
 #yCeil_DEM_new <- small_granule_eff_gain * yCeil_DEM_squo
 # Q_gamma_ratio <- Q_output_DEM_squo / gamma_DEM
 # common_factor <- P_output * Q_gamma_ratio
@@ -462,18 +468,19 @@ a_root_1 <- Q_E_squo^2 * P_E_squo / common_factor_1
 # alpha_vec <- QD_vec^2 * P_inputs / common_factor
 
 QD_rootfn_env <- list()
-#a_DEM_vec <- 
-#P_inputs <- c(NA, P_proc_squo)
-#QD_rootfn_env[["delta_P"]] <- NULL
-a_DEM_vec <- c(a_root_squo, a_root_1, a_proc_squo)
-P_inputs <- c(NA, NA, P_proc_squo)
-QD_rootfn_env[["delta_P"]] <- 1.04
+# a_DEM_vec <- a_root_squo
+# P_proc_vec <- kl_per_MT_squo * C_proc_per_kl_squo
+# delta_P <- NULL
+a_DEM_vec <- c(a_root_squo, a_root_1)
+P_proc_vec <- c(kl_per_MT_squo, kl_per_MT_1) * C_proc_per_kl_squo
+delta_P <- 1.04
+QD_rootfn_env[["delta_P"]] <- delta_P
 QD_rootfn_env[["a_DEM_vec"]] <- a_DEM_vec
-QD_rootfn_env[["P_inputs"]] <- P_inputs
+QD_rootfn_env[["P_proc_vec"]] <- P_proc_vec
 QD_rootfn_env[["P_output_DEM"]] <- P_output_DEM_squo
 QD_rootfn_env[["C_DEM"]] <- C_DEM_squo
-P <- P_E_squo
-QD_input_mix(P, QD_rootfn_env)
+#P <- 2000
+#QD_input_mix(P, QD_rootfn_env)
 #=============================================================
 P_vec <- seq(200, 7500, length.out = 50)
 #=============================================================
@@ -717,7 +724,7 @@ outvec <- Q_NR_hm1_firm(gamma_DEM, P_output_DEM_squo, yCeil_DEM_new, C = C_DEM_s
 Q_ethanol_tot <- outvec[1]
 Q_ethanol_tot
 NR <- outvec[2]
-NR
+#NR
 Q_ethanol_0 <- Q_E_0 * kl_per_MT_squo
 Q_ethanol_1 <- Q_E_1 * kl_per_MT_1
 Q_ethanol_tot_check <- Q_ethanol_0 + Q_ethanol_1
@@ -726,9 +733,9 @@ C <- P_E_0 * Q_E_0 + P_E_1 * Q_E_1 + C_process_per_kL_squo * (kl_per_MT_1 * Q_E_
 C / Q_ethanol_tot
 R <- Q_ethanol_tot_check * P_output_DEM_squo
 NR_check <- R - C
-NR_check
-
-Q_ethanol_squo / (Q_E_squo * kl_per_MT_squo)
+# NR_check
+# 
+# Q_ethanol_squo / (Q_E_squo * kl_per_MT_squo)
 
 ```
 
@@ -736,67 +743,34 @@ Having presented assurances that Thai cassava farmers are price responsive, it i
 
 Under weak economic assumptions^[1) Farms and factories want to maximize their net income given land and budget constraints; 2) farms and factories have a positive supply response to increases in the price of their product; 3) marginal returns to farm and factory inputs are diminishing; 4) farm yields follow a lognormal distribution. The model also depends upon several technical factory and farm parameters. See appendix for mathematical details.], the precise supply response to release of small granule cassava depends upon the expected small granule root yield loss relative to the baseline variety, the expected baseline root harvest price, and the expected premium paid out by the factory over and above the baseline price.^[Farmers and factories must generally agree upon these three pieces of information, or else market chaos will ensue.]
 
-Clearly, if the small granule premium offered by the factory is high enough, cassava farmers will begin to split into two populations: those who switch to small granule, and those who remain with the baseline variety. However, careful economic modeling is required to determine the precise premium required to achieve a precise level of small granule adoption. A factory may want to know, for example, the minimum premium they must offer in order to secure 100% adoption.
+Clearly, if the small granule premium offered by the factory is high enough, cassava farmers will begin to split into two populations: those who switch to small granule, and those who remain with the baseline variety. However, careful economic modeling is required to determine precisely how many farmers switch to the new variety and how many remain with the baseline. Moreover, there is a third group that requires careful consideration: those who enter or exit the market, attracted or repelled by the new opportunity. (The adoption rate, in this regard, can be quite misleading; as high adoption rates can go hand in hand with low overall market participation, and vice versa.) And careful modeling is also required to disaggregate the supply response into its three components: 1) the yield response, due to changes in farm expenditures on inputs, 2) the area response, due to expansion or contraction of the planted area, and 3) the entry/exit of farmers into/from the market.
 
-Moreover, careful modeling is also required to keep track of yield response versus farmer entry/exit into a given market. That is to say, the supply response to a high premium is in part due to new farmers entering the market, and in part due to increased expenditures on inputs and management on farms that were already in the market.^[There is also an area response, not included in the present exercise, but which could be included in future exercises given sufficient interest and support.] One consequence of this is that adoption rates may be misleading. High adoption can go hand in hand with low overall market participation, and vice versa.
+Recent evidence gathered by Newby and Cu Thuy [-@newby2018] indicates that root prices and quantities supplied are prone to swing by as much as 100% in the face of diverse crop and value added alternatives competing for a place in the farmers' parcels and budgets. Small granule cassava would enter the fray as yet another alternative. Careful attention to the details enumerated above is required in order to determine the conditions (the expected small granule yield loss and factory premium, in particular) under which root markets will clear at equilibria prices and quantities that are acceptable to both factories and farmers. 
 
-Based on Thai factory and farm information presented by Sriroth et al. [-@sriroth2010promise] and Tran [-@TranPersComm2018], the status quo supply and demand market equilibrium is displayed on the left side of Figure \ref{fig:mktEquilib}. The righthand panel displays the new market equilbria for the baseline and small granule varieties, assuming a `chng_yield_pct`% reduction in yield associated with the small granule variety, and a `chng_P_pct`% premium over and above the baseline root price.
+In an exploratory modeling exercise based on Thai factory and farm information presented by Sriroth et al. [-@sriroth2010promise] and Tran [-@TranPersComm2018], small granule and baseline cassava supply curves were calculated assuming a small granule yield drop of `chng_yield_pct`%, and a small granule factory premium of `chng_P_pct`%, with respect to the baseline variety. These curves are displayed in Figure \ref{fig:} (top panel), together with the composite root supply curve (which is just their sum). The graphic offers a glimpse of the counter-intuitive bahvior that can be expected of supply curves under such circumstances. composite supply increases with adoption up to a point,  Market participation curves are displayed in the lower panel. Note how market participation...drops/rises as adoption increases.
 
-At the status quo equilibrium, ethanol output 
-
-The model then indicates that the premium offered in this scenario is sufficient to evoke an equilibrium supply response of `Q_E_1` metric tons (MT) of small granule cassava, and `Q_E_0` MT of the baseline variety. The corresponding equilibrium factory gate prices are `P_E_1` Baht/MT and `P_E_0`, respectively. The corresponding factory output is `Q_E_ethanol` kl of CE, `Qeth_up_or_down` from the status quo CE output.
-
-The estimated adoption rate is `adopt_rate_pct`%, `mktPart_but_while` farm participation in the market is `mkt_part_tot_pct`%, `mktPart_up_or_down` from the status quo participation. The baseline and small granule supply and market participation curves are given in Figure \ref{fig:mktPart_and_supply}. Note how the baseline curves bend back on themselves as the premium increases past a critical point.
+In this exercise, only the supply side has been considered. The determination of equilibrium prices and quantities, of course, requires careful modeling on the demand side as well. Once equilibria can be found, one may begin to map out combinations of small granule yield loss and factory premiums that are, according to some decisionmaker's criteria, optimal. A factory may want to know, for example, the minimum premium they must offer in order to secure 100% adoption. Economic modeling can answer such questions, but it requires careful design and calibration, which, in turn, requires stakeholder involvement.
 
 
+<!-- Based on Thai factory and farm information presented by Sriroth et al. [-@sriroth2010promise] and Tran [-@TranPersComm2018], the status quo supply and demand market equilibrium is displayed on the left side of Figure \ref{fig:mktEquilib}. The righthand panel displays the new market equilbria for the baseline and small granule varieties, assuming a `chng_yield_pct`% reduction in yield associated with the small granule variety, and a `chng_P_pct`% premium over and above the baseline root price. -->
 
-This is consistent with the evidence recently documented by Newby and Cu Thi [-@newby2018], indicating factory gate price swings of 100% in South East Asia as farmers allocate land and resources between competing uses in response to price signals.
+<!-- At the status quo equilibrium, ethanol output  -->
 
+<!-- The model then indicates that the premium offered in this scenario is sufficient to evoke an equilibrium supply response of `Q_E_1` metric tons (MT) of small granule cassava, and `Q_E_0` MT of the baseline variety. The corresponding equilibrium factory gate prices are `P_E_1` Baht/MT and `P_E_0`, respectively. The corresponding factory output is `Q_E_ethanol` kl of CE, `Qeth_up_or_down` from the status quo CE output. -->
 
+<!-- The estimated adoption rate is `adopt_rate_pct`%, `mktPart_but_while` farm participation in the market is `mkt_part_tot_pct`%, `mktPart_up_or_down` from the status quo participation. The baseline and small granule supply and market participation curves are given in Figure \ref{fig:mktPart_and_supply}. Note how the baseline curves bend back on themselves as the premium increases past a critical point. -->
 
-In a 2016 Thai cassava ethanol (CE) factory trial, a switch to small granule cassava chip feedstock increased Simultaneous Liquefaction, Saccharification, and Fermentation (SLSF) ethanol production by 14% over the baseline cassava chip feedstock (Tranh 2016 pers. comm.).  
+<!-- This is consistent with the evidence recently documented by Newby and Cu Thi [-@newby2018], indicating factory gate price swings of 100% in South East Asia as farmers allocate land and resources between competing uses in response to price signals. -->
 
-The supply response for traditional cash crops like soybean, rice, and maize tends to come in the form of increased planted area rather than yield, because the farmers of such crops are already achieving yields near the biophysical maximum [@rao1989agricultural]. In the case of cassava, however, which is relatively new on the industrial scene, yields are still low with respect to their biophysical potential; and so the supply response is composed of adjustments both to yield (through better management, increased expenditure on inputs, etc.) and area.
+<!-- In a 2016 Thai cassava ethanol (CE) factory trial, a switch to small granule cassava chip feedstock increased Simultaneous Liquefaction, Saccharification, and Fermentation (SLSF) ethanol production by 14% over the baseline cassava chip feedstock (Tranh 2016 pers. comm.).   -->
 
-Below, the yield component of the supply response to a hypothetical release of small granule cassava is modeled based on a set of weak assumptions.^[] 
+<!-- The supply response for traditional cash crops like soybean, rice, and maize tends to come in the form of increased planted area rather than yield, because the farmers of such crops are already achieving yields near the biophysical maximum [@rao1989agricultural]. In the case of cassava, however, which is relatively new on the industrial scene, yields are still low with respect to their biophysical potential; and so the supply response is composed of adjustments both to yield (through better management, increased expenditure on inputs, etc.) and area. -->
 
+<!--  Whereas these conventional approaches assume arbitrarily shaped  -->
+<!-- supply and demand functions, DEPEMap builds up supply and demand curves from their underlying distributions of factor endowments.  -->
 
-
-
-
- Whereas these conventional approaches assume arbitrarily shaped 
-supply and demand functions, DEPEMap builds up supply and demand curves from their underlying distributions of factor endowments. 
-
- different from existing impact assessment models not 
-because it makes new claims or modifications to existing theory, but because it is built up from an explicit application of the theory, in particular the microeconomic axioms of 1) 
-
-
-
-Things to think about before investing in small granule research.
-
-* Unclear supply response to price (Graphics, India lit)
-* Higher price goes hand in hand with higher price volatility (Graphic, lit)
-* Factory and farm expectations of the baseline variety harvest price and small granule premium offered by the factory must converge, otherwise market chaos will result.
-
-Assuming that cassava farmers are price responsive and willing to take on the risk of a higher value variety (or that risk pooling mechanisms have been established to secure this), the factory and farm population must, at planting time, agree upon a single expected bareline variety harvest price, and upon the small granule premium that farmers could hope to receive over and above the baseline price. Divergent expectations of the baseline harvest price and/or of the small granule premium offered by the factory will result in market chaos. 
-
-* Additionally, if farmers are especially risk averse, the factory may need to guarantee the premium such that farmers feel confident that they will receive it even if the baseline root price falls below expectations.
-
-* Release of a new variety splits production into two camps.
-
-* Modeling suggests that small granule cassava is not pro-poor, in the sense that the upper percentiles of the farm population would find it most appealing. The lower percentiles have no incentive to adopt unless the premium is exceptionally high.
-
-* Conclusion: can determine the premium necessary to achieve the adoption rate necessary to secure a desired inflow of small granule feedstock.
-
-# Supply response to price
-(Problems with existing yield models)
-(Things we want the function to do - positive supply response (but this might come from expanded area) - inverse relation between farm size and "TFP" (output per unit cost))
-
-The supply response to changes in price is not clear.
-
-* Supply response to price changes is poorly understood. (India experience - no response to price, but yes response to technological improvements.)
-* So, before you go pouring millions of dollars into a variety that lowers yield, careful modeling is required to assess whether or not, to what extent, and under what conditions it is possible to offset the lower yield with higher price.
-* We cannot determine the supply response, we can describe the conditions under which, according to theory (i.e. consistent with axioms acceptable to everyone), a given response may occur. (That is, we can bracket the uncertainty).
+<!--  different from existing impact assessment models not  -->
+<!-- because it makes new claims or modifications to existing theory, but because it is built up from an explicit application of the theory, in particular the microeconomic axioms of 1)  -->
 
 
 ```{r, echo=FALSE, include=FALSE}
