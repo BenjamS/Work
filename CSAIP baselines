@@ -1,9 +1,9 @@
-setwd("C:/Users/bensc/OneDrive/Documents")
+#setwd("C:/Users/bensc/OneDrive/Documents")
 library(tidyverse)
 library(patchwork)
 #==============================================================
 #==============================================================
-this_place <- "Burkina Faso"
+this_place <- "Cameroon"
 #==============================================================
 #==============================================================
 # Kcal shares
@@ -53,8 +53,6 @@ item_vec <- foodbal_items_keep <- c("Grand Total",
                                     "Fruits")
 #---
 df <- subset(df_raw, Area %in% area_vec)
-rm(df_raw)
-gc()
 df <- subset(df, Item %in% item_vec)
 df <- subset(df, Year %in% year_vec)
 df <- subset(df, Element %in% element_vec)
@@ -70,7 +68,7 @@ df$Element <- NULL
 #---
 df_plot <- df
 df_plot <- df_plot %>% group_by(Area, Item) %>%
-  mutate(mu_val = mean(Value, na.rm = T)) %>%
+  mutate(mu_val = mean(Value[(length(Value) - 5):length(Value)], na.rm = T)) %>%
   as.data.frame()
 df_plot$mu_val[which(df_plot$Item == "Other")] <- 0
 df_plot <- df_plot %>% group_by(Area, Year) %>%
@@ -87,6 +85,62 @@ gg <- gg + scale_x_continuous(breaks = my_breaks)
 gg <- gg + theme(legend.title = element_blank(),
                  axis.text.x = element_text(angle = 60, hjust = 1))
 gg
+
+
+u <- df_plot$mu_val
+ind_top_mu_vals <- order(unique(u), decreasing = T)[1:3]
+top_mu_vals <- unique(u)[ind_top_mu_vals]
+top_items <- as.character(unique(df_plot$Item[which(u %in% top_mu_vals)]))
+
+df <- subset(df_raw, Area %in% area_vec)
+df <- subset(df, Item %in% top_items)
+df <- subset(df, Year %in% year_vec)
+df <- subset(df, Element %in% element_vec)
+
+unique(df$Item[which(df$Value > 50)])
+
+
+
+
+
+
+
+df <- subset(df, Element == "Food supply (kcal/capita/day)")
+df <- df %>% spread(Item, Value) %>% as.data.frame()
+df$Other <- df$`Grand Total` - rowSums(df[, -c(1:3, which(colnames(df) == "Grand Total"))])
+df$`Grand Total` <- NULL
+gathercols <- colnames(df)[-c(1:3)]
+df <- df %>% gather_("Item", "Value", gathercols)
+df$Element <- NULL
+#---
+df_plot <- df
+df_plot <- df_plot %>% group_by(Area, Item) %>%
+  mutate(mu_val = mean(Value[(length(Value) - 5):length(Value)], na.rm = T)) %>%
+  as.data.frame()
+df_plot$mu_val[which(df_plot$Item == "Other")] <- 0
+df_plot <- df_plot %>% group_by(Area, Year) %>%
+  mutate(Item = factor(Item, levels = unique(Item[order(mu_val, decreasing = T)]))) %>%
+  as.data.frame()
+colnames(df_plot)[ncol(df_plot) - 1] <- "Food supply (kcal/capita/day)"
+distinct_colors <- randomcoloR::distinctColorPalette(k = length(unique(df_plot$Item)))
+df_plot$Year <- as.integer(df_plot$Year)
+my_breaks <- unique(df_plot$Year)[seq.int(1, length(unique(df_plot$Year)), length.out = 10)]
+gg <- ggplot(df_plot, aes(x = Year, y = `Food supply (kcal/capita/day)`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + scale_fill_manual(values = distinct_colors)
+gg <- gg + scale_x_continuous(breaks = my_breaks)
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.text.x = element_text(angle = 60, hjust = 1))
+gg
+
+
+
+
+
+
+
+
+
 
 
 #==============================================================
@@ -129,10 +183,10 @@ df$Item <- gsub(", beans", "", df$Item)
 df$Item <- gsub(", Oil Equivalent", "", df$Item)
 #-----------
 # For some reason in Ghana and Burkina Faso oilcrop area is NA for 2015-2017.
-  df <- df %>% spread(Item, Value)
-  df$Oilcrops[which(is.na(df$Oilcrops))] <- df$Oilcrops[which(df$Year == 2014)]
-  gathercols <- colnames(df)[-c(1, 2)]
-  df <- df %>% gather_("Item", "Value", gathercols)
+df <- df %>% spread(Item, Value)
+df$Oilcrops[which(is.na(df$Oilcrops))] <- df$Oilcrops[which(df$Year == 2014)]
+gathercols <- colnames(df)[-c(1, 2)]
+df <- df %>% gather_("Item", "Value", gathercols)
 #-----------
 # df$Total <- rowSums(df[, -c(1, 2)], na.rm = T)
 # gathercols <- colnames(df)[-c(1, 2)]
