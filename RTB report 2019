@@ -1090,5 +1090,61 @@ In this exercise, only the supply side has been considered. The determination of
 
 \pagebreak
 
+# Appendix
+
+Below, the cassava supply model depicted in Figure \ref{fig:supply_particip_exercise} is derived mathematically from assumptions. 
+
+Assumption 1: Marginal returns to expenditures on inputs are diminishing.
+
+\begin{equation}
+\frac{\partial \ln y }{\partial \ln x_i} = \alpha_i \frac{d \ln x_i}{d x_i}, \forall i \in (1,n)
+\end{equation}
+
+where $y$ is yield, $x_i$ is the $i^{th}$ input, $\alpha_i$ is the $i^{th}$ proportionality constant represetning yield responsiveness to changes in the $i^{th}$ input, and $n$ is the number of inputs. This assumption can be written in vector notation as follows:
+
+\begin{equation}
+\nabla_{\ln \mathbf{x}} \ln y = D_{\mathbf{\alpha}} \nabla_{\mathbf{x}} \ln{\mathbf{x}}
+\label{eq:assump1}
+\end{equation}
+
+where $D_{\mathbf{v}}$ stands for a matrix with the vector $\mathbf{v}$ as its diagonal elements and zero elsewhere; and, to be clear,
+
+\begin{equation}
+\nabla_{\ln \mathbf{x}} \ln y = \begin{bmatrix}
+\partial \ln y / \partial \ln x_1\\ 
+\partial \ln y / \partial \ln x_2\\ 
+\vdots\\
+\partial \ln y / \partial \ln x_n
+\end{bmatrix}
+\end{equation}
+
+and
+
+\begin{equation}
+\nabla_{\mathbf{x}} \ln \mathbf{x}  = \begin{bmatrix}
+\partial \ln x_1 / \partial x_1\\ 
+\partial \ln x_2 / \partial x_2\\ 
+\vdots\\
+\partial \ln x_n / \partial x_n
+\end{bmatrix}
+\end{equation}
+
+The yield equation can be derived from equation \ref{eq:assump1} by dotting through by $d \ln \mathbf{x}$ and then integrating as follows:
+
+\begin{equation}
+\int \nabla_{\mathbf{x}} \ln{y} \cdot d \ln \mathbf{x} = \int D_{\mathbf{\alpha}} \nabla_{\mathbf{x}} \ln \mathbf{x} \cdot d \ln \mathbf{x}
+\end{equation}
+
+\begin{equation}
+
+\end{equation}
+
+
+
+
+
+
+\pagebreak
+
 # References
 
