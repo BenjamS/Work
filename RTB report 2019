@@ -1,6 +1,6 @@
 ---
 title: "Economic challenges to the uptake of lower yielding small granule cassava"
-author: Benjamin Schiek, Decision and Policy Analysis (DAPA), International Center for Tropical Agriculture (CIAT)
+author: Benjamin Schiek, Decision and Policy Analysis (DAPA), International Center for Tropical Agriculture
 date: "`r Sys.Date()`"
 bibliography: Small Granule Challenges.bib
 biblio-style: apalike
@@ -382,11 +382,9 @@ QSQD_Equilib <- function(interval_P, QS_env, QD_rootfn_env, alt_input){
 
 
 ```
-
-
 # Introduction: economic agency matters
 
-Technological breakthroughs in bioethanol extraction procedures have been cause for a lot of optimism surrounding cassava ethanol (CE) production over the past ten years. Sriroth et al. [-@sriroth2010promise], for example, calculated that, given new factory techniques, the world could enjoy CE output of 15 billion liters per year---*if* only cassava yields could be nudged upwards by 5 MT/ha. However, this is a big "if" that ignores the economic dimension of the problem. During the green revolution, neglect of the economic dimension may have been justified, as free market incentives were largely overriden by government programs (such as the Masagana 99 rice program in the Philippines). But in today's free market environments, production is as much a function of prices as it is of biophysical parameters.
+Technological breakthroughs in bioethanol extraction procedures have given rise to much optimism surrounding cassava ethanol (CE) production over the past ten years. Sriroth et al. [-@sriroth2010promise], for example, calculated that, given new factory techniques, the world could enjoy CE output of 15 billion liters per year---*if* only cassava yields could be nudged upwards by 5 MT/ha. However, this is a big "if" that ignores the economic dimension of the problem. During the green revolution, neglect of the economic dimension may have been justified, as free market incentives were largely overriden by government programs (such as the Masagana 99 rice program in the Philippines). But in today's free market environments, production is as much a function of prices as it is of biophysical parameters. 
 
 The question of economic agency is especially pertinent in the case of small granule cassava, which offers a factory efficiency gain but is lower yielding than the baseline industrial root variety. The only reason cassava farmers would want to switch to small granule cassava is if they could expect to receive a premium over and above the basline root price high enough to compensate for the yield loss.
 
