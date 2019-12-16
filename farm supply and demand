@@ -5,7 +5,7 @@ library(rootSolve)
 #===================================================================
 # Define functions
 #===================================================================
-rootfn <- function(CperQ, yCeil, chi, gamma, P, LambertW_branch = "principle"){
+CperQ_rootfn <- function(C_per_Q, yCeil, chi, gamma, P, LambertW_branch = "principle"){
   
   arg <- -chi / (C_per_Q * yCeil)
   
@@ -25,8 +25,7 @@ get_CperQ_at_P <- function(P, rootfn_env){
   yCeil <- rootfn_env[["yCeil"]]
   chi <- rootfn_env[["chi"]]
   gamma <- rootfn_env[["gamma"]]
-  P <- rootfn_env[["P"]]
-  
+
   CperQ_lo_bound <- chi / yCeil * exp(1)
   CperQ_up_bound <- 10^6
   interval_CperQ <- c(CperQ_lo_bound, CperQ_up_bound)
@@ -38,7 +37,7 @@ get_CperQ_at_P <- function(P, rootfn_env){
                            yCeil = yCeil, chi = chi,
                            gamma = gamma, P = P,
                            LambertW_branch = LambertW_branch)
-  if(length(C_per_Q) == 0){
+  if(length(CperQstar) == 0){
     LambertW_branch <- "negative"
     CperQstar <- uniroot.all(CperQ_rootfn, interval_CperQ,
                              lower = min(interval_CperQ),
@@ -51,6 +50,7 @@ get_CperQ_at_P <- function(P, rootfn_env){
   
   
   yStar <- P * chi / (CperQstar^2 * gamma)
+  #yStar <- yCeil * exp(-CperQstar * gamma / P)
   outvec <- c(CperQstar, yStar)
   
   return(outvec)
@@ -80,5 +80,10 @@ m_A <- 1.5
 #===================================================================
 
 
+rootfn_env <- list()
+rootfn_env[["yCeil"]] <- yCeil_SUP_squo
+rootfn_env[["chi"]] <- chi_SUP_squo
+rootfn_env[["gamma"]] <- gamma_at_muYield_SUP_squo
 
-
+P <- PE_SUP_0_squo
+get_CperQ_at_P(P, rootfn_env)
