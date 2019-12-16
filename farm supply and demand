@@ -1,0 +1,84 @@
+library(tidyverse)
+library(lamW)
+library(rootSolve)
+#library(nleqslv)
+#===================================================================
+# Define functions
+#===================================================================
+rootfn <- function(CperQ, yCeil, chi, gamma, P, LambertW_branch = "principle"){
+  
+  arg <- -chi / (C_per_Q * yCeil)
+  
+  if(LambertW_branch == "principal"){
+    slack <- lambertW0(arg) + C_per_Q * gamma / P
+  }
+  
+  if(LambertW_branch == "negative"){
+    slack <- lambertWm1(arg) + C_per_Q * gamma / P
+  }
+  
+}
+
+
+get_CperQ_at_P <- function(P, rootfn_env){
+  
+  yCeil <- rootfn_env[["yCeil"]]
+  chi <- rootfn_env[["chi"]]
+  gamma <- rootfn_env[["gamma"]]
+  P <- rootfn_env[["P"]]
+  
+  CperQ_lo_bound <- chi / yCeil * exp(1)
+  CperQ_up_bound <- 10^6
+  interval_CperQ <- c(CperQ_lo_bound, CperQ_up_bound)
+  
+  LambertW_branch <- "principal"
+  CperQstar <- uniroot.all(CperQ_rootfn, interval_CperQ,
+                           lower = min(interval_CperQ),
+                           upper = max(interval_CperQ),
+                           yCeil = yCeil, chi = chi,
+                           gamma = gamma, P = P,
+                           LambertW_branch = LambertW_branch)
+  if(length(C_per_Q) == 0){
+    LambertW_branch <- "negative"
+    CperQstar <- uniroot.all(CperQ_rootfn, interval_CperQ,
+                             lower = min(interval_CperQ),
+                             upper = max(interval_CperQ),
+                             yCeil = yCeil, chi = chi,
+                             gamma = gamma, P = P,
+                             LambertW_branch = LambertW_branch)
+    
+  }
+  
+  
+  yStar <- P * chi / (CperQstar^2 * gamma)
+  outvec <- c(CperQstar, yStar)
+  
+  return(outvec)
+  
+}
+#===================================================================
+#===================================================================
+# End function definition
+#===================================================================
+#===================================================================
+# Supply side parameters
+#===================================================================
+# Observed
+mu_yield_SUP_squo <- 22 # MT / ha
+budget_at_muYield_SUP_squo <- 37400 # Baht / ha
+yCeil_SUP_squo <- 43 # MT
+PE_SUP_0_squo <- 2000
+# Deduced
+chi_SUP_squo <- -budget_at_muYield_SUP_squo * log(mu_yield_SUP_squo / yCeil_SUP_squo)
+gamma_at_muYield_SUP_squo <- -PE_SUP_0_squo / budget_at_muYield_SUP_squo * mu_yield_SUP_squo * log(mu_yield_SUP_squo / yCeil_SUP_squo)
+CperQ_at_muYield_SUP_squo <- budget_at_muYield_SUP_squo / mu_yield_SUP_squo
+# Guessed
+cv_CperQ <- 0.1
+cv_lA <- 0.2
+m_A <- 1.5
+
+#===================================================================
+
+
+
+
