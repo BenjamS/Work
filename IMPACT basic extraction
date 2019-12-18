@@ -1,0 +1,40 @@
+library(tidyverse)
+
+df_raw <- read.csv("camerun.csv", stringsAsFactors = F)
+colnames(df_raw)
+unique(df_raw$impactparameter)
+unique(df_raw$commodity)
+#--------------------------------------------------------------------
+year_vec <- c(2020, 2050)
+crop_parameter_vec <- c("YldXAgg -- Yield", "AreaXAgg -- Area")
+animal_parameter_vec <- c("AnmlNumXAgg -- Animal Numbers", "AnmlYldXAgg -- Animal Yield")
+#--------------------------------------------------------------------
+df_all_crops <- subset(df_raw, year %in% year_vec &
+                   impactparameter %in% crop_parameter_vec)
+df_all_crops <- df_all_crops[-grep("All|AMT|AOT", df_all_crops$commodity), ]
+df_all_crops <- df_all_crops %>% spread(year, Val)
+df_all_crops$`Pct. Change` <- 100 * (df_all_crops$`2050` - df_all_crops$`2020`) / df_all_crops$`2020`
+df_all_crops[, (ncol(df_all_crops) - 2):ncol(df_all_crops)] <- round(df_all_crops[, (ncol(df_all_crops) - 2):ncol(df_all_crops)], 2)
+#df_all_crops <- df_all_crops %>% spread(productiontype, Val)
+df_all_crops$impactparameter <- gsub(".*-", "", df_all_crops$impactparameter)
+df_all_crops$productiontype <- gsub("air", "Irrigated", df_all_crops$productiontype)
+df_all_crops$productiontype <- gsub("arf", "Rainfed", df_all_crops$productiontype)
+df_all_crops$scenario <- NULL
+df_all_crops$region <- NULL
+#--------------------------------------------------------------------
+
+df_all_LS <- subset(df_raw, year %in% year_vec &
+                         impactparameter %in% animal_parameter_vec)
+df_all_LS <- df_all_LS[grep("AMT|AOT", df_all_LS$commodity), ]
+df_all_LS$scenario <- NULL
+df_all_LS$region <- NULL
+df_all_LS$productiontype <- NULL
+df_all_LS <- df_all_LS %>% spread(year, Val)
+df_all_LS$`Pct. Change` <- 100 * (df_all_LS$`2050` - df_all_LS$`2020`) / df_all_LS$`2020`
+df_all_LS[, (ncol(df_all_LS) - 2):ncol(df_all_LS)] <- round(df_all_LS[, (ncol(df_all_LS) - 2):ncol(df_all_LS)], 2)
+#df_all_LS <- df_all_LS %>% spread(productiontype, Val)
+df_all_LS$impactparameter <- gsub(".*-", "", df_all_LS$impactparameter)
+df_all_LS$productiontype <- gsub("air", "Irrigated", df_all_LS$productiontype)
+df_all_LS$productiontype <- gsub("arf", "Rainfed", df_all_LS$productiontype)
+
+#--------------------------------------------------------------------
