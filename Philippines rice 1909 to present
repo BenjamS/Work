@@ -1,0 +1,81 @@
+df_pop <- read.csv("Philippines Population FAO.csv", stringsAsFactors = F)
+df_pop <- df_pop[, c("Year", "Unit", "Value")]
+colnames(df_pop)[3] <- "Population"
+df_pop$Population <- df_pop$Population * 1000
+df_pop$Unit <- NULL
+
+df_rice_FAO_raw <- read.csv("Philippines rice 1961-2017 FAO.csv", stringsAsFactors = F)
+df_rice_FAO_raw <- df_rice_FAO_raw[, c("Year", "Element", "Unit", "Value")]
+df_rice_FAO <- df_rice_FAO_raw
+df_rice_FAO$Unit <- NULL
+df_rice_FAO <- df_rice_FAO %>% spread(Element, Value)
+df_rice_FAO$Yield <- 10^-4 * df_rice_FAO$Yield
+
+df_rice_early <- read.csv("Philippines rice data 1902-1963.csv", stringsAsFactors = F)
+colnames(df_rice_early)[3:5] <- c("Production", "Area", "Yield")
+cavan_to_MT <- 44 / 1000
+df_rice_early$Production <- cavan_to_MT * df_rice_early$Production
+df_rice_early$Yield <- cavan_to_MT * df_rice_early$Yield
+
+gg <- ggplot()
+gg <- gg + geom_line(data = df_rice_FAO, aes(x = Year, y = Production))
+gg <- gg + geom_line(data = df_rice_early, aes(x = Year, y = Production), color = "orange")
+gg
+
+gg <- ggplot()
+gg <- gg + geom_line(data = df_rice_FAO, aes(x = Year, y = Yield))
+gg <- gg + geom_line(data = df_rice_early, aes(x = Year, y = Yield), color = "orange")
+gg
+
+
+# df_plot <- df_pop
+# gg <- ggplot(df_plot, aes(x = Year, y = Population))
+# gg <- gg + geom_line()
+# gg
+
+
+df_rice_early <- subset(df_rice_early, Year > 1908 & Year < 1961)
+t_seq_before <- seq(-(nrow(df_rice_early) - 1), 0) * 1
+#t_seq <- seq(5, 4 + nrow(df_pop)) * 0.1
+t_seq <- seq(1, nrow(df_pop)) * 1
+
+df_pop$t <- t_seq
+df_pop$lPop <- log(df_pop$Population)
+
+mod <- nls(lPop ~ a - log(1 + exp(-(t - m) / s)), df_pop, start = list(a = 100, m = 100, s = 10))
+
+summary(mod)
+lPophat <- predict(mod, df_pop$lPop, type = "response")
+exp(lPophat) - df_pop$Population
+df_pop$Modeled <- exp(lPophat)
+colnames(df_pop)[2] <- "Measured"
+#df_pop <- df_pop[, c("Year", "Unit", "reg_term", "lValue", "t", "Value", "yhat")]
+gathercols <- c("Measured", "Modeled")
+df_pop <- df_pop %>% gather_("Type", "Population", gathercols)
+
+gg <- ggplot(df_pop, aes(x = Year, y = Population, group = Type, color = Type))
+gg <- gg + geom_line()
+gg
+
+
+df_pop <- df_pop %>% spread(Type, Population)
+colnames(df_pop)
+df_pop$lPop <- NULL
+
+logistic_fn <- function(t, a, m, s){a / (1 + exp(-(t - m) / s))}
+
+coefs <- coef(mod)
+a <- exp(coefs["a"])
+m <- coefs["m"]
+s <- coefs["s"]
+
+pop_hindcast <- logistic_fn(t_seq_before, a, m, s)
+df_pop_hindcast <- data.frame(Year = df_rice_early$Year, t = t_seq_before, Measured = NA, Modeled = pop_hindcast)
+
+df_pop <- rbind(df_pop_hindcast, df_pop)
+
+df_rice_early$Year.raw <- NULL
+colnames(df_rice_FAO)[2] <- "Area"
+df_rice <- rbind(df_rice_early, df_rice_FAO)
+
+df_plot <- merge(df_rice, df_pop, by = "Year")
