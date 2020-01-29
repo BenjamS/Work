@@ -1098,6 +1098,7 @@ Assumption 1: Marginal returns to expenditures on inputs are diminishing.
 
 \begin{equation}
 \frac{\partial \ln y }{\partial \ln x_i} = \alpha_i \frac{d \ln x_i}{d x_i}, \forall i \in (1,n)
+\label{eq:assump1}
 \end{equation}
 
 where $y$ is yield, $x_i$ is the $i^{th}$ input, $\alpha_i$ is the $i^{th}$ proportionality constant represetning yield responsiveness to changes in the $i^{th}$ input, and $n$ is the number of inputs. This assumption can be written in vector notation as follows:
@@ -1140,7 +1141,129 @@ The yield equation can be derived from equation \ref{eq:assump1} by dotting thro
 \end{equation}
 
 
+Assumption 2: Farmers are profit maximizers, subject to a budget constraint
 
+Formally, this assumption is written
+
+\begin{equation}
+\max_{\mathbf{x}} R - C \:\:\:\:s.t.\:\:\:\: C = \bar{C}
+\end{equation}
+
+where $R$, $C$, and $\bar{C}$ are revenue, cost and budget per unit area, and
+
+\begin{equation}
+R = P y(\mathbf{x}; \mathbf{\alpha}) \\
+C = \mathbf{x}\cdot\mathbf{w}
+\end{equation}
+
+where $P$ is the farmer's output price and $\mathbf{w}$ is the vector of input prices.
+
+The farmer's objective function is thus expressed
+
+\begin{equation}
+\mathcal{L} = R - C - \lamba (C - \bar{C})
+\end{equation}
+
+The first order conditions for a maximum are then
+
+\begin{equation}
+\nabla \mathcal{L} = P \nabla y - \mathbf{w} - \lambda \mathbf{w} = \mathbf{0}
+\end{equation}
+
+The optimal yield function can then be derived from Assumptions 1 and 2 as follows.
+
+By Assumption 1 (equation \ref{eq:assump1}) the first order conditions can be rewritten
+
+\begin{equation}
+\nabla \mathcal{L} = P y D_{\mathbf{x}}^{-1} D_{\mathbf{\alpha}} - \mathbf{w} - \lambda \mathbf{w} = \mathbf{0}
+\end{equation}
+
+Dotting through by $\mathbf{w}$ gives
+
+\begin{equation}
+
+\mathbf{w} \cdot \nabla \mathcal{L} = -Py \ln(y / \bar{y}) - (1-\lambda) C = 0
+
+\end{equation}
+
+which can then be rearanged into the form
+
+\begin{equation}
+
+y^* \ln(y^* / \bar{y}) = -\frac{\gamma C}{P} \:\: ; \:\:\: \gamma = 1 - \lambda
+
+\label{eq:ylny}
+
+\end{equation}
+
+which has the following closed form solution in terms of Lambert's W-function $W()$:
+
+\begin{equation}
+
+y^*(P, C, \bar{y}, \gamma) = \bar{y}e^W(-\frac{\gamma C}{P \bar{y}}) \:\: ; \:\:\: \gamma = 1 - \lambda
+
+\end{equation}
+
+From equation \ref{eq:ylny}, it is possible to derive an alternative expression for $y^*$ in terms of the cost per unit output $\tilde{C}$.
+
+
+\begin{equation}
+y^*(P, \tilde{C}, \bar{y}, \gamma) = \bar{y}e^{-\frac{\tilde{C}}{P}\gamma} \:\:; \:\:\: \tilde{C} = C \over y^*
+\label{eq:yStar_alt}
+\end{equation}
+
+
+The second order condition for a maximum is $\mathbf{x} \cdot \nabla^2 \mathcal{L} \cdot \mathbf{x} < 0$ (where \nabla^2 \mathcal{L} is the Hessian of \mathcal{L}). Plugging in the objective function gives
+
+\begin{equation}
+
+\mathbf{x} \cdot \nabla^2 \mathcal{L} \cdot \mathbf{x} = P\mathbf{x} \cdot (y \nabla^2 \ln(y) - \ln(y)\nabla y) \cdot \mathbf{x} \\
+= Py(2 \ln(y/\bar{y}) - \ln(y/\bar{y})^2)
+
+\end{equation}
+
+The second order condition is then
+
+\begin{equation}
+Py(2 \ln(y/\bar{y}) - \ln(y/\bar{y})^2) < 0
+\end{equation}
+
+which can be rearranged to
+
+\begin{equation}
+2  > \ln(y/\bar{y})
+\end{equation}
+
+The condition is always met since $\bar{y} > y$.
+
+Assumption 3: The shape of the yield density.
+
+Aggregate supply is given by summing the individual farm supply curves.
+
+\begin{equation}
+
+Q(P) = \int_{q_{\ell}}^{q_{\mathcal{u}}} q^{*}(P, A, C, \bar{y}, \gamma) f(q^{*}) dq^{*}
+
+\end{equation}
+
+where $f(q^{\*})$ is the farm production density function ($q^* = Ay^*$). In developing countries, it is often appropriate to assume a right skewed density. There are numerous functional forms that exhibit such a shape. Here I use the lognormal density function.
+
+
+\begin{equation}
+
+f(q^{*}) = \frac{1}{q^{*}s_{q^{*}} \sqrt{2 \pi}} \exp \left(-\frac{(\ln(q^{*}) - m_{q^{*}})^2}{2 s_{q^{*}}^2}\right)
+\end{equation}
+
+where $m_{q^*}$ and $s_{q^*}$ are the mean and standard deviation of $\ln(q^*)$. Using the alternative expression for $y^*$ (equation \ref{eq:yStar_alt}), $m_{q^*}$ and $s^2_{q^*}$ can be evaluated as follows: 
+
+\begin{equation}
+
+m_{q^*} = m_{\bar{y}} + m_A - \frac{\mu_{\tilde{C}}}{P}\gamma \\
+s^2_{q^*} = s^2_{\bar{y}} + s^2_A - \frac{\\sigma^2_{\tilde{C}}}{P^2}\gamma^2 
+
+\end{equation}
+
+where, generally speaking, the notation $m_a$ and $s^2_a$ refer to the mean and variance of the log of some variable $a$, while $\mu_a$ and $\sigma^2_a$ refer to the mean and variance of $a$ itself.
 
 
 
