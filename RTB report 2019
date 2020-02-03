@@ -1,6 +1,6 @@
 ---
 title: "Economic challenges to the uptake of lower yielding small granule cassava"
-author: Benjamin Schiek, Decision and Policy Analysis (DAPA), International Center for Tropical Agriculture
+author: Benjamin Schiek, Alliance Bioversity-CIAT
 date: "`r Sys.Date()`"
 bibliography: Small Granule Challenges.bib
 biblio-style: apalike
@@ -658,9 +658,9 @@ On the other hand, these same studies conclude that farmers _are_ responsive to 
 
 Having presented assurances that Thai cassava farmers are price responsive, it is time to turn to the question of small granule adoption in more detail. Experiments conducted in 2016 found that factory use of small granule cassava instead of the baseline root variety resulted in a 14% increase in Simultaneous Liquefaction, Saccharification, and Fermentation CE production [@TranSLSFdata]. However, small granule cassava is also known to be lower yielding than the baseline variety. This means that farmers will not adopt small granule cassava unless CE factories pay them a sufficiently higher price to compensate for the yield loss relative to the baseline variety.
 
-Under weak economic assumptions^[1) Farms and factories want to maximize their net income given land and budget constraints; 2) farms and factories have a positive supply response to increases in the price of their product; 3) marginal returns to farm and factory inputs are diminishing; 4) farm yields follow a lognormal distribution. The model also depends upon several technical factory and farm parameters. See appendix for mathematical details.], the precise supply response to release of small granule cassava depends upon the expected small granule root yield loss relative to the baseline variety, the expected baseline root harvest price, and the expected premium paid out by the factory over and above the baseline price.^[Farmers and factories must generally agree upon these three pieces of information, or else market chaos will ensue.]
+Under weak economic assumptions^[1) Marginal returns to inputs are diminishing; 2) farms are profit maximizers subject to a budget contraint; and 3) farm yields follow a lognormal distribution. See appendix for mathematical details.], the precise supply response to release of small granule cassava depends upon the expected small granule root yield loss relative to the baseline variety, the expected baseline root harvest price, and the expected premium paid out by the factory over and above the baseline price.^[Farmers and factories must generally agree upon these three pieces of information, or else market chaos will ensue.]
 
-Clearly, if the small granule premium offered by the factory is high enough, cassava farmers will begin to split into two populations: those who switch to small granule, and those who remain with the baseline variety. However, careful economic modeling is required to determine precisely how many farmers switch to the new variety and how many remain with the baseline. Moreover, there is a third group that requires careful consideration: those who enter or exit the market, attracted or repelled by the new opportunity. And careful modeling is also required to disaggregate the supply response into its three components: 1) the yield response, due to changes in farm expenditures on inputs, 2) the area response, due to expansion or contraction of the planted area, and 3) the entry/exit of farmers into/from the market.
+Clearly, if the small granule premium offered by the factory is high enough, cassava farmers will begin to split into two populations: those who switch to small granule, and those who remain with the baseline variety. However, careful economic modeling is required to determine precisely how many farmers switch to the new variety and how many remain with the baseline. Moreover, there is a third group that requires careful consideration: those who enter or exit the market, attracted or repelled by the new opportunity. Careful modeling is also required to consider how farmers will likely alter input expenditures, and hence their yields, in response to price shifts resulting from small granule release.
 
 ```{r, fig.show="hold", fig.align="center", fig.cap="\\label{fig:supply_particip_exercise}(Top) Supply curves for small granule and baseline variety cassava. The composite supply curve is also plotted. (Bottom) Their corresponding Market\nParticipation curves. The background color indicates the small granule adoption rate.", echo=FALSE}
 
@@ -1092,9 +1092,9 @@ In this exercise, only the supply side has been considered. The determination of
 
 # Appendix
 
-Below, the cassava supply model depicted in Figure \ref{fig:supply_particip_exercise} is derived mathematically from assumptions. 
+Below, the cassava supply model used in this report is derived mathematically from assumptions.
 
-Assumption 1: Marginal returns to expenditures on inputs are diminishing.
+*Assumption 1: Marginal returns to expenditures on inputs are diminishing.*
 
 \begin{equation}
 \frac{\partial \ln y }{\partial \ln x_i} = \alpha_i \frac{d \ln x_i}{d x_i}, \forall i \in (1,n)
@@ -1133,15 +1133,19 @@ and
 The yield equation can be derived from equation \ref{eq:assump1} by dotting through by $d \ln \mathbf{x}$ and then integrating as follows:
 
 \begin{equation}
-\int \nabla_{\mathbf{x}} \ln{y} \cdot d \ln \mathbf{x} = \int D_{\mathbf{\alpha}} \nabla_{\mathbf{x}} \ln \mathbf{x} \cdot d \ln \mathbf{x}
+\int \nabla_{\mathbf{x}} \ln(y) \cdot d \ln(\mathbf{x}) = \int D_{\mathbf{\alpha}} \nabla_{\mathbf{x}} \ln(\mathbf{x}) \cdot d \ln (\mathbf{x}) \\
+\ln(y) =\ln(-\mathbf{\alpha} \cdot \mathbf{w}^{-1}) + k
+\label{eq:yTech}
 \end{equation}
+
+where the constant of integration $k$ is determined by context. In the context of this report, it makes sense to set $k=\ln(\bar{y})$, where $\bar{y}$ is the maximum biophysical yield. This then gives
 
 \begin{equation}
-
+y = \bar{y} \exp(-\mathbf{\alpha} \cdot \mathbf{w}^{-1})
 \end{equation}
 
 
-Assumption 2: Farmers are profit maximizers, subject to a budget constraint
+*Assumption 2: Farmers are profit maximizers, subject to a budget constraint.*
 
 Formally, this assumption is written
 
@@ -1152,8 +1156,10 @@ Formally, this assumption is written
 where $R$, $C$, and $\bar{C}$ are revenue, cost and budget per unit area, and
 
 \begin{equation}
+\begin{matrix}
 R = P y(\mathbf{x}; \mathbf{\alpha}) \\
 C = \mathbf{x}\cdot\mathbf{w}
+\end{matrix}
 \end{equation}
 
 where $P$ is the farmer's output price and $\mathbf{w}$ is the vector of input prices.
@@ -1161,7 +1167,7 @@ where $P$ is the farmer's output price and $\mathbf{w}$ is the vector of input p
 The farmer's objective function is thus expressed
 
 \begin{equation}
-\mathcal{L} = R - C - \lamba (C - \bar{C})
+\mathcal{L} = R - C + \lambda (\bar{C} - C)
 \end{equation}
 
 The first order conditions for a maximum are then
@@ -1170,56 +1176,54 @@ The first order conditions for a maximum are then
 \nabla \mathcal{L} = P \nabla y - \mathbf{w} - \lambda \mathbf{w} = \mathbf{0}
 \end{equation}
 
-The optimal yield function can then be derived from Assumptions 1 and 2 as follows.
-
 By Assumption 1 (equation \ref{eq:assump1}) the first order conditions can be rewritten
 
 \begin{equation}
 \nabla \mathcal{L} = P y D_{\mathbf{x}}^{-1} D_{\mathbf{\alpha}} - \mathbf{w} - \lambda \mathbf{w} = \mathbf{0}
 \end{equation}
 
-Dotting through by $\mathbf{w}$ gives
+Given the functional form in equation \ref{eq:yTech}, dotting through by $\mathbf{w}$ gives
 
 \begin{equation}
-
-\mathbf{w} \cdot \nabla \mathcal{L} = -Py \ln(y / \bar{y}) - (1-\lambda) C = 0
-
+\mathbf{w} \cdot \nabla \mathcal{L} = -Py \ln(y / \bar{y}) - (1 + \lambda) C = 0
 \end{equation}
 
-which can then be rearanged into the form
+which can then be rearranged into the form
 
 \begin{equation}
-
-y^* \ln(y^* / \bar{y}) = -\frac{\gamma C}{P} \:\: ; \:\:\: \gamma = 1 - \lambda
-
+y^* \ln(y^* / \bar{y}) = -\frac{C}{P}\gamma \:\: ; \:\:\: \gamma = 1 + \lambda
 \label{eq:ylny}
-
 \end{equation}
 
 which has the following closed form solution in terms of Lambert's W-function $W()$:
 
 \begin{equation}
-
-y^*(P, C, \bar{y}, \gamma) = \bar{y}e^W(-\frac{\gamma C}{P \bar{y}}) \:\: ; \:\:\: \gamma = 1 - \lambda
-
+y^*(P, C, \bar{y}, \gamma) = \bar{y} \exp \left( W \left(-\frac{C}{P \bar{y}}\gamma \right) \right) \:\: ; \:\:\: \gamma = 1 + \lambda
+\label{eq:yStar}
 \end{equation}
 
 From equation \ref{eq:ylny}, it is possible to derive an alternative expression for $y^*$ in terms of the cost per unit output $\tilde{C}$.
 
-
 \begin{equation}
-y^*(P, \tilde{C}, \bar{y}, \gamma) = \bar{y}e^{-\frac{\tilde{C}}{P}\gamma} \:\:; \:\:\: \tilde{C} = C \over y^*
+y^*(P, \tilde{C}, \bar{y}, \gamma) = \bar{y} \exp \left(-\frac{\tilde{C}}{P} \gamma \right) \:\:;\:\:\: \left(-\frac{\tilde{C}}{P} \gamma \right)
 \label{eq:yStar_alt}
 \end{equation}
 
-
-The second order condition for a maximum is $\mathbf{x} \cdot \nabla^2 \mathcal{L} \cdot \mathbf{x} < 0$ (where \nabla^2 \mathcal{L} is the Hessian of \mathcal{L}). Plugging in the objective function gives
+However, it must be kept in mind that $\tilde{C}$ is not a constant parameter with respect to output price $P$. Combining equations \ref{eq:yStar} and \ref{eq:yStar_alt} gives the following equation
 
 \begin{equation}
+W \left(\frac{C}{P\bar{y}}\gamma \right) + \frac{\tilde{C}}{P}\gamma = 0
+\end{equation}
 
+which must be satisfied for every $P$.
+
+The second order condition for a maximum is $\mathbf{x} \cdot \nabla^2 \mathcal{L} \cdot \mathbf{x} < 0$ (where $\nabla^2 \mathcal{L}$ is the Hessian of $\mathcal{L}$). Plugging in the objective function gives
+
+\begin{equation}
+\begin{matrix}
 \mathbf{x} \cdot \nabla^2 \mathcal{L} \cdot \mathbf{x} = P\mathbf{x} \cdot (y \nabla^2 \ln(y) - \ln(y)\nabla y) \cdot \mathbf{x} \\
 = Py(2 \ln(y/\bar{y}) - \ln(y/\bar{y})^2)
-
+\end{matrix}
 \end{equation}
 
 The second order condition is then
@@ -1236,38 +1240,127 @@ which can be rearranged to
 
 The condition is always met since $\bar{y} > y$.
 
-Assumption 3: The shape of the yield density.
+Input demands $\mathbf{x}^*$ are given by pre-multiplying the first order conditions through by $D_{\mathbf{w}}^{-1}D_{\mathbf{x}}^2$ and rearranging.
+
+\begin{equation}
+\mathbf{x}^*= D_{\mathbf{w}}^{-{1 \over 2}} \mathbf{\alpha}^{-{1 \over 2}} \sqrt{\frac{P \bar{y}}{\gamma}}
+\end{equation}
+
+
+*Assumption 3: The shape of the yield density.*
 
 Aggregate supply is given by summing the individual farm supply curves.
 
 \begin{equation}
-
-Q(P) = \int_{q_{\ell}}^{q_{\mathcal{u}}} q^{*}(P, A, C, \bar{y}, \gamma) f(q^{*}) dq^{*}
-
+Q(P) = \int_{q_0}^{q_{1}} q^*(P, A, C, \bar{y}, \gamma) f(q^{*}) \: dq^*
 \end{equation}
 
-where $f(q^{\*})$ is the farm production density function ($q^* = Ay^*$). In developing countries, it is often appropriate to assume a right skewed density. There are numerous functional forms that exhibit such a shape. Here I use the lognormal density function.
-
+where $f(q^*)$ is the farm production density function ($q^* = Ay^*$). In developing countries, it is often appropriate to assume a right skewed density. There are numerous functional forms that exhibit such a shape. Here I use the lognormal density function.
 
 \begin{equation}
-
-f(q^{*}) = \frac{1}{q^{*}s_{q^{*}} \sqrt{2 \pi}} \exp \left(-\frac{(\ln(q^{*}) - m_{q^{*}})^2}{2 s_{q^{*}}^2}\right)
+f(q^*) = \frac{1}{q^* s_{q^*} \sqrt{2 \pi}} \exp \left(-\frac{(\ln(q^*) - m_{q^*})^2}{2 s_{q^*}^2} \right)
 \end{equation}
 
 where $m_{q^*}$ and $s_{q^*}$ are the mean and standard deviation of $\ln(q^*)$. Using the alternative expression for $y^*$ (equation \ref{eq:yStar_alt}), $m_{q^*}$ and $s^2_{q^*}$ can be evaluated as follows: 
 
 \begin{equation}
-
+\begin{matrix}
 m_{q^*} = m_{\bar{y}} + m_A - \frac{\mu_{\tilde{C}}}{P}\gamma \\
-s^2_{q^*} = s^2_{\bar{y}} + s^2_A - \frac{\\sigma^2_{\tilde{C}}}{P^2}\gamma^2 
-
+s^2_{q^*} = s^2_{\bar{y}} + s^2_A - \frac{\sigma^2_{\tilde{C}}}{P^2}\gamma^2
+\end{matrix}
 \end{equation}
 
-where, generally speaking, the notation $m_a$ and $s^2_a$ refer to the mean and variance of the log of some variable $a$, while $\mu_a$ and $\sigma^2_a$ refer to the mean and variance of $a$ itself.
+where, generally speaking, the notation $m_a$ and $s^2_a$ refers to the mean and variance of the log of some variable $a$, while $\mu_a$ and $\sigma^2_a$ refer to the mean and variance of $a$ itself.
 
+Substituting $u=\frac{\ln(q^*) - m_{q^*}}{s_{q^*}}$ and $s_{q^*} du = d\ln(q^*)$ gives
+
+\begin{equation}
+Q(P) = \frac{N}{s_{q^*} \sqrt{2\pi}}  \int_{u_0}^{u_1} \exp \left(u s_{q^*} + m_{q^*}) \exp(-{u^2 \over 2} \right) \: du
+\label{eq:aggSuppUsubstit}
+\end{equation}
+
+where the upper and lower bounds of integration $u_1,\:u_0$ are defined
+
+\begin{equation}
+\begin{matrix}
+u_1 = \frac{\ln(q_1^*) - m_{q^*}}{s_{q^*}} \\
+u_0 = \frac{\ln(q_0^*) - m_{q^*}}{s_{q^*}}
+\end{matrix}
+\label{eq:intBounds}
+\end{equation}
+
+\pagebreak
+
+Expanding equation \ref{eq:aggSuppUsubstit},
+
+\begin{equation}
+Q(P) = \frac{N}{s_{q^*} \sqrt{2\pi}}  \int_{u_0}^{u_1} \exp \left(-\frac{1}{2}(u^2 - 2us_{q^*} - 2 m_{q^*}) \right) \:du
+\end{equation}
+
+and then completing squares gives
+
+\begin{equation}
+Q(P) = \frac{N}{s_{q^*} \sqrt{2\pi}}  \int_{u_0}^{u_1} \exp \left(-\frac{(u - s_{q^*})^2}{2} + m_{q^*} + \frac{s_{q^*}^2}{2} \right) \:du
+\end{equation}
+
+from which the mean supply $\mu_{q^*} = \exp \left(m_{q^*} + \frac{s_{q^*}^2}{2} \right)$ can be factored out.
+
+\begin{equation}
+Q(P) = \mu_{q^*}\frac{N}{s_{q^*} \sqrt{2\pi}}  \int_{u_0}^{u_1} \exp \left( -\frac{(u - s_{q^*})^2}{2} \right) \:du
+\end{equation}
+
+The standard deviation $\sigma_{q^*}$ can be removed to the bounds of integration as follows.
+
+\begin{equation}
+Q(P) = \mu_{q^*}\frac{N}{s_{q^*} \sqrt{2\pi}}  \int_{u_0 - s_{q^*}}^{u_1 - s_{q^*}} \exp \left( -\frac{(u - s_{q^*})^2}{2} \right) \:du
+\end{equation}
+
+The supply can then be expressed in terms of the standard normal distribution.
+
+\begin{equation}
+\begin{matrix}
+Q(P) = N \mu_{q^*} (\Phi(u_1 - s_{q^*}) - \Phi(u_0 - s_{q^*})) \\
+\Phi(\tau) = \frac{1}{\sqrt{2 \pi}} \int_{-\infty}^{\tau} \exp \left(- \frac{u^2}{2} \right) \:du
+\end{matrix}
+\end{equation}
+
+The upper and lower bounds of integration can be derived from the properties of Lambert's W function, which appears in the farm yield curve in equation \ref{eq:yStar}. By the properties of Lambert's W function, negative arguments must lie on the interval $(-e^{-1}, 0)$, at which endpoints $W(-e^{-1}) = -1$ and $W(0) = 0$. In equation \ref{eq:yStar}, $C,\:P,\bar{y},$ and $\gamma$ are always positive, and so the argument of Lambert's W function in this case is always negative. Therefore,
+
+\begin{equation}
+0 < \frac{C}{P\bar{y}}\gamma < e^{-1}
+\end{equation}
+
+By substituting these two bounds into equation \ref{eq:yStar}, one can confirm that the upper and lower bounds on $y^*$ are $\bar{y}$ and $\bar{y}e^{-1}$. Note that these two bounds make economic sense. The upper bound $\bar{y}$ is just the biophysical ceiling, while the lower bound corresponds to the break even point where $\tilde{C}=\frac{P}{\gamma}$. Increasing input expenditures beyond this would imply $\tilde{C}>\frac{P}{\gamma}$, i.e., that cost would be greater than revenue.
+
+The bounds of integration are then found by evaluating equations \ref{eq:intBounds} at the upper and lower bounds of $y^*$.
+
+\begin{equation}
+\begin{matrix}
+u_1 = \frac{\ln(A) + \ln(\bar{y}) - m_{q^*}}{s_{q^*}} \\
+u_0 = \frac{\ln(A) + \ln(\bar{y}) - 1 - m_{q^*}}{s_{q^*}}
+\end{matrix}
+\end{equation}
+
+Substituting in equation \ref{eq:} for $m_{q^*}$, this becomes
+
+\begin{equation}
+\begin{matrix}
+u_1 = \frac{\ln(A) - m_A + \frac{\mu_{\tilde{C}}}{P}\gamma}{s_{q^*}} \\
+u_0 = \frac{\ln(A) - m_A - 1 + \frac{\mu_{\tilde{C}}}{P}\gamma}{s_{q^*}}
+\end{matrix}
+\end{equation}
+
+The relation between farm size $A$ and yield $y^*$ is a topic of ongoing debate. For now, let supply be evaluated at $\ln(A) = m_A$, resulting in the following bounds of integration for the aggregate supply function: 
+
+\begin{equation}
+\begin{matrix}
+u_1 = \frac{\mu_{\tilde{C}}}{Ps_{q^*}}\gamma \\
+u_0 = \left(- 1 + \frac{\mu_{\tilde{C}}}{P}\gamma \right) \frac{1}{s_{q^*}} 
+\end{matrix}
+\end{equation}
 
 
 \pagebreak
 
-# References
 
+# References
