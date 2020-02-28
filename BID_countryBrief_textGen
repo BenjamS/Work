@@ -3,8 +3,8 @@ library(tidyverse)
 library(quantmod)
 setwd("D:/OneDrive - CGIAR/Documents")
 
-country_vec <- c("Uruguay", "Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
-country_code_agExport <- c("URY", "HND", "COL", "PER", "BLZ", "CRI", "MEX", "PAN")
+country_vec <- c("Bolivia", "Dominican Republic", "El Salvador", "Uruguay", "Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
+country_code_agExport <- c("BOL", "DOM", "SLV", "URY", "HND", "COL", "PER", "BLZ", "CRI", "MEX", "PAN")
 indicator_vec <- c("Agriculture, forestry, and fishing, value added (% of GDP)",
                    "Agricultural raw materials exports (% of merchandise exports)",
                    "Employment in agriculture (% of total employment) (modeled ILO estimate)")
@@ -95,7 +95,7 @@ df_wdi[, -1] <- round(df_wdi[, -1], 1)
 AgPctLabor_RollPPChng_thresh <- -2
 AgPctExp_thresh <- 2
 
-this_country <- "Panama"
+this_country <- "Dominican Republic"
 ind_this_country <- which(df_wdi$Country == this_country)
 AgPctLabor <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) Value"]
 AgPctLabor_RollPPChng <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) RollPPChng"]
