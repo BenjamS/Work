@@ -1,6 +1,7 @@
 library(stringr)
 library(tidyr)
 library(raster)
+library(rgdal)
 
 dir <- "//dapadfs/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/YieldsWeight/Test/"
 outdir <- "D:/OneDrive - CGIAR/Documents/BID country briefs/"
@@ -53,11 +54,12 @@ cfilesJoin <- left_join(cfilesNEt, cfpuData, by = ("FPU"))
 
 df <- cfilesJoin
 crop_vec <- unique(df$crop)
-country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
+country_vec <- c("Argentina", "Jamaica", "Guatemala", "Ecuador", "Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
 df <- subset(df, Country %in% country_vec)
 n_crops <- length(crop_vec)
 df$crop <- tolower(df$crop)
 df$sys <- tolower(df$sys)
+df <- df %>% group_by(Country, crop, sys) %>% summarise(change = mean(change))
 #-------------------
 str_inc <- "Yield is projected to increase for "
 str_dec <- "Yield is projected to decrease for "
@@ -127,7 +129,7 @@ sentveci
 and Caribbean region in this study: bean, maize, rice, wheat
 and soybean."
 
-# "Across the CEN region, results for a ‘no adaptation’
+# "Across the CEN region, results for a 'no adaptation'
 # scenario project declines in irrigated and rainfed maize yield of roughly
 # 23% and 27%, respectively, and declines in irrigated and rainfed bean
 # yield of 14% and 22%, respectively"
