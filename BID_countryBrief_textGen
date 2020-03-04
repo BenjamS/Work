@@ -3,8 +3,9 @@ library(tidyverse)
 library(quantmod)
 setwd("D:/OneDrive - CGIAR/Documents")
 
-country_vec <- c("Bolivia", "Dominican Republic", "El Salvador", "Uruguay", "Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
-country_code_agExport <- c("BOL", "DOM", "SLV", "URY", "HND", "COL", "PER", "BLZ", "CRI", "MEX", "PAN")
+country_vec <- c("Guatemala", "Argentina", "Jamaica", "Ecuador", "Nicaragua", "Bolivia", "Dominican Republic", "El Salvador", "Uruguay", "Honduras", "Colombia", "Peru", "Belize", "Costa Rica", "Mexico", "Panama")
+#WITS trade data country abbreviation
+country_code_agExport <- c("GTM", "ARG", "JAM", "ECU", "NIC", "BOL", "DOM", "SLV", "URY", "HND", "COL", "PER", "BLZ", "CRI", "MEX", "PAN")
 indicator_vec <- c("Agriculture, forestry, and fishing, value added (% of GDP)",
                    "Agricultural raw materials exports (% of merchandise exports)",
                    "Employment in agriculture (% of total employment) (modeled ILO estimate)")
@@ -95,7 +96,7 @@ df_wdi[, -1] <- round(df_wdi[, -1], 1)
 AgPctLabor_RollPPChng_thresh <- -2
 AgPctExp_thresh <- 2
 
-this_country <- "Dominican Republic"
+this_country <- "Argentina"
 ind_this_country <- which(df_wdi$Country == this_country)
 AgPctLabor <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) Value"]
 AgPctLabor_RollPPChng <- df_wdi[ind_this_country, "Employment in agriculture (% of total employment) (modeled ILO estimate) RollPPChng"]
@@ -154,11 +155,14 @@ str4 <- str_employ4
 sent_employment <- paste0(str1, AgPctLabor, str2,
                    abs(AgPctLabor_RollPPChng), str3, rollpp_per, str4)
 #Ag exports as pct of all exports (WDI figures look weird)
+WITS_folder <- "WITS data/"
 prefix_agExport <- "en_"
-suffix_agExport <- "_AllYears_WITS_Trade_Summary.csv"
+#https://wits.worldbank.org/CountryProfile/en/Country/WLD/Year/LTST/Summary
+#https://wits.worldbank.org/datadownload.aspx?lang=en
+suffix_agExport <- "_AllYears_WITS_Trade_Summary.CSV"
 ind_agExport <- which(country_vec == this_country)
 this_country_code_agExport <- country_code_agExport[ind_agExport]
-filename <- paste0(prefix_agExport, this_country_code_agExport, suffix_agExport)
+filename <- paste0(WITS_folder, prefix_agExport, this_country_code_agExport, suffix_agExport)
 df_agExports <- read.csv(filename, stringsAsFactors = F)
 df_agExports <- subset(df_agExports, Partner == "World" & Product.categories == "Vegetable" & Indicator == "Export Product share(%)" )
 u <- df_agExports
@@ -170,11 +174,17 @@ df_agExports$Year <- as.integer(df_agExports$Year)
 ggplot(df_agExports, aes(x = Year, y = Value)) + geom_line()
 #--
 n_since <- 10
-year_latest <- as.character(df_agExports$Year[1])
+if(!is.na(df_agExports$Value[1])){
+  ind_mostRecent_year <- 1
+}else{
+  ind_mostRecent_year <- 2
+}
+year_latest <- as.character(df_agExports$Year[ind_mostRecent_year])
+
 year_since <- as.character(df_agExports$Year[n_since])
-agExport_pctGDP_latest <- round(df_agExports$Value[1], 1)
+agExport_pctGDP_latest <- round(df_agExports$Value[ind_mostRecent_year], 1)
 agExport_pctGDP_since <- round(df_agExports$Value[n_since], 1)
-ppChng <- round(df_agExports$Value[1] - df_agExports$Value[n_since], 1)
+ppChng <- round(df_agExports$Value[ind_mostRecent_year] - df_agExports$Value[n_since], 1)
 str1 <- str_agExports1
 str2 <- str_agExports2
 str3 <- ifelse(ppChng < 0, str_agExports3dn, str_agExports3up)
