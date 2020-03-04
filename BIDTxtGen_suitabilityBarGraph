@@ -4,8 +4,10 @@ outdir <- "D:/OneDrive - CGIAR/Documents/BID country briefs/"
 infile <- paste0(dir, "summary_table_countries.csv")
 outfile <- paste0(outdir, "suitabilityBargraphsTxt.txt")
 
-country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
-countryCode_vec <- c("COL", "PER", "URY", "CRI", "MEX", "PAN")
+#country_vec <- c("Colombia", "Peru", "Uruguay", "Costa Rica", "Mexico", "Panama")
+#countryCode_vec <- c("COL", "PER", "URY", "CRI", "MEX", "PAN")
+country_vec <- c("Argentina", "Jamaica", "Guatemala", "Ecuador", "Honduras", "Bolivia", "Nicaragua", "Dominican Republic", "Guatemala", "Jamaica", "El Salvador")
+countryCode_vec <- c("ECU", "HND", "BOL", "NIC", "DOM", "GTM", "JAM", "SLV")
 df <- read.csv(infile, stringsAsFactors = F)
 df <- subset(df, !(Crop %in% c("coffea_arabica", "coffea_robusta")))
 df <- df[, c(2, 3, 6, 7)]
