@@ -1,0 +1,26 @@
+#setwd("C:/Users/BSCHIEK.CGIARAD/Documents")
+#setwd("D:/OneDrive - CGIAR/Documents")
+#------------------------------
+#Prep food balance data
+#df <- read.csv("fao food balance.csv")
+df_raw_1 <- read.csv("FAO Data/FoodBalanceSheetsHistoric_E_All_Data.csv", stringsAsFactors = F)
+df_raw_1 <- subset(df_raw_1, Item.Code != 2928)
+df_raw_2 <- read.csv("FAO Data/FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+df_raw_2 <- subset(df_raw_2, Item.Code != 2928)
+rm_cols <- c("Area.Code", "Item.Code", "Element.Code")
+rm_cols <- which(colnames(df_raw_1) %in% rm_cols)
+df_raw_1 <- df_raw_1[, -rm_cols]
+df_raw_2 <- df_raw_2[, -rm_cols]
+df_raw <- merge(df_raw_1, df_raw_2, by = c("Area", "Item", "Element", "Unit"))
+df_raw$Item <- as.character(df_raw$Item)
+df_raw$Element <- as.character(df_raw$Element)
+df_raw$Area <- as.character(df_raw$Area)
+u <- colnames(df_raw)
+df_raw <- df_raw[, -grep("F", u)]
+v <- colnames(df_raw)[5:ncol(df_raw)]
+colnames(df_raw)[5:ncol(df_raw)] <- gsub("Y", "", v)
+df_raw <- gather(df_raw,Year,Value,`1961`:`2017`)
+
+element_vec <- c("Protein supply quantity (g/capita/day)", "Fat supply quantity (g/capita/day)", "Food supply quantity (kg/capita/yr)")
+
+df_bennett <- subset(df_raw, Element %in% element_vec)
