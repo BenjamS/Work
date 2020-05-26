@@ -1,0 +1,795 @@
+---
+title: "AVISA Foresight WP 2 and 3 Concept Note"
+author: "Ben Schiek"
+date: "`r Sys.time()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+library(tidyverse)
+library(patchwork)
+#options(warn = -1); options(scipen = 999)
+
+```
+
+# Some motivating considerations
+
+* Of the many traits, PABRA survey reveals that only a handful are considered important by consumers and producers.
+
+* Only a few of the important traits are of a discrete nature (for eg., color, size, shape), that would warrant a "discrete choice approach". Most of the important traits are of a continuous, measurable nature (for eg., protein content, nutritional value, cooking time, yield, time to maturity), amenable to a differential modeling approach.
+
+* We have no data. Let's develop a minimum data modeling approach that capitalizes on what we do have available---experts, literature, and assumptions galore (and FAO data).
+
+Traits to focus on:
+
+Consumer side
+
+* Cooking time
+* Nutritional value
+
+Producer side
+
+* Yield
+* Heat tolerance (maybe)
+* Time to maturity (maybe)
+
+Drivers to focus on:
+
+* Farm size
+* Inequality
+* Bennett's law (actually probably not)
+* Price risk
+* Crop risk
+* What else?
+
+# Synthetic preference experiment (consumer side traits - WP 3)
+
+* Basic idea: 1) Ellicit trait-variety correlations from breeders and/or consumers. Ellicit also variety utility and risk. 2) From this, trait utility and risk can be deduced mathematically via "reverse PCA". [2b) As an intermediate product, a variety covariance matrix can be calculated from the ellicited risk and trait-variety correlations, which might have some role in orienting discussion.] 3) Determine the optimal budget shares an expected utility maximizing, budget constrained consumer is willing to spend on each trait. This effectively reveals consumer ranking of traits in order of preference. 4) With a bit more fancy manipulation of PCA, the trait budget shares can then be disaggregated down to individual bean variety budget shares, revealing consumer ranking of varieties in order of preference.
+
+* Given estimates of variety price and price risk, relative quantities demanded can be backed out of the budget shares. Equilibrium price estimates can be ellicited or extracted from PE model.
+
+* "Utility" here means the benefit to the consumer of consuming bean $x$ relative to that of consuming bean $y$, $z$, etc. The proposed model treats the traits as the dimensions or principle components of this utility. Possible methods of calculation: Ellicitation from experts/consumers, deduction based on FAO kcal and VAP data, or some combination thereof, or something else.
+
+* Bean utility _risk_ can be interpreted as a measure of the stability or reliability of bean variety availability, which is a function of the quality of the seed system, the frequency of adverse growing conditions and the varieties' sensitivity to adverse conditions, etc. Likewise for trait utility risk. Can be ellicited from breeders and seed system experts.
+
+* An alternative version would be to conduct the same exercise with a representative selection of staple crops (including the most common bean variety) consumed in the area of analysis; and ellicit staple-trait correlations---where "traits" in this case would be carbs, fat, protein, and micronutrients, plus perhaps taste, digestibility, etc. This would give more of a bigger picture view of the place of beans in the general diet, and insight into how adjusting certain traits might make beans figure more prominently in the diet.
+
+Assumptions:
+
+* Consumers are utility maximizers
+* Budget constraint
+* Marginally diminishing utility of consumption
+* Utility distribution shape (lognormal)
+
+## Hypothetical example
+
+1) Ellicit trait-variety correlations from breeders and/or consumers. Ellicit also variety utility and risk.
+
+```{r, fig.show = "hold", fig.width = 4, fig.height = 4, fig.align = "center", fig.cap = "\\label{fig:ExpUtilityRisk}Hypothetical estimated utility and risks associated with different bean varieties, ellicited from consumers and/or breeders."}
+
+# Define function to plot period returns as barchart with colors
+plot_returns_barchart <- function(df_pctRet, group_colors, list_graph_options, graph_on = T){
+  if(is.null(list_graph_options)){
+    fig_title <- NULL
+    legend_position <- NULL
+    ylab <- NULL
+    axisTextX_off <- NULL
+  }else{
+    fig_title <- list_graph_options[["fig_title"]]
+    legend_position <- list_graph_options[["legend_position"]]
+    ylab <- list_graph_options[["ylab"]]
+    axisTextX_off <- list_graph_options[["axisTextX_off"]]
+  }
+  
+  if(is.null(group_colors)){
+    n_groups <- length(unique(df_pctRet$Group))
+    bag_of_colors <- randomcoloR::distinctColorPalette(k = 5 * n_groups)
+    group_colors <- sample(bag_of_colors, n_groups)
+  }
+  
+  colnames(df_pctRet)[1] <- "Period Return"
+  df_plot <- df_pctRet
+  gg <- ggplot(df_plot, aes(x = Item, y = `Period Return`, fill = Group))
+  #gg <- gg + scale_color_brewer(palette = "Dark2")
+  gg <- gg + scale_fill_manual(values = group_colors)
+  gg <- gg + geom_bar(stat = "identity", color = "black", position = "dodge")
+  if("Dataset" %in% colnames(df_plot)){
+    gg <- gg + facet_wrap(~Dataset, ncol = 1)
+  }
+  if(!is.null(fig_title)){
+    gg <- gg + labs(title = fig_title)
+    gg <- gg + theme(plot.title = element_text(face = "bold", size = 8))
+  }
+  if(!is.null(ylab)){
+    gg <- gg + labs(y = ylab)
+    gg <- gg + theme(axis.title.y = element_text(size = 7))
+  }else{
+    gg <- gg + theme(axis.title.y = element_blank())
+  }
+  if(!is.null(legend_position)){
+    gg <- gg + theme(legend.position = legend_position)
+  }else{
+    gg <- gg + theme(legend.position = "bottom")
+  }
+  if(!is.null(axisTextX_off)){
+    gg <- gg + theme(axis.text.x = element_blank())
+  }else{
+    gg <- gg + theme(axis.text.x = element_text(size = 7, angle = 60, hjust = 1))
+  }
+  gg <- gg + theme(axis.title.x = element_blank(),
+                   axis.text.y = element_text(size = 7),
+                   #axis.title.y = element_text(size = 9),
+                   legend.title = element_blank(),
+                   legend.text = element_text(size = 7))
+  #  gg <- gg + coord_equal()
+  #  gg <- gg + coord_flip()
+  if(graph_on){print(gg)}
+  return(gg)
+  
+}
+
+#==================================================================
+#==================================================================
+# diet_vec <- c("Cereals", "Animal\nProducts", "Pulses", "Fruits/Veg.", "Starchy\nRoots", "Sugar")
+diet_vec <- c("Bean 1", "Bean 2", "Bean 3", "Bean 4", "Bean 5", "Bean 6")
+
+n_items <- length(diet_vec)
+
+#u_vec <- c(0.12, 0.25, 0.14, 0.2, 0.12, 0.08)
+u_vec <- runif(n_items)
+#u_vec <- rowSums(mat_Lrot)
+u_vec <- u_vec / sum(u_vec)
+#u_vec <- c(0.09760942, 0.31893834, 0.08370171, 0.32343818, 0.16413385, 0.01217849)
+sdX_vec <- runif(n_items)
+#sdX_vec <- sdX_vec / sum(sdX_vec)
+# sdX_vec <- 10^-1 * rnorm(n_items)
+# sdX_vec[which(sdX_vec < 0)] <- -sdX_vec[which(sdX_vec < 0)]
+#sdX_vec <- c(0.27297837, 0.08630124, 0.01365715, 0.19663117, 0.12015883, 0.31027323)
+#sdX_vec <- c(0.17090337, 0.06242232, 0.03120594, 0.07919097, 0.02918631, 0.10900784)
+#sdX_vec / u_vec
+
+# carb_vec <- c(0.9, 0.01, 0.3, 0.2, 0.95, 0.86)
+# fat_vec <- c(0.2, 0.9, 0.01, 0.45, 0.5, 0.03)
+prot_vec <- c(0.4, 0.88, 0.65, 0.2, 0.3, 0.95)
+mnutri_vec <- c(0.4, 0.1, 0.75, 0.9, 0.2, 0.01)
+flat_vec <- c(-0.15, -0.35, -0.65, 0.35, 0.87, -0.2)
+#--------------------------------------------------------
+# Bargraph of expected utility and risk
+n_groups <- n_items
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 2 * n_groups)
+item_colors <- sample(bag_of_colors, n_groups)
+df_pctRet <- data.frame(100 * u_vec, Item = diet_vec, Group = diet_vec)
+list_graph_options <- list()
+list_graph_options[["fig_title"]] <- "Expected Utility"
+list_graph_options[["ylab"]] <- NULL
+list_graph_options[["legend_position"]] <- "none"
+list_graph_options[["axisTextX_off"]] <- T
+gg_perRet <- plot_returns_barchart(df_pctRet, item_colors, list_graph_options, graph_on = F)
+df_sd <- data.frame(100 * sdX_vec, Item = diet_vec, Group = diet_vec)
+list_graph_options[["fig_title"]] <- "Risk (standard deviation)"
+list_graph_options[["legend_position"]] <- "none"
+list_graph_options[["axisTextX_off"]] <- NULL
+gg_perSd <- plot_returns_barchart(df_sd, item_colors, list_graph_options, graph_on = F)
+gg_perRet / gg_perSd
+#--------------------------------------------------------
+```
+
+
+```{r echo = FALSE,  message = FALSE, fig.show = "hold", fig.width = 6, fig.height = 4, fig.align = "center", fig.cap = "\\label{fig:loadsRotExamp}Hypothetical orthogonally rotated trait-variety correlations, ellicited from consumers and/or breeders."}
+
+# Barchart of variable-signal correlations
+plot_corrXS_barchart <- function(mat_L, group_info = NULL, item_colors = NULL, xAxis_title = NULL, sigNames = NULL){
+  
+  n_signals <- ncol(mat_L)
+  df_plot <- data.frame(Item = row.names(mat_L), mat_L)
+  df_plot$Item <- as.character(df_plot$Item)
+  #-------------------------------------------------------
+  if(is.null(sigNames)){
+    signal_id <- paste("Trait", 1:n_signals)
+  }else{
+    signal_id <- paste("Trait", 1:n_signals, "\n", sigNames)
+  }
+  colnames(df_plot)[2:(n_signals + 1)] <- signal_id
+  #-------------------------------------------------------
+  gathercols <- as.character(signal_id) 
+  df_plot <- gather_(df_plot, "Trait", "Correlation", gathercols)
+  df_plot <- transform(df_plot,
+                       Trait = factor(Trait, levels = gathercols))
+  
+  if(!is.null(group_info)){
+    outlist <- group_fn(group_info)
+    cols_ordered_by_group <- outlist[[1]]
+    group_color_vec <- outlist[[2]]
+    group_vec_ordered <- outlist[[3]]
+    df_match_group <- data.frame(Item = cols_ordered_by_group, Group = group_vec_ordered)
+    df_plot <- merge(df_plot, df_match_group, by = "Item")
+    df_plot <- df_plot[order(df_plot$Group), ]
+    df_plot$Item <- factor(df_plot$Item, levels = unique(df_plot$Item))
+    gg <- ggplot(df_plot, aes(x = Item, y = Correlation, fill = Group))
+    gg <- gg + scale_fill_manual(values = unique(group_color_vec))
+  }else{
+    if(!is.null(item_colors)){
+          gg <- ggplot(df_plot, aes(x = Item, y = Correlation, fill = Item))
+    gg <- gg + scale_fill_manual(values = item_colors)
+
+    }else{
+          gg <- ggplot(df_plot, aes(x = Item, y = Correlation))
+      
+    }
+  }
+     gg <- gg + geom_bar(stat = "identity", color = "black", position = "dodge")
+  gg <- gg + ylim(limits = c(-1, 1))
+  gg <- gg + facet_wrap(~ Trait, nrow = 1)
+  if(!is.null(xAxis_title)){
+    gg <- gg + labs(y = xAxis_title)
+  }
+  gg <- gg + theme(axis.text = element_text(size = 7),
+                   axis.title.x = element_text(size = 7),
+                   axis.title.y = element_blank(),
+                   # legend.title = element_blank(),
+                   # legend.text = element_text(size = 7),
+                   legend.position = "none",
+                   strip.text = element_text(size = 7))
+  gg <- gg + coord_equal()
+  gg <- gg + coord_flip()
+  gg
+  
+}
+
+# Define function to order data by group
+group_fn <- function(group_info){
+  list_groups <- group_info[[1]]
+  group_names <- group_info[[2]]
+  group_colors <- group_info[[3]]
+  varNames_ordered <- do.call(c, list_groups)
+  n_groups <- length(group_names)
+  n_items <- length(varNames_ordered)
+  if(is.na(group_colors)){
+    bag_of_colors <- randomcoloR::distinctColorPalette(k = 5 * n_groups)
+    group_colors <- sample(bag_of_colors, n_groups)
+    #group_colors <- viridis::viridis_pal(option = "D")(length(group_names))
+  }
+  #if(reverse_order){group_colors <- rev(group_colors)}
+  #varNames_ordered <- colnames(mat_pctDiff)
+  group_vec <- rep(NA, n_items)
+  group_color_vec <- rep(NA, n_items)
+  for(i in 1:n_groups){
+    this_group_vec <- list_groups[[i]]
+    this_group_name <- group_names[i]
+    this_group_color <- group_colors[i]
+    group_vec[which(varNames_ordered %in% this_group_vec)] <- this_group_name
+    group_color_vec[which(varNames_ordered %in% this_group_vec)] <- this_group_color
+  }
+  ind_ordered_cols <- order(factor(group_vec))
+  cols_ordered_by_group <- as.character(varNames_ordered[ind_ordered_cols])
+  group_color_vec <- group_color_vec[ind_ordered_cols]
+  group_vec_ordered <- group_vec[ind_ordered_cols]
+  out_list <- list(cols_ordered_by_group, group_color_vec, group_vec_ordered, ind_ordered_cols, group_vec)
+  return(out_list)
+}
+#==================================================================
+
+#df_Lrot <- data.frame(Commodity = diet_vec, Carbs = carb_vec, Fat = fat_vec, Protein = prot_vec, Micronutrients = mnutri_vec, Disgestibility = flat_vec)
+df_Lrot <- data.frame(Commodity = diet_vec, Protein = prot_vec, Micronutrients = mnutri_vec, Digestibility = flat_vec)
+
+n_signals <- ncol(df_Lrot) - 1
+
+df_Lrot$Commodity <- NULL
+mat_Lrot <- as.matrix(df_Lrot)
+rownames(mat_Lrot) <- diet_vec
+xAxis_title <- "(Orthogonally Rotated) Trait-Variety Correlations"
+list_groups <- list(diet_vec)
+group_info <- NULL
+#sigNames <- c("Carbs", "Fat", "Protein", "Micronutrients", "Digestibility")
+sigNames <- c("Protein", "Micronutrients\n(Iron, Vit. A, etc.)", "Digestibility\n(1 / Flatulence)")
+plot_corrXS_barchart(mat_Lrot, group_info, item_colors, xAxis_title, sigNames)
+
+```
+
+2) From this, trait utility and risk can be deduced mathematically via "reverse PCA".
+
+```{r, fig.show = "hold", fig.width = 3, fig.height = 3, fig.align = "center", fig.cap = "\\label{fig:sigRetRisk}Trait utility and risk derived from the crowdsourced variety utilities, risk, and trait-variety correlations."}
+# Covariance matrix
+D_sdX <- diag(sdX_vec)
+mat_Q <- D_sdX %*% mat_Lrot
+eig_decomp_QQ <- eigen(t(mat_Q) %*% mat_Q)
+eig_values_QQ <- eig_decomp_QQ$values
+mat_G <- diag(eig_values_QQ)
+covmat_SS <- mat_G
+#--------------------------------------------------------
+# Get mat_P
+mat_G_sqrt_inv <- diag(1 / sqrt(eig_values_QQ))
+mat_B <- t(eig_decomp_QQ$vectors) # Orthogonal Rotation Matrix
+mat_P <- mat_Q %*% t(mat_B) %*% mat_G_sqrt_inv
+if(mean(mat_P[, 1]) < 0){mat_P <- -mat_P}
+mat_P_sigs <- mat_P[, 1:n_signals]
+
+#--------------------------------------------------------
+# Expected returns vector
+u_sigs <- as.numeric(t(u_vec) %*% mat_P_sigs)
+if(sum(u_sigs < 0) > 0){
+  u_sigs <- u_sigs - 1.12 * min(u_sigs)
+}
+# fctr_P <- sum(nab_decRet_ar4d) / sum(nab_decRet_ar4d_sigs)
+# nab_decRet_ar4d_sigs <- nab_decRet_ar4d_sigs * fctr
+scale_P <- 1 / as.numeric(u_vec %*% mat_P_sigs %*% diag(1 / u_sigs))
+scale_P <- diag(scale_P)
+#check
+#u_sigs - u_vec %*% mat_P_sigs %*% scale_P
+names(u_sigs) <- sigNames
+#--------------------------------------------------------
+# Risk
+sdS_vec <- as.numeric(sqrt(eig_values_QQ))
+#--------------------------------------------------------
+# Graph
+n_groups <- n_signals
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 2 * n_groups)
+sig_colors <- sample(bag_of_colors, n_groups)
+
+df_pctRet <- data.frame(100 * u_sigs, Item = sigNames, Group = sigNames)
+list_graph_options <- list()
+list_graph_options[["fig_title"]] <- "Expected Utility"
+list_graph_options[["ylab"]] <- NULL
+list_graph_options[["legend_position"]] <- "none"
+list_graph_options[["axisTextX_off"]] <- T
+gg_perRet_sigs <- plot_returns_barchart(df_pctRet, sig_colors, list_graph_options, graph_on = F)
+df_sd <- data.frame(100 * sdS_vec, Item = sigNames, Group = sigNames)
+list_graph_options[["fig_title"]] <- "Risk (standard deviation)"
+list_graph_options[["legend_position"]] <- "none"
+list_graph_options[["axisTextX_off"]] <- NULL
+gg_perSd_sigs <- plot_returns_barchart(df_sd, sig_colors, list_graph_options, graph_on = F)
+
+
+gg_perRet_sigs / gg_perSd_sigs
+
+
+```
+
+2b) As an intermediate product, a variety covariance matrix can be calculated from the ellicited risk and trait-variety correlations, which might have some role in orienting discussion.
+
+```{r, fig.show = "hold", fig.width = 5, fig.height = 3, fig.align = "left", fig.cap = "\\label{fig:covmatBeans}Bean covariance matrix derived from the elicited loadings."}
+
+# Define function to plot covariance/correlation matrices
+plot_covmat <- function(covmat, fig_title = "Covariance Matrix", graph_on = T){
+  covmat[upper.tri(covmat)] <- NA
+  df_plot <- covmat %>% tbl_df()
+  these_levels <- colnames(df_plot)
+  df_plot$ItemX <- colnames(df_plot)
+  gathercols <- colnames(df_plot)[-ncol(df_plot)]
+  df_plot <- df_plot %>% gather_("ItemY", "Value", gathercols)
+  df_plot$ItemX <- factor(df_plot$ItemX, levels = these_levels)
+  df_plot$ItemY <- factor(df_plot$ItemY, levels = these_levels)
+  
+  #midpoint <- min(covmat) + (max(covmat) - min(covmat)) / 2
+  midpoint <- 0
+  gg <- ggplot(df_plot, aes((ItemX), (ItemY)))
+  gg <- gg + geom_tile(aes(fill = Value))#, width = 4, height = 4)
+  gg <- gg + geom_text(aes(label = round(Value, 2)), size = 2.5)
+  if(!is.null(fig_title)){
+    gg <- gg + labs(title = fig_title)
+  }
+  gg <- gg + theme_bw()
+  gg <- gg + theme(axis.text.x = element_text(size = 7, angle = 60, hjust = 1),
+                   axis.text.y = element_text(size = 7),
+                   axis.title = element_blank(),
+                   legend.title = element_blank(),
+                   plot.title = element_text(face = "bold", size = 8))
+  gg <- gg + scale_fill_gradient2(low = "khaki", mid = "cyan", high = "magenta", midpoint, na.value = "white")
+  if(graph_on){print(gg)}
+  return(gg)
+  
+}
+#=======================================================================
+
+D_sdX <- diag(100 * sdX_vec)
+cormat_XX_derived <- mat_Lrot %*% t(mat_Lrot)
+covmat_XX_derived <- D_sdX %*% cormat_XX_derived %*% D_sdX
+colnames(covmat_XX_derived) <- colnames(cormat_XX_derived)
+fig_title <- "Crowdsourced Bean Covariance Matrix"
+plot_covmat(covmat_XX_derived, fig_title, graph_on = F)
+
+```
+
+3) Determine the optimal budget shares an expected utility maximizing, budget constrained consumer is willing to spend on each trait. This effectively reveals consumer ranking of traits in order of preference.
+
+```{r echo = FALSE, fig.show='hold', fig.width=4, fig.height=5, fig.align='center', fig.cap="\\label{fig:front_shares}Optimal frontier and budget allocation to traits."}
+
+get_xStar <- function(tau, mu_vec, g_vec){
+  w_vec <- rep(1, length(mu_vec))
+  r_risk_reward <- g_vec / mu_vec
+  r_cost_reward <- w_vec / mu_vec
+  d_vec <- 3 * sqrt(3) / 2 * r_risk_reward * sqrt(r_cost_reward) * sqrt(tau)
+  theta_vec <- asin(d_vec)
+  # b_vec <- 2 * sqrt(mu_vec^3 / (tau * w_vec)) * (sqrt(d_vec^2 - 1) - d_vec)
+  # xStar <- 1 / (2^(1 / 3) * sqrt(3)) * ((w_vec * tau)^(-1 / 3) * b_vec^(1 / 3) + 2^(2 / 3) * mu_vec * (tau * w_vec)^(-2 / 3) * b_vec^(-1/ 3))
+  #xStar <- 2 / sqrt(3) * 1 / sqrt(tau) * diag(sqrt(mu_vec / w_vec)) %*% sin(theta_vec / 3)
+  xStar <- 3 * r_risk_reward * sin(theta_vec / 3) / sin(theta_vec) 
+  return(xStar)
+}
+
+root_fn <- function(u_factr, mu_vec, g_vec, tau, Ctarg){
+  w_vec <- rep(1, length(mu_vec))
+  mu_vec_scaled <- mu_vec * u_factr
+  g_vec_scaled <- g_vec * u_factr^2
+  # r_risk_reward_scaled <- g_vec_scaled / mu_vec_scaled
+  # r_cost_reward_scaled <- w_vec / mu_vec_scaled
+  # term_scaled <- 1 / r_risk_reward_scaled^2 * 1 / r_cost_reward_scaled
+  # tau_lo <- 0 + 10^-6
+  # tau_up <- 4 / 27 * min(term_scaled) #- 10^-6
+  tau_scaled <- tau / u_factr
+
+  xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
+  C <- sum(xStar)
+  slack <- Ctarg - C
+  return(slack)
+}
+
+root_fn_vctzd <- Vectorize(root_fn, vectorize.args = "u_factr")
+# 
+# interval <- c(10^-5, 10^5)
+# Ctarg <- 1
+# out_roots <- rootSolve::uniroot.all(root_fn_vctzd, interval = interval, lower = min(interval), upper = max(interval), mu_vec = mu_vec, g_vec = g_vec, tau = tau, Ctarg = Ctarg)
+# 
+# u_factr <- out_roots
+#   mu_vec_scaled <- mu_vec * u_factr
+#   g_vec_scaled <- g_vec * u_factr^2
+#   # r_risk_reward_scaled <- g_vec_scaled / mu_vec_scaled
+#   # r_cost_reward_scaled <- w_vec / mu_vec_scaled
+#   # term_scaled <- 1 / r_risk_reward_scaled^2 * 1 / r_cost_reward_scaled
+#   # tau_lo <- 0 + 10^-6
+#   # tau_up <- 4 / 27 * min(term_scaled) #- 10^-6
+#   tau_scaled <- tau / u_factr
+#   xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
+# xStar
+# sum(xStar)
+
+
+optimize_portfolio_dimRet <- function(tau, mu_vec, g_vec, P, yCeil){
+  interval <- c(10^-3, 10^3)
+  Ctarg <- 1
+  out_roots <- rootSolve::uniroot.all(root_fn_vctzd, interval = interval, lower = min(interval), upper = max(interval), mu_vec = mu_vec, g_vec = g_vec, tau = tau, Ctarg = Ctarg)
+  u_factr <- out_roots
+  #print(u_factr)
+  mu_vec_scaled <- mu_vec * u_factr
+  g_vec_scaled <- g_vec * u_factr^2
+  tau_scaled <- tau / u_factr
+  xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
+  C <- sum(xStar)
+  #print(C)
+  m_y <- -t(mu_vec_scaled) %*% xStar^-1
+  s2_y <- t(g_vec_scaled) %*% xStar^-2
+  #exp(mu_y - s2_y)
+  mu_y <- as.numeric(yCeil * exp(m_y + s2_y / 2))
+  l_C <- tau_scaled * mu_y * P
+  CV <- as.numeric(sqrt(exp(s2_y) - 1))
+  term <- -l_C * C * sqrt(CV^2 + 1) / (yCeil * P)
+  muY_front <- yCeil / sqrt(CV^2 + 1) * exp(lamW::lambertW0(term))
+  #print(mu_y / muY_front)
+  r <- l_C * C / (P * mu_y)
+  soc_cond <- r^2 - 2 * r + s2_y < 0
+  frontier_vec <- c(muY_front, CV, C, l_C, soc_cond, tau, tau_scaled, u_factr, r)
+  #return(check_vec)
+  list_out <- list(frontier_vec, xStar)
+  return(list_out)
+  
+}
+
+get_optimal_frontier_dimRet <- function(mu_vec, g_vec, P, yCeil, n_points_on_frontier){
+  w_vec <- rep(1, length(mu_vec))
+  r_risk_reward <- g_vec / mu_vec
+  r_cost_reward <- w_vec / mu_vec
+  term <- 1 / r_risk_reward^2 * 1 / r_cost_reward
+  tau_lo <- 0 + 10^-6
+  tau_up <- 4 / 27 * min(term) - 10^-6
+  tau_vec <- seq(tau_lo, tau_up, length.out = n_points_on_frontier)
+
+  list_xStar <- list()
+  list_frontier <- list()
+  for(i in 1:n_points_on_frontier){
+    #print(i)
+    tau <- tau_vec[i]
+    outlist <- optimize_portfolio_dimRet(tau, mu_vec, g_vec, P, yCeil)
+    list_xStar[[i]] <- outlist[[2]]
+    list_frontier[[i]] <- outlist[[1]]
+  }
+  
+  df_frontier <- as.data.frame(do.call(rbind, list_frontier))
+  colnames(df_frontier) <- c("Expected Utility",
+                             "Risk (CV)",
+                             "Cost",
+                             "l_C",
+                             "S.O.C. met?",
+                             "tau",
+                             "tau_scaled",
+                             "u_factr",
+                             "r")
+  df_xStar <- data.frame(df_frontier$`Risk (CV)`, t(do.call(cbind, list_xStar)))
+  varNames_ordered <- names(mu_vec)
+  colnames(df_xStar) <- c("Risk (CV)", varNames_ordered)
+  #-----------
+  outlist <- list(df_frontier, df_xStar)
+  
+}
+
+
+plot_frontier <- function(df_frontier, ROI_basis = T, list_graph_options = NULL, graph_on = T){
+  if(!is.null(list_graph_options)){
+    fig_title <- list_graph_options[["fig_title"]]
+  }else{
+    fig_title <- NULL
+  }
+  
+  df_plot <- df_frontier
+  # if(ROI_basis){
+  #   gg <- ggplot(df_plot, aes(x = `Risk (CV)`, y = `ROI target`))
+  # }else{
+  #   gg <- ggplot(df_plot, aes(x = `Risk (CV)`, y = `Return target`))
+  # }
+  y_var <- paste0("`", colnames(df_plot)[1], "`")
+  x_var <- paste0("`", colnames(df_plot)[2], "`")
+  gg <- ggplot(df_plot, aes_string(x_var, y_var))
+  if(!is.null(fig_title)){
+    gg <- gg + labs(title = fig_title)
+    gg <- gg + theme(plot.title = element_text(face = "bold", size = 10))
+  }
+  gg <- gg + theme(axis.title.x = element_blank(),
+                   axis.text.x = element_blank(),
+                   axis.title.y = element_text(size = 8),
+                   axis.text.y = element_text(size = 8))
+  gg <- gg + geom_point()
+  if(graph_on){print(gg)}
+  return(gg)
+}
+
+
+
+
+plot_budgetShares <- function(df_wStar, group_small = NULL, color_vec = NULL, graph_on = T, list_graph_options = NULL){
+  # Budget shares plot
+  # Note df_w_in should have just the target risk column (i.e. don't also include the backtest risk column). At any rate, the budget risk column should be the same as the one used in the frontier plot.
+  #df_plot <- df_wStar_prop
+  #------------------------------------
+  if(!is.null(list_graph_options)){
+    legend_position <- list_graph_options[["legend_position"]]
+    fig_title <- list_graph_options[["fig_title"]]
+    axis_titles <- list_graph_options[["axis_titles"]]
+    Xaxis_numbers_off <- list_graph_options[["Xaxis_numbers_off"]]
+  }else{
+    legend_position = "bottom"
+    fig_title = NULL
+    axis_titles = "on"
+    Xaxis_numbers_off = F
+  }
+  
+  #------------------------------------
+  df_plot <- df_wStar
+  gathercols <- colnames(df_plot)[-1]
+  #------------------------------------
+  if(!is.null(group_small)){
+    mat_plot <- as.matrix(df_plot[, -1])
+    mu_vec <- apply(mat_plot, 2, mean)
+    ind_group_small <- which(mu_vec < 10^-2)
+    other_col <- rowSums(mat_plot[, ind_group_small])
+    
+    mat_plot <- mat_plot[, -ind_group_small]
+    df_plot <- as.data.frame(mat_plot)
+    df_plot$Other <- other_col
+    df_plot$`Risk (standard deviation)` <- df_wStar$`Risk (standard deviation)`
+    gathercols <- colnames(df_plot)[-ncol(df_plot)]
+  }
+  #------------------------------------
+  df_plot$portfolio_id <- 1:nrow(df_wStar)
+  df_match_V <- df_plot[, c(grep("portfolio_id", colnames(df_plot)), grep("Risk", colnames(df_plot)))]
+  df_plot <- df_plot %>% gather_("Item", "Budget shares", gathercols)
+  df_plot <- df_plot %>% group_by(Item) %>% 
+    mutate(mu = median(`Budget shares`)) %>% 
+    as.data.frame()
+  df_plot <- df_plot[order(df_plot$mu, decreasing = T), ]
+  #ind_order_mu <- order(df_plot$mu, df_plot$Item, decreasing = T)
+  df_plot$Item <- factor(df_plot$Item,
+                         levels = unique(df_plot$Item),
+                         ordered = T)
+  #------------------------------------
+  if(is.null(color_vec)){
+    # Randomly assign a color to each portfolio item if none assigned
+    n_items <- ncol(df_wStar) - 1
+    bag_of_colors <- randomcoloR::distinctColorPalette(k = 5 * n_items)
+    color_vec <- sample(bag_of_colors, n_items)
+  }
+  #------------------------------------
+  #  df_plot$`Risk (standard deviation)` <- as.factor(df_plot$`Risk (standard deviation)`)
+  y_var <- paste0("`", colnames(df_plot)[grep("Budget shares", colnames(df_plot))], "`")
+  x_var <- paste0("`", colnames(df_plot)[grep("Risk", colnames(df_plot))], "`")
+  
+  gg <- ggplot(df_plot, aes_string(x_var, y_var, fill = "`Item`"))
+  #legend_position <- "right"
+  gg <- gg + geom_area(position = "stack")
+  # gg <- gg + geom_bar(stat = "identity")
+  gg <- gg + scale_fill_manual(values = color_vec)
+  
+  gg <- gg + theme(legend.title = element_blank(),
+                   legend.position = legend_position,
+                   legend.text = element_text(size = 6),
+                   axis.title = element_text(size = 8),
+                   axis.text = element_text(size = 7)
+  )
+  if(axis_titles == "off"){
+    gg <- gg + theme(axis.title = element_blank())
+  }
+  if(axis_titles == "x only"){
+    gg <- gg + theme(axis.title.y = element_blank())
+  }
+  if(Xaxis_numbers_off){
+    gg <- gg + theme(axis.text.x = element_blank())
+  }
+  if(!is.null(fig_title)){
+    gg <- gg + labs(title = fig_title)
+    gg <- gg + theme(plot.title = element_text(size = 8))
+  }
+  if(length(unique(df_plot$Item)) > 15){
+    gg <- gg + theme(legend.position = "none")
+  }
+  gg_weights <- gg
+  
+  if(graph_on){print(gg)}
+  
+  return(gg_weights)
+  
+}
+
+
+#============================================================
+P <- 1
+yCeil <- 1
+n_points_on_frontier <- 50
+covmat <- covmat_SS
+eigvals <- diag(covmat_SS)
+mu_vec <- u_sigs
+g_vec <- eigvals
+#--------------------------------------------------------------
+outlist <- get_optimal_frontier_dimRet(mu_vec, g_vec, P, yCeil, n_points_on_frontier)
+df_frontier <- outlist[[1]]
+df_xStar <- outlist[[2]]
+#--------------------------------------------------------------
+gg <- plot_frontier(df_frontier, ROI_basis = T, list_graph_options = NULL, graph_on = F)
+gg_frontier <- gg
+gg_budget <- plot_budgetShares(df_xStar, color_vec = sig_colors, graph_on = F, list_graph_options = NULL)
+#--------------------------------------------------------------
+gg_frontier + gg_budget + plot_layout(ncol = 1)
+#sqrt(g_vec) / mu_vec
+
+```
+
+4) With a bit more manipulation of PCA, the trait budget shares can then be disaggregated down to individual bean variety budget shares, revealing consumer ranking of varieties in order of preference.
+
+```{r, fig.show='hold', fig.width=4, fig.height=4, fig.align='center', fig.cap="\\label{fig:xDisagg}Budget allocation mapped from traits back to individual goods."}
+#--------------------------------------------------------
+# Disaggregate budget shares to portfolio items
+mat_xStar <- t(as.matrix(df_xStar[, -1]))
+#colSums(mat_L %*% diag(1 / colSums(mat_L)))
+mat_xStar_assets_inv <- mat_P_sigs %*% scale_P %*% mat_xStar^-1
+mat_xStar_assets <- mat_xStar_assets_inv^-1
+if(sum(mat_xStar_assets < 0) > 0){
+  mat_xStar_assets <- apply(mat_xStar_assets, 2, function(x) x - 2 * min(x))
+}
+mat_xStar_assets <- apply(mat_xStar_assets, 2, function(x) x / sum(x))
+df_xStar_assets <- data.frame(df_xStar$`Risk (CV)`, t(mat_xStar_assets))
+colnames(df_xStar_assets) <- c("Risk (CV)", row.names(mat_Lrot))
+gg_budget <- plot_budgetShares(df_xStar_assets, color_vec = item_colors, graph_on = F, list_graph_options = NULL)
+gg_budget
+
+```
+
+# Partial Equilibrium Model (producer side traits - WP 2?)
+
+Well, not entirely producer side---traits examined:
+
+* Cooking time
+* Yield and yield risk
+* Time to maturity (maybe)
+* CC resilience (heat tolerance, etc.)
+
+* Basic idea: These traits can be modeled as economic variables. Cooking time is converted to monetary units (via cost of fuel) and added to the consumer price of the bean. Straightforward assumptions regarding consumer and producer economic behavior.
+
+Assumptions:
+
+* Consumers are utility maximizers
+* Producers are profit maximizers
+* Budget constraint
+* Marginally diminishing returns to expenditures on consumption/production
+* Price probability distribution shape (lognormal)
+* Utility distribution shape (lognormal)
+* Income distribution shape (lognormal)
+* Price risk
+
+Potential secondary analyses:
+
+* Storage
+* Credit
+
+Pending issues:
+
+* How to work in gender? (Probably by drawing attn to impacts on lower income households.)
+* How do producer-consumers fit into the modeling?
+
+```{r}
+
+#=============================================================
+# Supply function
+#=============================================================
+lognorm_integral <- function(u_upper, u_lower, mu, s){
+    theta_upper <- u_upper - s_q
+    theta_lower <- u_lower - s_q
+    
+    N_upper <- pnorm(theta_upper)
+    N_lower <- pnorm(theta_lower)
+    mkt_particip <- N_upper - N_lower
+    Q <- N * mu_q * mkt_particip
+    out_vec <- c(P, Q, mkt_particip)
+  
+    return(out_vec)
+    }
+
+
+QS_at_P <- function(P, QS_env){
+  mu_alpha <- QS_env[["mu_alpha"]]
+  sig_alpha <- QS_env[["sig_alpha"]]
+  yCeil <- QS_env[["yCeil"]]
+  m_A <- QS_env[["m_A"]]
+  s_A <- QS_env[["s_A"]]
+  N <- QS_env[["N"]]
+  lq_bounds <- QS_env[["lq_bounds"]]
+  
+  m_y <- log(yCeil) + mu_alpha / P
+  s_y <- sig_alpha / P
+  mu_y <- exp(m_y + s_y^2 / 2)
+  
+  mu_A <- exp(m_A + s_A^2 / 2)
+  
+  mu_q <- mu_y * mu_A
+  
+  s_q <- s_A + s_y
+  
+  supply_is_zero <- F
+  if(is.null(lq_bounds)){
+    lq_lower <- -1
+    lq_upper <- 0
+  }else{
+    if(is.na(lq_bounds)){
+      supply_is_zero <- T
+    }else{
+      lq_lower <- lq_bounds[1]
+      lq_upper <- lq_bounds[2]
+    }
+    
+  }
+  
+  if(supply_is_zero){
+    mkt_particip <- 0
+    QS <- 0
+  }else{
+    
+    term_at_mu <- -mu_lC * mu_C / (P * yCeil) * sqrt(CV_at_mu^2 + 1)
+    y_at_mu <- yCeil / sqrt(CV^2 + 1) * exp(lamW::lambertW0(term))
+    
+    m_y <- 
+    
+    u_upper <- (lq_upper - mu_alpha / P) / s_q
+    u_lower <- (lq_lower - mu_alpha / P) / s_q
+    mu <- mu_q
+    s <- s_q
+    lognorm_integral(u_upper, u_lower, mu, s)
+  }
+  out_vec <- c(P, QS, mkt_particip)
+  
+  return(out_vec)
+}
+#-------------------------------------------------------------
+QS_curve <- function(P_vec, QS_env){
+  list_out <- purrr::map(P_vec, QS_at_P, QS_env)
+  return(list_out)
+}
+
+
+```
