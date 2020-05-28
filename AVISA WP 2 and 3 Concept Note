@@ -19,7 +19,7 @@ library(patchwork)
 
 * Only a few of the important traits are of a discrete nature (for eg., color, size, shape), that would warrant a "discrete choice approach". Most of the important traits are of a continuous, measurable nature (for eg., protein content, nutritional value, cooking time, yield, time to maturity), amenable to a differential modeling approach.
 
-* We have no data. Let's develop a minimum data modeling approach that capitalizes on what we do have available---experts, literature, and assumptions galore (and FAO data).
+* We are operating in a minimum data environment. Let's develop a minimum data modeling approach that capitalizes on what we do have available in relative abundance---experts, literature, and assumptions (and FAO data).
 
 Traits to focus on:
 
@@ -136,13 +136,11 @@ diet_vec <- c("Bean 1", "Bean 2", "Bean 3", "Bean 4", "Bean 5", "Bean 6")
 
 n_items <- length(diet_vec)
 
-#u_vec <- c(0.12, 0.25, 0.14, 0.2, 0.12, 0.08)
-u_vec <- runif(n_items)
-#u_vec <- rowSums(mat_Lrot)
-u_vec <- u_vec / sum(u_vec)
-#u_vec <- c(0.09760942, 0.31893834, 0.08370171, 0.32343818, 0.16413385, 0.01217849)
-sdX_vec <- runif(n_items)
-#sdX_vec <- sdX_vec / sum(sdX_vec)
+# u_vec <- runif(n_items)
+# u_vec <- u_vec / sum(u_vec)
+u_vec <- c(0.22592056, 0.27577701, 0.24841831, 0.09849465, 0.08246540, 0.06892408)
+#sdX_vec <- runif(n_items) * 0.5
+sdX_vec <- c(0.3757965, 0.1259857, 0.1590632, 0.3907856, 0.2616450, 0.4672760)
 # sdX_vec <- 10^-1 * rnorm(n_items)
 # sdX_vec[which(sdX_vec < 0)] <- -sdX_vec[which(sdX_vec < 0)]
 #sdX_vec <- c(0.27297837, 0.08630124, 0.01365715, 0.19663117, 0.12015883, 0.31027323)
@@ -154,19 +152,23 @@ sdX_vec <- runif(n_items)
 prot_vec <- c(0.4, 0.88, 0.65, 0.2, 0.3, 0.95)
 mnutri_vec <- c(0.4, 0.1, 0.75, 0.9, 0.2, 0.01)
 flat_vec <- c(-0.15, -0.35, -0.65, 0.35, 0.87, -0.2)
+df_Lrot <- data.frame(Commodity = diet_vec, Protein = prot_vec, Micronutrients = mnutri_vec, Digestibility = flat_vec)
+# u_vec <- rowSums(df_Lrot[, -1])
+# u_vec <- u_vec / sum(u_vec)
+#u_vec <- c(0.1158645, 0.1122995, 0.1336898, 0.2584670, 0.2442068, 0.1354724)
 #--------------------------------------------------------
 # Bargraph of expected utility and risk
 n_groups <- n_items
 bag_of_colors <- randomcoloR::distinctColorPalette(k = 2 * n_groups)
 item_colors <- sample(bag_of_colors, n_groups)
-df_pctRet <- data.frame(100 * u_vec, Item = diet_vec, Group = diet_vec)
+df_pctRet <- data.frame(u_vec, Item = diet_vec, Group = diet_vec)
 list_graph_options <- list()
 list_graph_options[["fig_title"]] <- "Expected Utility"
 list_graph_options[["ylab"]] <- NULL
 list_graph_options[["legend_position"]] <- "none"
 list_graph_options[["axisTextX_off"]] <- T
 gg_perRet <- plot_returns_barchart(df_pctRet, item_colors, list_graph_options, graph_on = F)
-df_sd <- data.frame(100 * sdX_vec, Item = diet_vec, Group = diet_vec)
+df_sd <- data.frame(sdX_vec, Item = diet_vec, Group = diet_vec)
 list_graph_options[["fig_title"]] <- "Risk (standard deviation)"
 list_graph_options[["legend_position"]] <- "none"
 list_graph_options[["axisTextX_off"]] <- NULL
@@ -271,7 +273,6 @@ group_fn <- function(group_info){
 #==================================================================
 
 #df_Lrot <- data.frame(Commodity = diet_vec, Carbs = carb_vec, Fat = fat_vec, Protein = prot_vec, Micronutrients = mnutri_vec, Disgestibility = flat_vec)
-df_Lrot <- data.frame(Commodity = diet_vec, Protein = prot_vec, Micronutrients = mnutri_vec, Digestibility = flat_vec)
 
 n_signals <- ncol(df_Lrot) - 1
 
@@ -327,14 +328,14 @@ n_groups <- n_signals
 bag_of_colors <- randomcoloR::distinctColorPalette(k = 2 * n_groups)
 sig_colors <- sample(bag_of_colors, n_groups)
 
-df_pctRet <- data.frame(100 * u_sigs, Item = sigNames, Group = sigNames)
+df_pctRet <- data.frame(u_sigs, Item = sigNames, Group = sigNames)
 list_graph_options <- list()
 list_graph_options[["fig_title"]] <- "Expected Utility"
 list_graph_options[["ylab"]] <- NULL
 list_graph_options[["legend_position"]] <- "none"
 list_graph_options[["axisTextX_off"]] <- T
 gg_perRet_sigs <- plot_returns_barchart(df_pctRet, sig_colors, list_graph_options, graph_on = F)
-df_sd <- data.frame(100 * sdS_vec, Item = sigNames, Group = sigNames)
+df_sd <- data.frame(sdS_vec, Item = sigNames, Group = sigNames)
 list_graph_options[["fig_title"]] <- "Risk (standard deviation)"
 list_graph_options[["legend_position"]] <- "none"
 list_graph_options[["axisTextX_off"]] <- NULL
@@ -395,37 +396,40 @@ plot_covmat(covmat_XX_derived, fig_title, graph_on = F)
 
 ```{r echo = FALSE, fig.show='hold', fig.width=4, fig.height=5, fig.align='center', fig.cap="\\label{fig:front_shares}Optimal frontier and budget allocation to traits."}
 
-get_xStar <- function(tau, mu_vec, g_vec){
-  w_vec <- rep(1, length(mu_vec))
+get_xStar <- function(tau, mu_vec, g_vec, w_vec){
+  #w_vec <- rep(1, length(mu_vec))
   r_risk_reward <- g_vec / mu_vec
   r_cost_reward <- w_vec / mu_vec
-  d_vec <- 3 * sqrt(3) / 2 * r_risk_reward * sqrt(r_cost_reward) * sqrt(tau)
-  theta_vec <- asin(d_vec)
+  #d_vec <- 3 * sqrt(3) / 2 * r_risk_reward * sqrt(r_cost_reward) * sqrt(tau)
+  d_vec <- 3 * sqrt(3) * r_risk_reward * sqrt(r_cost_reward) * sqrt(tau)
+  theta_vec <- acos(d_vec)
   # b_vec <- 2 * sqrt(mu_vec^3 / (tau * w_vec)) * (sqrt(d_vec^2 - 1) - d_vec)
   # xStar <- 1 / (2^(1 / 3) * sqrt(3)) * ((w_vec * tau)^(-1 / 3) * b_vec^(1 / 3) + 2^(2 / 3) * mu_vec * (tau * w_vec)^(-2 / 3) * b_vec^(-1/ 3))
   #xStar <- 2 / sqrt(3) * 1 / sqrt(tau) * diag(sqrt(mu_vec / w_vec)) %*% sin(theta_vec / 3)
-  xStar <- 3 * r_risk_reward * sin(theta_vec / 3) / sin(theta_vec) 
+  #xStar <- 3 * r_risk_reward * sin(theta_vec / 3) / sin(theta_vec) 
+  xStar <- 6 * r_risk_reward * cos(theta_vec / 3) / cos(theta_vec)
+  
   return(xStar)
 }
 
-root_fn <- function(u_factr, mu_vec, g_vec, tau, Ctarg){
-  w_vec <- rep(1, length(mu_vec))
-  mu_vec_scaled <- mu_vec * u_factr
-  g_vec_scaled <- g_vec * u_factr^2
-  # r_risk_reward_scaled <- g_vec_scaled / mu_vec_scaled
-  # r_cost_reward_scaled <- w_vec / mu_vec_scaled
-  # term_scaled <- 1 / r_risk_reward_scaled^2 * 1 / r_cost_reward_scaled
-  # tau_lo <- 0 + 10^-6
-  # tau_up <- 4 / 27 * min(term_scaled) #- 10^-6
-  tau_scaled <- tau / u_factr
-
-  xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
-  C <- sum(xStar)
-  slack <- Ctarg - C
-  return(slack)
-}
-
-root_fn_vctzd <- Vectorize(root_fn, vectorize.args = "u_factr")
+# root_fn <- function(u_factr, mu_vec, g_vec, tau, Ctarg){
+#   w_vec <- rep(1, length(mu_vec))
+#   mu_vec_scaled <- mu_vec * u_factr
+#   g_vec_scaled <- g_vec * u_factr^2
+#   # r_risk_reward_scaled <- g_vec_scaled / mu_vec_scaled
+#   # r_cost_reward_scaled <- w_vec / mu_vec_scaled
+#   # term_scaled <- 1 / r_risk_reward_scaled^2 * 1 / r_cost_reward_scaled
+#   # tau_lo <- 0 + 10^-6
+#   # tau_up <- 4 / 27 * min(term_scaled) #- 10^-6
+#   tau_scaled <- tau / u_factr
+# 
+#   xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
+#   C <- sum(xStar)
+#   slack <- Ctarg - C
+#   return(slack)
+# }
+# 
+# root_fn_vctzd <- Vectorize(root_fn, vectorize.args = "u_factr")
 # 
 # interval <- c(10^-5, 10^5)
 # Ctarg <- 1
@@ -445,43 +449,53 @@ root_fn_vctzd <- Vectorize(root_fn, vectorize.args = "u_factr")
 # sum(xStar)
 
 
-optimize_portfolio_dimRet <- function(tau, mu_vec, g_vec, P, yCeil){
-  interval <- c(10^-3, 10^3)
-  Ctarg <- 1
-  out_roots <- rootSolve::uniroot.all(root_fn_vctzd, interval = interval, lower = min(interval), upper = max(interval), mu_vec = mu_vec, g_vec = g_vec, tau = tau, Ctarg = Ctarg)
-  u_factr <- out_roots
+optimize_portfolio_dimRet <- function(tau, mu_vec, g_vec, w_vec, P, yCeil){
+  # interval <- c(10^-3, 10^3)
+  # Ctarg <- 100
+  # out_roots <- rootSolve::uniroot.all(root_fn_vctzd, interval = interval, lower = min(interval), upper = max(interval), mu_vec = mu_vec, g_vec = g_vec, tau = tau, Ctarg = Ctarg)
+  # u_factr <- out_roots
   #print(u_factr)
-  mu_vec_scaled <- mu_vec * u_factr
-  g_vec_scaled <- g_vec * u_factr^2
-  tau_scaled <- tau / u_factr
-  xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
-  C <- sum(xStar)
+  # mu_vec_scaled <- mu_vec * u_factr
+  # g_vec_scaled <- g_vec * u_factr^2
+  # tau_scaled <- tau / u_factr
+  #xStar <- get_xStar(tau_scaled, mu_vec_scaled, g_vec_scaled)
+  xStar <- get_xStar(tau, mu_vec, g_vec, w_vec)
+  C <- t(xStar) %*% w_vec
   #print(C)
-  m_y <- -t(mu_vec_scaled) %*% xStar^-1
-  s2_y <- t(g_vec_scaled) %*% xStar^-2
-  #exp(mu_y - s2_y)
-  mu_y <- as.numeric(yCeil * exp(m_y + s2_y / 2))
-  l_C <- tau_scaled * mu_y * P
+  m_y <- -t(mu_vec) %*% xStar^-1
+  s2_y <- t(g_vec) %*% xStar^-2
+  M_y <- yCeil * exp(m_y - s2_y)
+  #mu_y <- as.numeric(yCeil * exp(m_y + s2_y / 2))
+  #l_C <- tau * mu_y * P
+  l_C <- tau * M_y * P
   CV <- as.numeric(sqrt(exp(s2_y) - 1))
-  term <- -l_C * C * sqrt(CV^2 + 1) / (yCeil * P)
-  muY_front <- yCeil / sqrt(CV^2 + 1) * exp(lamW::lambertW0(term))
+  #term <- -l_C * C * sqrt(CV^2 + 1) / (yCeil * P)
+  #muY_front <- yCeil / sqrt(CV^2 + 1) * exp(lamW::lambertW0(term))
+  
+  #-P * M_y * log(M_y / yCeil * exp(-s2_y)) - l_C * C
+  
+  term <- - l_C * C / (P * yCeil * (CV^2 + 1))
+  My_front <- yCeil * (CV^2 + 1) * exp(lamW::lambertW0(term))
+  print(M_y / My_front)
   #print(mu_y / muY_front)
-  r <- l_C * C / (P * mu_y)
-  soc_cond <- r^2 - 2 * r + s2_y < 0
-  frontier_vec <- c(muY_front, CV, C, l_C, soc_cond, tau, tau_scaled, u_factr, r)
+  r <- l_C * C / (P * M_y)
+  soc_cond <- r^2 - 2 * r - s2_y < 0
+  frontier_vec <- c(My_front, CV, C, l_C, soc_cond, tau, r)
   #return(check_vec)
   list_out <- list(frontier_vec, xStar)
   return(list_out)
   
 }
 
-get_optimal_frontier_dimRet <- function(mu_vec, g_vec, P, yCeil, n_points_on_frontier){
-  w_vec <- rep(1, length(mu_vec))
+get_optimal_frontier_dimRet <- function(mu_vec, g_vec, w_vec, P, yCeil, n_points_on_frontier){
+  #w_vec <- rep(1, length(mu_vec))
   r_risk_reward <- g_vec / mu_vec
   r_cost_reward <- w_vec / mu_vec
   term <- 1 / r_risk_reward^2 * 1 / r_cost_reward
-  tau_lo <- 0 + 10^-6
-  tau_up <- 4 / 27 * min(term) - 10^-6
+  tau_up <- 1 / 27 * min(term) - 10^-9
+  tau_lo <- 0 + 10^-9
+
+  print(c(tau_lo, tau_up))
   tau_vec <- seq(tau_lo, tau_up, length.out = n_points_on_frontier)
 
   list_xStar <- list()
@@ -489,7 +503,7 @@ get_optimal_frontier_dimRet <- function(mu_vec, g_vec, P, yCeil, n_points_on_fro
   for(i in 1:n_points_on_frontier){
     #print(i)
     tau <- tau_vec[i]
-    outlist <- optimize_portfolio_dimRet(tau, mu_vec, g_vec, P, yCeil)
+    outlist <- optimize_portfolio_dimRet(tau, mu_vec, g_vec, w_vec, P, yCeil)
     list_xStar[[i]] <- outlist[[2]]
     list_frontier[[i]] <- outlist[[1]]
   }
@@ -501,8 +515,6 @@ get_optimal_frontier_dimRet <- function(mu_vec, g_vec, P, yCeil, n_points_on_fro
                              "l_C",
                              "S.O.C. met?",
                              "tau",
-                             "tau_scaled",
-                             "u_factr",
                              "r")
   df_xStar <- data.frame(df_frontier$`Risk (CV)`, t(do.call(cbind, list_xStar)))
   varNames_ordered <- names(mu_vec)
@@ -541,8 +553,6 @@ plot_frontier <- function(df_frontier, ROI_basis = T, list_graph_options = NULL,
   if(graph_on){print(gg)}
   return(gg)
 }
-
-
 
 
 plot_budgetShares <- function(df_wStar, group_small = NULL, color_vec = NULL, graph_on = T, list_graph_options = NULL){
@@ -642,13 +652,14 @@ plot_budgetShares <- function(df_wStar, group_small = NULL, color_vec = NULL, gr
 #============================================================
 P <- 1
 yCeil <- 1
-n_points_on_frontier <- 50
-covmat <- covmat_SS
-eigvals <- diag(covmat_SS)
+n_points_on_frontier <- 35
+# covmat <- covmat_SS
+# eigvals <- diag(covmat_SS)
 mu_vec <- u_sigs
 g_vec <- eigvals
+w_vec <- 10^0 * runif(3)
 #--------------------------------------------------------------
-outlist <- get_optimal_frontier_dimRet(mu_vec, g_vec, P, yCeil, n_points_on_frontier)
+outlist <- get_optimal_frontier_dimRet(mu_vec, g_vec, w_vec, P, yCeil, n_points_on_frontier)
 df_frontier <- outlist[[1]]
 df_xStar <- outlist[[2]]
 #--------------------------------------------------------------
@@ -710,7 +721,7 @@ Potential secondary analyses:
 
 Pending issues:
 
-* How to work in gender? (Probably by drawing attn to impacts on lower income households.)
+* How to map back to gender? (Probably by literature-assuming correlation between lower income households and female single heads of HH.)
 * How do producer-consumers fit into the modeling?
 
 ```{r}
