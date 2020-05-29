@@ -31,7 +31,51 @@ setwd("//dapadfs.cgiarad.org/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/R
 #list.files()
 #Direcci?n graficos
 grd<-"//dapadfs.cgiarad.org/workspace_cluster_6/Socioeconomia/GF_and_SF/BID_2/BID2version/"
+#------------------------------------------------------------------------------
+country_vec1 <- c("Argentina", "Bolivia", "Dominican Republic", "Ecuador", "El Salvador", "Guatemala",
+                  "Honduras", "Jamaica", "Nicaragua")
+country_vec2 <- c("Peru", "Costa Rica", "Colombia", "Mexico", "Panama", "Uruguay")
+#------------------------------------------------------------------------------
+all_dssatCrops <- c("Irrigated Maize", "Rainfed Maize",
+                    "Rainfed Bean", "Irrigated Bean",
+                    "Rainfed Rice", "Irrigated Rice",
+                    "Rainfed Wheat", "Irrigated Wheat",
+                    "Rainfed Soybean", "Irrigated Soybean")
+list_relevant_dssatCrops <- list()
+list_relevant_dssatCrops[["Peru"]] <- setdiff(all_dssatCrops, c("Rainfed Wheat", "Irrigated Maize",
+                                                                "Rainfed Soybean", "Irrigated Soybean",
+                                                                "Irrigated Wheat"))
+list_relevant_dssatCrops[["Costa Rica"]] <- c("Rainfed Maize", "Rainfed Bean",
+                                              "Irrigated Maize", "Irrigated Rice")
+list_relevant_dssatCrops[["Colombia"]] <- c("Rainfed Bean", "Rainfed Wheat", "Rainfed Maize", "Irrigated Rice")
+list_relevant_dssatCrops[["Mexico"]] <- setdiff(all_dssatCrops, "Rainfed Wheat", "Rainfed Soybean",
+                                                "Irrigated Soybean", "Rainfed Rice", "Irrigated Rice")
+list_relevant_dssatCrops[["Panama"]] <- c("Rainfed Maize", "Rainfed Bean",
+                                          "Irrigated Maize", "Irrigated Rice",
+                                          "Rainfed Rice")
+list_relevant_dssatCrops[["Uruguay"]] <- c("Irrigated Maize", "Irrigated Rice", "Irrigated Soybean", "Irrigated Wheat")
 
+list_relevant_dssatCrops[["Nicaragua"]] <- c("Irrigated Maize", "Rainfed Maize", "Rainfed Bean", "Irrigated Bean",
+                                             "Rainfed Rice", "Irrigated Rice")
+#------------------------------------------------------------------------------
+all_ecoCrops <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane", "Wheat", "Coffee\nArabica", "Coffee\nRobusta")
+list_relevant_ecoCrops <- list()
+list_relevant_ecoCrops[["Peru"]] <-  c("Cassava", "Potato", "Yam", "Banana", "Sugarcane")
+list_relevant_ecoCrops[["Costa Rica"]] <- c("Banana", "Yam", "Cassava", "Sugarcane")
+list_relevant_ecoCrops[["Colombia"]] <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane")
+list_relevant_ecoCrops[["Mexico"]] <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane")
+list_relevant_ecoCrops[["Uruguay"]] <- c("")
+list_relevant_ecoCrops[["Panama"]] <- c("Banana", "Yam", "Cassava")
+list_relevant_ecoCrops[["Bolivia"]] <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane", "Wheat")
+#------------------------------------------------------------------------------
+all_IMPACTCrops <- c("Bean", "Maize", "Rice", "Soybean", "Wheat")
+list_relevant_IMPACTCrops <- list()
+list_relevant_IMPACTCrops[["Peru"]] <- all_IMPACTCrops
+list_relevant_IMPACTCrops[["Costa Rica"]] <- setdiff(all_IMPACTCrops, c("Soybean", "Wheat"))
+list_relevant_IMPACTCrops[["Colombia"]] <- all_IMPACTCrops
+list_relevant_IMPACTCrops[["Mexico"]] <- all_IMPACTCrops
+list_relevant_IMPACTCrops[["Panama"]] <- all_IMPACTCrops
+list_relevant_IMPACTCrops[["Uruguay"]] <- all_IMPACTCrops
 ################################ Cargando datos ######################################
 
 #Cargar marco de datos principal
@@ -131,37 +175,67 @@ crops <- as.character(unique(rr$commodity))
 vv <- rr %>% group_by(region,commodity, impactparameter,Cat) %>%
   summarise(n = n(), mean=mean(Percentage_Change,na.rm=T),sd=sd(Percentage_Change))
 
-
 vv$Cat[which(vv$Cat == "CC")] <- "Climate Change"
 vv$Cat[which(vv$Cat == "NoCC")] <- "No Climate Change"
 
+# pl<-NULL
+# i=6
 
-pl<-NULL
-i=6
+translate_IMPACTgraphic <- function(df_plot){
+    u <- df_plot$commodity
+    df_plot$commodity[which(u == "Bean")] <- "Frijol"
+    df_plot$commodity[which(u == "Maize")] <- "Maíz"
+    df_plot$commodity[which(u == "Rice")] <- "Arroz"
+    df_plot$commodity[which(u == "Soybean")] <- "Soya"
+    df_plot$commodity[which(u == "Wheat")] <- "Trigo"
+    u <- df_plot$Cat
+    df_plot$Cat[which(u == "Climate Change")] <- "Con Cambio Climático"
+    df_plot$Cat[which(u == "No Climate Change")] <- "Sin Cambio Climático"
+    u <- df_plot$impactparameter
+    df_plot$impactparameter[which(u == "Total Demand")] <- "Demanda Total"
+    df_plot$impactparameter[which(u == "Total Area")] <- "Area Total"
+    df_plot$impactparameter[which(u == "Total Yield")] <- "Rendimiento Total"
+    df_plot$impactparameter[which(u == "Total Production")] <- "Producción Total"
+    
+    return(df_plot)
+}
 
-for (i in 1:length(pots)){
+
+country_vec <- country_vec2
+lang_vec <- c("ENG", "ESP")
+for (i in 1:length(country_vec)){
+  this_country <- country_vec[i]
+  relevant_IMPACTCrops <- list_relevant_IMPACTCrops[[this_country]]
+  for(l in 1:2){
+    lang <- lang_vec[l]
+    if(lang == "ESP"){ylab <- "Cambio (%)"}
+    if(lang == "ENG"){ylab <- "Change (%)"}
+    
   #out <- c("Wheat","Soybean", "Rice", "Bean", "Maize")#"Soybean", "Wheat"
   #out<- c("Soybean","Rice", "Bean")#"Soya", "Trigo" 
   # out<- c("Wheat","Soybean")#"Soybean", "Wheat"
-  out <- c("")
-  
+
   #vv <- vv %>% filter(!commodity %in% out) 
   # vv$commodity<- revalue(x =vv$commodity, c("Maize" ="Corn"))
-  
-  # tiff(filename=paste(grd,"Test_",pots[i],"_country_reportNew_ajustwhisker.tiff",sep=""), 
-  #      width = 14, height = 7, units = 'in', res = 200)
-  
-  png(filename= paste(grd,"Test_",pots[i],"_country_reportNew_ajustwhisker.png",sep=""), 
-      width = 14, height = 7, units = 'in', res = 300)
-  
 
   # df_plot <- vv %>% filter(Cat!="NoCC") %>% 
   #   filter(impactparameter!="Net Trade") %>% 
   #   filter(region==pots[i]) %>% data.frame()
   df_plot <- vv %>% filter(impactparameter!="Net Trade") %>% 
-    filter(region==pots[i]) %>% data.frame()
+    filter(region==this_country) %>% data.frame()
   df_plot$sd[which(is.nan(df_plot$sd))] <- NA
   
+  df_plot <- subset(df_plot, commodity %in% relevant_IMPACTCrops)
+  
+  if(lang == "ESP"){
+    df_plot <- translate_IMPACTgraphic(df_plot)
+  }
+  # tiff(filename=paste(grd,"Test_",pots[i],"_country_reportNew_ajustwhisker.tiff",sep=""), 
+  #      width = 14, height = 7, units = 'in', res = 200)
+  
+  png(filename= paste0(grd, this_country,"_IMPACT_", lang, ".png"), 
+      width = 14, height = 7, units = 'in', res = 300)
+
   gg <- ggplot(df_plot, aes(x = commodity, y = mean, fill = Cat))
   #gg <- gg + geom_bar(stat="identity", color = "black")
   gg <- gg + geom_bar(stat="identity", width = 0.7,
@@ -185,14 +259,13 @@ for (i in 1:length(pots)){
                       axis.title.y=element_text(face = "bold", size = 18),
                       axis.title.x = element_blank())+
                     theme(legend.text=element_text(size=18),
-                          strip.text.x = element_text(size = 16, angle = 0))+
-                    labs(y="Change (%)") #"percentage change" "Cambio porcentual"
-
+                          strip.text.x = element_text(size = 16, angle = 0))
+  gg <- gg + labs(y = ylab) #"percentage change" "Cambio porcentual"
   pl[[i]]<- print(gg)
   dev.off()
   print(i)
 }   
-
+}
 ################################ Graficos de IMPACT model Net Trade ###############################
 
 datos<- subset(rend_all,rend_all$impactparameter=="Net Trade" ) #"Comercio Neto" "Net Trade" 
@@ -359,45 +432,7 @@ pots<- unique(cfilesJoin$Country)
 #                                                "Soybean"=  "Soya",#  "Soybean", #"Soya"
 #                                                "Wheat"="Trigo" ))#"Wheat" ))# "Trigo"
 
-all_dssatCrops <- c("Irrigated Maize", "Rainfed Maize",
-                    "Rainfed Bean", "Irrigated Bean",
-                    "Rainfed Rice", "Irrigated Rice",
-                    "Rainfed Wheat", "Irrigated Wheat",
-                    "Rainfed Soybean", "Irrigated Soybean")
-list_relevant_dssatCrops <- list()
-list_relevant_dssatCrops[["Nicaragua"]] <- c("Irrigated Maize", "Rainfed Maize", "Rainfed Bean", "Irrigated Bean",
-                                             "Rainfed Rice", "Irrigated Rice")
-list_relevant_dssatCrops[["Colombia"]] <- all_dssatCrops
-
-p=22
-
-# Create shape by country
-lang <- "ESP" #("ENG" or "ESP")
-for(p in 1:length(pots)){
-  this_country <- pots[p]
-  relevant_dssatCrops <- list_relevant_dssatCrops[[this_country]]
-  
-  cfilesProof<- qq %>% filter(., Country==this_country) %>% filter(n>1)
-  cfilesProof$sysCrop <- paste(cfilesProof$sys, cfilesProof$crop)
-  cfilesProof <- cfilesProof %>% filter(sysCrop %in% relevant_dssatCrops)
-  # cfilesProof[which(sys=="Irrigated" & which(crop=="Bean")]
-  # cfilesProof <- cfilesProof %>% filter(sys!="Irrigated" | crop!="Bean")
-  
-  cfilesProof$sysCrop <- NULL
-  df_plot_irr <- as.data.frame(subset(cfilesProof, sys == "Irrigated"))
-  df_plot_rf <- as.data.frame(subset(cfilesProof, sys == "Rainfed"))
-  
-  add_crops_to_irr <- setdiff(df_plot_rf$crop, df_plot_irr$crop)
-  if(length(add_crops_to_irr) != 0){
-    df_add_to_irr <- data.frame(crop = add_crops_to_irr, sys = "Irrigated",
-                                Country = this_country, n = NA, mean = NA, sd = NA)
-    df_plot_irr <- rbind(df_plot_irr,
-                         df_add_to_irr)
-    
-  }
-  df_plot <- rbind(df_plot_rf, df_plot_irr)
-  
-  if(lang == "ESP"){
+translate_dssatGraphic <- function(df_plot){
     u <- df_plot$sys
     df_plot$sys[which(u == "Rainfed")] <- "De secano"
     df_plot$sys[which(u == "Irrigated")] <- "Bajo Riego"
@@ -407,45 +442,81 @@ for(p in 1:length(pots)){
     df_plot$crop[which(u == "Rice")] <- "Arroz"
     df_plot$crop[which(u == "Soybean")] <- "Soya"
     df_plot$crop[which(u == "Wheat")] <- "Trigo"
-    ylab <- "Cambio en rendimiento (%)"
-  }
-  if(lang == "ENG"){
-    ylab <- "Change in yield (%)"
-  }
+return(df_plot)
+}
 
-  # %>% group_by(crop,sys,Country) %>%
-  #   mutate(val=mean(mean), des=mean(sd)) %>% dplyr::select(crop, sys,Country,val, des)
-  # 
-  
-  
-  labs2 = 'Type'
-  
-  png(filename= paste(grd,"Super",pots[p],"_bar_Facet_ajus_whiskers.png", sep = ""), 
-      width = 10, height = 7, units = 'in', res = 300)
 #---------------------------------
-  # Choose nice colors  
-  # n <- 2
-  # bag_of_colors <- randomcoloR::distinctColorPalette(k = 5 * n)
-  # sys_color_vec_new <- sample(bag_of_colors, n)
-  sys_color_vec_fixed <- c("#8F94DA", "#88E65B")
+# Choose nice colors for dssat bar chart
+# n <- 2
+# bag_of_colors <- randomcoloR::distinctColorPalette(k = 5 * n)
+# sys_color_vec_new <- sample(bag_of_colors, n)
+sys_color_vec_fixed <- c("#8F94DA", "#88E65B")
 #---------------------------------
-  # ymax <- max(df_plot$mean + df_plot$sd)
-  # ymin <- min(df_plot$mean - df_plot$sd)
-  
+#lang <- "ESP" #("ENG" or "ESP")
+country_vec <- country_vec2
+for(p in 1:length(country_vec)){
+  this_country <- country_vec[p]
+  #relevant_dssatCrops <- list_relevant_dssatCrops[[this_country]]
+  for(l in 1:2){
+    lang <- lang_vec[l]
+    if(lang == "ESP"){
+      ylab <- "Cambio en rendimiento (%)"
+    }
+    if(lang == "ENG"){
+      ylab <- "Change in yield (%)"
+    }
+    
+    cfilesProof<- qq %>% filter(., Country==this_country) %>% filter(n>1)
+    cfilesProof$sysCrop <- paste(cfilesProof$sys, cfilesProof$crop)
+    #cfilesProof <- cfilesProof %>% filter(sysCrop %in% relevant_dssatCrops)
+    # cfilesProof[which(sys=="Irrigated" & which(crop=="Bean")]
+    # cfilesProof <- cfilesProof %>% filter(sys!="Irrigated" | crop!="Bean")
+    
+    cfilesProof$sysCrop <- NULL
+    df_plot_irr <- as.data.frame(subset(cfilesProof, sys == "Irrigated"))
+    df_plot_rf <- as.data.frame(subset(cfilesProof, sys == "Rainfed"))
+    
+    add_crops_to_irr <- setdiff(df_plot_rf$crop, df_plot_irr$crop)
+    if(length(add_crops_to_irr) != 0){
+      df_add_to_irr <- data.frame(crop = add_crops_to_irr, sys = "Irrigated",
+                                  Country = this_country, n = NA, mean = NA, sd = NA)
+      df_plot_irr <- rbind(df_plot_irr,
+                           df_add_to_irr)
+      
+    }
+    df_plot <- rbind(df_plot_rf, df_plot_irr)
+    
+    if(lang == "ESP"){
+      df_plot <- translate_dssatGraphic(df_plot)
+      
+    }
+    
+    # %>% group_by(crop,sys,Country) %>%
+    #   mutate(val=mean(mean), des=mean(sd)) %>% dplyr::select(crop, sys,Country,val, des)
+    # 
+    
+    
+    labs2 = 'Type'
+    
+    png(filename= paste0(grd, this_country, "_dssatBar_", lang, ".png"), 
+        width = 10, height = 7, units = 'in', res = 300)
+    # ymax <- max(df_plot$mean + df_plot$sd)
+    # ymin <- min(df_plot$mean - df_plot$sd)
+    
     pic2<- ggplot(data=df_plot, 
                   aes(x=crop, y=mean, fill = sys)) + 
-#      facet_grid(.~sys)+
+      #      facet_grid(.~sys)+
       #geom_bar(stat="identity", color = "black", fill = this_sys_color)+
       geom_bar(stat="identity", color = "black", position = position_dodge())+
       # geom_bar(stat= "summary", fun.y = "mean",position=position_dodge(width=.7))+
-    geom_hline(yintercept = 0, color = "red", lwd = .5) +
+      geom_hline(yintercept = 0, color = "red", lwd = .5) +
       geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), 
                     width=0.4, colour="black", alpha=0.9, size=1,
                     position = position_dodge(0.9))+
       scale_fill_manual(values = sys_color_vec_fixed)
-      #scale_fill_brewer(palette = "Dark2")
+    #scale_fill_brewer(palette = "Dark2")
     pic2 <- pic2 + theme(axis.text=element_text(size=20),
-            axis.title.y = element_text(size = 22))+
+                         axis.title.y = element_text(size = 22))+
       # theme(strip.text.x = element_text(angle = 0,size = 12, face = "bold"))+
       # theme(strip.text.y = element_text(angle = 0,size = 12, face = "bold"))+
       #labs(fill=labs2)+ theme(aspect.ratio = 1)+
@@ -462,14 +533,17 @@ for(p in 1:length(pots)){
             axis.ticks = element_blank(),
             axis.title.x = element_blank(),
             strip.background = element_rect(colour="white", fill="white")) 
-
-  
-  plot(pic2)
-  dev.off()
-  
-  
-  
-  cat(paste(pots[p], " ha sido terminado\n great!!!", sep = ""))
+    
+    
+    plot(pic2)
+    dev.off()
+    
+    
+    
+    cat(paste(this_country, " ha sido terminado\n great!!!", sep = ""))
+    
+    
+  }
   
 }
 
@@ -528,48 +602,57 @@ p=4 # Region_BID
 l=3 # pais
 
 # Create shape by RegionsBID
-for(p in 1:length(pots)){
+country_vec <- country_vec1
+
+for(p in 1:length(country_vec)){
+  this_country <- country_vec[p]
+  for(l in 1:2){
+    lang <- lang_vec[l]
+    
+    
+    cfilesProof<- cfilesJoin %>% filter(., Region_BID==this_country)%>% 
+      filter(.,Region_Nam!=lugares[l]) # analisis regional deshabilitar el segundo filtro
+    
+    png(filename = paste0(grd, this_country, "_dssatMap_", lang, ".png"), 
+        width = 10, height = 6, units = 'in', res = 300)
+    
+    pic2<- ggplot(data=cfilesProof, aes(x=crop, y=change,fill=sys)) + 
+      facet_grid(.~sys)+
+      geom_bar(stat= "summary", fun.y = "mean",position=position_dodge(width=.7))+
+      scale_fill_brewer(palette = "Dark2") +
+      labs(x="Crops",y="Percentage change \nin Yields")+
+      #             theme(legend.position = "none")+
+      #             theme(axis.text.x=element_text(size=12))+
+      #             theme(axis.text.y=element_text(size=12))+
+      #             theme(strip.text.x = element_text(angle = 0,size = 14, face = "bold.italic"))+
+      #             theme(strip.text.y = element_text(angle = 0,size = 14, face = "bold.italic"))+
+      theme(aspect.ratio = 1)+
+      theme(legend.text = element_text(size=11),
+            legend.title = element_text(face="bold",size=12),
+            legend.background = element_blank(),
+            legend.key = element_blank(),
+            strip.text.y = element_text(size=12, face="bold"),
+            plot.title = element_text(face="bold", size=20),
+            panel.border = element_blank(),
+            axis.ticks = element_blank(),
+            strip.background = element_rect(colour="white", fill="white"),
+            axis.text= element_text(face = "bold", size = 12),
+            axis.title=element_text(face = "bold", size = 12)) +
+      ylim(-40, 10)+ theme(legend.position="bottom",legend.text=element_text(size=20),
+                           strip.text.x = element_text(size = 16, angle = 0))+
+      theme(legend.position = "none")
+    
+    
+    
+    plot(pic2)
+    dev.off()
+    
+    
+    
+    cat(paste(pots[p], " ha sido terminado\n great!!!", sep = ""))
+    
+  }
   
-  cfilesProof<- cfilesJoin %>% filter(., Region_BID==pots[p])%>% 
-    filter(.,Region_Nam!=lugares[l]) # analisis regional deshabilitar el segundo filtro
-  
-  png(filename= paste(grd,"Super",pots[p],"_Regional_bar_Facet.png", sep = ""), 
-      width = 10, height = 6, units = 'in', res = 300)
-  
-  pic2<- ggplot(data=cfilesProof, aes(x=crop, y=change,fill=sys)) + 
-    facet_grid(.~sys)+
-    geom_bar(stat= "summary", fun.y = "mean",position=position_dodge(width=.7))+
-    scale_fill_brewer(palette = "Dark2") +
-    labs(x="Crops",y="Percentage change \nin Yields")+
-    #             theme(legend.position = "none")+
-    #             theme(axis.text.x=element_text(size=12))+
-    #             theme(axis.text.y=element_text(size=12))+
-    #             theme(strip.text.x = element_text(angle = 0,size = 14, face = "bold.italic"))+
-    #             theme(strip.text.y = element_text(angle = 0,size = 14, face = "bold.italic"))+
-    theme(aspect.ratio = 1)+
-    theme(legend.text = element_text(size=11),
-          legend.title = element_text(face="bold",size=12),
-          legend.background = element_blank(),
-          legend.key = element_blank(),
-          strip.text.y = element_text(size=12, face="bold"),
-          plot.title = element_text(face="bold", size=20),
-          panel.border = element_blank(),
-          axis.ticks = element_blank(),
-          strip.background = element_rect(colour="white", fill="white"),
-          axis.text= element_text(face = "bold", size = 12),
-          axis.title=element_text(face = "bold", size = 12)) +
-    ylim(-40, 10)+ theme(legend.position="bottom",legend.text=element_text(size=20),
-                         strip.text.x = element_text(size = 16, angle = 0))+
-    theme(legend.position = "none")
-  
-  
-  
-  plot(pic2)
-  dev.off()
-  
-  
-  
-  cat(paste(pots[p], " ha sido terminado\n great!!!", sep = ""))
   
 }
 
@@ -639,40 +722,58 @@ lugares<- unique(cfilesJoin$Country)
 #                              "Rice"= "Arroz",#"Rice", #"Arroz"
 #                              "Soybean"=  "Soya",#  "Soybean", #"Soya"
 #                              "Wheat"="Trigo" ))#"Wheat" ))# "Trigo"
-crops<- unique(cfilesJoin$crop)
-treat<- unique(cfilesJoin$sys)
+crop_vec<- unique(cfilesJoin$crop)
+sys_vec<- unique(cfilesJoin$sys)
 #### Selecci?n por pais y cultivo
 #l=25 #pais
 #c=2 #crops
 #t=2 #treat 1=irri 2=rainf
-l = 6
-this_country <- lugares[l]
+#l = 6
 
-allo<- alc[alc@data$COUNTRY==lugares[l],]
-map_allo<- fortify(allo)
-labs2 = 'Change\n(%)' #Cambio Porcentual
+country_vec <- country_vec2
+for(p in 1:length(country_vec)){
+  this_country <- country_vec[p]
+  print(this_country)
+  allo<- alc[alc@data$COUNTRY==this_country,]
+  map_allo<- fortify(allo)
+  relevant_dssatCrops <- list_relevant_dssatCrops[[this_country]]
+  df_plot <- subset(cfilesJoin, Country == this_country)
+  max_val <- max(df_plot$change)
+  min_val <- min(df_plot$change)
+  for(l in 1:2){
+    lang <- lang_vec[l]
+    if(lang == "ESP"){
+      labs2 <- "Cambio\n(%)"
+    }
+    if(lang == "ENG"){
+      labs2 = "Change\n(%)"
+    }
 
-relevant_dssatCrops <- list_relevant_dssatCrops[[this_country]]
-
-df_plot <- subset(cfilesJoin, Country == this_country)
-max_val <- max(df_plot$change)
-min_val <- min(df_plot$change)
 list_gg <- list()
 i <- 0
-for(c in 1:length(crops)){
-  
-  for(t in 1:length(treat)){
-    
-    this_crop_sys <- paste(treat[t], crops[c])
+for(c in 1:length(crop_vec)){
+  this_crop <- crop_vec[c]
+  for(t in 1:length(sys_vec)){
+    this_sys <- sys_vec[t]
+    this_crop_sys <- paste(this_sys, this_crop)
     if(!(this_crop_sys %in% relevant_dssatCrops)){next()}
     
     #proof<- cfilesJoin %>% filter(., Country==lugares[l] & crop==crops[c] & sys==treat[t])
     
     #proof<- filter(proof, change<=100) %>% filter(., change>=-100)
-    proof <- subset(df_plot, crop == crops[c] & sys == treat[t])
+    proof <- subset(df_plot, crop == this_crop & sys == this_sys)
     #Coropleta 
-    png(filename = paste(grd,lugares[l],"_",crops[c],"-",treat[t],"_","coropleta.png", sep=""), width = 10, height = 6, units = 'in', res = 400)
-    
+    # png(filename = paste0(grd, this_country, "_dssatMap_", this_crop,"_",this_sys,"_", lang,".png"),
+    #     width = 10, height = 6, units = 'in', res = 400)
+
+    if(lang == "ESP"){
+      proof <- translate_dssatGraphic(proof)
+      plot_title <- paste(proof$crop[1], proof$sys[1])
+    }
+    if(lang == "ENG"){
+      plot_title <- paste(proof$sys[1], proof$crop[1])
+    }
+        
     coro2<- ggplot() +
       geom_polygon(data=map_allo, aes(x=long, y=lat, group = group),colour="white", fill="white" )+
       geom_path(data=map_allo, aes(x=long, y=lat, group=group), colour="black", size=0.5)+
@@ -681,7 +782,7 @@ for(c in 1:length(crops)){
       #scale_fill_gradient2(low="red", mid="white", high="blue", midpoint = 0,breaks=seq(-80,80,10)) +
       scale_fill_gradient2(limits = c(min_val, max_val), low="red", mid="white", high="blue", midpoint = 0)+ 
       #labs(fill=labs2)+ labs(x=NULL, y=NULL, title=paste(treat[t]," ",crops[c]," (% change)", sep = ""))+ #change  # cambio
-      labs(title = paste(treat[t]," ",crops[c], sep = ""), fill = labs2) +
+      labs(title = plot_title, fill = labs2) +
       theme(strip.text.x = element_text(angle = 0,size = 16, face = "bold"))+
       theme(strip.text.y = element_text(angle = 0,size = 16, face = "bold"))+
       theme(axis.text=element_text(size=14),
@@ -702,13 +803,22 @@ for(c in 1:length(crops)){
   cat(paste("terminado ", crops[c], " it's done\n  is completed", sep = ""))
   
 }
+png(filename = paste0(grd, this_country,"_dssatMap_","_all_",lang,".png"),
+    width = 10, height = 6, units = 'in', res = 400)
 
-#list_gg[[6]]
-png(filename = paste(grd,lugares[l],"_all","_","coropleta.png", sep=""), width = 10, height = 6, units = 'in', res = 400)
-
-wrap_plots(list_gg, guides = 'collect')
+n_maps <- length(list_gg)
+if(n_maps %% 2 == 0){
+  wrap_plots(list_gg, guides = 'collect')
+}else{
+  wrap_plots(list_gg, guides = 'collect') + guide_area()
+}
+#try ggsave
 
 dev.off() 
+
+  }
+}
+
 
 ################################ Graficos de Suitability #################################
 
@@ -751,9 +861,7 @@ sui$Crop <- gsub("Coffee Robusta", "Coffee\nRobusta", sui$Crop)
 sui$Crop <- gsub("Coffee Arabica", "Coffee\nArabica", sui$Crop)
 
 crops<- unique(sui$Crop)
-all_ecoCrops <- c("Cassava", "Coffee\nRobusta", "Potato", "Wheat", "Yam", "Banana", "Coffee\nArabica", "Sugarcane")
-list_relevant_ecoCrops <- list()
-list_relevant_ecoCrops[["Bolivia"]] <- all_ecoCrops
+
 
 relevant_ecoCrops <- list_relevant_ecoCrops[["Bolivia"]]
 
