@@ -48,8 +48,8 @@ list_relevant_dssatCrops[["Peru"]] <- setdiff(all_dssatCrops, c("Rainfed Wheat",
 list_relevant_dssatCrops[["Costa Rica"]] <- c("Rainfed Maize", "Rainfed Bean",
                                               "Irrigated Maize", "Irrigated Rice")
 list_relevant_dssatCrops[["Colombia"]] <- c("Rainfed Bean", "Rainfed Wheat", "Rainfed Maize", "Irrigated Rice")
-list_relevant_dssatCrops[["Mexico"]] <- setdiff(all_dssatCrops, "Rainfed Wheat", "Rainfed Soybean",
-                                                "Irrigated Soybean", "Rainfed Rice", "Irrigated Rice")
+list_relevant_dssatCrops[["Mexico"]] <- setdiff(all_dssatCrops, c("Rainfed Wheat", "Rainfed Soybean",
+                                                "Irrigated Soybean", "Rainfed Rice", "Irrigated Rice"))
 list_relevant_dssatCrops[["Panama"]] <- c("Rainfed Maize", "Rainfed Bean",
                                           "Irrigated Maize", "Irrigated Rice",
                                           "Rainfed Rice")
@@ -64,9 +64,18 @@ list_relevant_ecoCrops[["Peru"]] <-  c("Cassava", "Potato", "Yam", "Banana", "Su
 list_relevant_ecoCrops[["Costa Rica"]] <- c("Banana", "Yam", "Cassava", "Sugarcane")
 list_relevant_ecoCrops[["Colombia"]] <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane")
 list_relevant_ecoCrops[["Mexico"]] <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane")
-list_relevant_ecoCrops[["Uruguay"]] <- c("")
+list_relevant_ecoCrops[["Uruguay"]] <- NULL
 list_relevant_ecoCrops[["Panama"]] <- c("Banana", "Yam", "Cassava")
 list_relevant_ecoCrops[["Bolivia"]] <- c("Cassava", "Potato", "Yam", "Banana", "Sugarcane", "Wheat")
+#------------------------------------------------------------------------------
+list_relevant_ecoCrops_bar <- list()
+list_relevant_ecoCrops_bar[["Peru"]] <-  c(list_relevant_ecoCrops[["Peru"]], "Coffee\nArabica", "Coffee\nRobusta")
+list_relevant_ecoCrops_bar[["Costa Rica"]] <- c(list_relevant_ecoCrops[["Costa Rica"]], "Coffee\nArabica", "Coffee\nRobusta")
+list_relevant_ecoCrops_bar[["Colombia"]] <- c(list_relevant_ecoCrops[["Colombia"]], "Coffee\nArabica", "Coffee\nRobusta")
+list_relevant_ecoCrops_bar[["Mexico"]] <- c(list_relevant_ecoCrops[["Mexico"]], "Coffee\nArabica", "Coffee\nRobusta")
+list_relevant_ecoCrops_bar[["Uruguay"]] <- NULL
+list_relevant_ecoCrops_bar[["Panama"]] <- c(list_relevant_ecoCrops[["Panama"]], "Coffee\nArabica", "Coffee\nRobusta")
+list_relevant_ecoCrops_bar[["Bolivia"]] <- c(list_relevant_ecoCrops[["Bolivia"]], "Coffee\nArabica", "Coffee\nRobusta")
 #------------------------------------------------------------------------------
 all_IMPACTCrops <- c("Bean", "Maize", "Rice", "Soybean", "Wheat")
 list_relevant_IMPACTCrops <- list()
@@ -302,19 +311,35 @@ datmax$time<- as.numeric(datmax$time)
 
 extremos<-merge(datmin,datmax)
 datost<-merge(extremos,datmed)
-datost<- datost %>% filter(!Crop %in% out)
-datmin<- datmin %>%  filter(!Crop %in% out)
-datmax<- datmax %>%  filter(!Crop %in% out)
 
-py<- NULL
+
+translate_IMPACTnetTradeGraphic <- function(df_plot){
+  u <- df_plot$Crop
+}
+
+#py<- NULL
 
 ##### croput<- c("Soybean", "Wheat")
-i=6
-for (i in 1:length(pots)) {
+#i=6
+country_vec <- country_vec2
+lang_vec <- c("ENG", "ESP")
+for (i in 1:length(country_vec)){
+this_country <- country_vec[i]
+relevant_IMPACTCrops <- list_relevant_IMPACTCrops[[this_country]]
+  datost<- datost %>% filter(Crop %in% relevant_IMPACTCrops)
+  datmin<- datmin %>%  filter(Crop %in% relevant_IMPACTCrops)
+  datmax<- datmax %>%  filter(Crop %in% relevant_IMPACTCrops)
+for(l in 1:2){
+  lang <- lang_vec[l]
+  if(lang == "ESP"){
+    
+  }
   
-  tiff(filename=paste(grd,"Test_",pots[i],"_net_tradeNewVenganza.tiff",sep=""), 
-       width = 10, height = 7, units = 'in', res = 100)
-  gg <- ggplot(data=subset(datost,datost$Region==pots[i]),
+}
+  
+  # tiff(filename=paste(grd,"Test_",pots[i],"_net_tradeNewVenganza.tiff",sep=""), 
+  #      width = 10, height = 7, units = 'in', res = 100)
+  gg <- ggplot(data=subset(datost,datost$Region==this_country),
          aes(time,datmed,group=Crop,color=Crop)) + 
     geom_line(linetype="dashed",size=1)+
     geom_ribbon(aes(ymin=datmin,ymax=datmax,
@@ -324,14 +349,17 @@ for (i in 1:length(pots)) {
     labs(y="Net trade ('000 MT)",x="Año")+  # Net trade  Comercio Neto ('000 MT)
     theme(legend.position="bottom", 
           legend.text=element_text(size=20),
+          legend.spacing.x = unit(1.0, 'cm'),
           axis.text= element_text(face = "bold.italic", size = 20),
           axis.title=element_text(face = "bold.italic", size = 20),
           legend.title=element_blank())
-  py[[i]]<-print(gg)
+  #py[[i]]<-print(gg)
   
-  
-  dev.off()
+  this_filename <- paste0(grd, this_country,"_netTrade_", lang, ".png")
+  ggsave(this_filename, width = 10, height = 7, units = "in")
+  #dev.off()
   print(i)
+  print(this_country)
 }  
 
 
@@ -768,11 +796,19 @@ for(c in 1:length(crop_vec)){
 
     if(lang == "ESP"){
       proof <- translate_dssatGraphic(proof)
+      proof$sys[which(proof$sys == "De secano")] <- "de Secano"
       plot_title <- paste(proof$crop[1], proof$sys[1])
     }
     if(lang == "ENG"){
       plot_title <- paste(proof$sys[1], proof$crop[1])
     }
+    #---
+    # This is to fix Costa Rica maps
+    if(this_country == "Costa Rica"){
+      map_allo <- subset(map_allo, lat > 8)
+    }
+    #---
+    
         
     coro2<- ggplot() +
       geom_polygon(data=map_allo, aes(x=long, y=lat, group = group),colour="white", fill="white" )+
@@ -787,34 +823,37 @@ for(c in 1:length(crop_vec)){
       theme(strip.text.y = element_text(angle = 0,size = 16, face = "bold"))+
       theme(axis.text=element_text(size=14),
             axis.title=element_text(size=12,face="bold"),
-            plot.title = element_text(size = 16),
+            plot.title = element_text(size = 14),
             legend.title = element_text(size = 14)) +
       theme(panel.background = element_blank(), panel.border = element_rect(colour = "black", fill=NA, size=0.3))
 
     i <- i + 1
     list_gg[[i]] <- coro2
     
-    plot(coro2)
+    #plot(coro2)
     
-    dev.off() 
+    #dev.off()
+    this_filename <- paste0(grd, this_country, this_crop, "_dssatMap_", this_sys,"_", lang,".png")
+    ggsave(this_filename, width = 10, height = 6, units = "in")
+    
     
     cat(paste("terminado ", crops[c]," ",treat[t], " it's done\n", sep = ""))
   }
   cat(paste("terminado ", crops[c], " it's done\n  is completed", sep = ""))
   
 }
-png(filename = paste0(grd, this_country,"_dssatMap_","_all_",lang,".png"),
-    width = 10, height = 6, units = 'in', res = 400)
-
+# png(filename = paste0(grd, this_country,"_dssatMap_","all_",lang,".png"),
+#     width = 10, height = 6, units = 'in', res = 400)
+this_filename <- paste0(grd, this_country, "_allCrops","_dssatMap_",lang,".png")
 n_maps <- length(list_gg)
 if(n_maps %% 2 == 0){
   wrap_plots(list_gg, guides = 'collect')
 }else{
   wrap_plots(list_gg, guides = 'collect') + guide_area()
 }
-#try ggsave
+ggsave(this_filename, width = 10, height = 6, units = "in")
 
-dev.off() 
+#dev.off()
 
   }
 }
@@ -860,48 +899,97 @@ sui$val[which(sui$val>100 & sui$variables=="Mean suitability change (%)")]<- 100
 sui$Crop <- gsub("Coffee Robusta", "Coffee\nRobusta", sui$Crop)
 sui$Crop <- gsub("Coffee Arabica", "Coffee\nArabica", sui$Crop)
 
-crops<- unique(sui$Crop)
+u <- sui$Region
+sui$Region[which(u == "COL")] <- "Colombia"
+sui$Region[which(u == "MEX")] <- "Mexico"
+sui$Region[which(u == "PAN")] <- "Panama"
+sui$Region[which(u == "URY")] <- "Uruguay"
+sui$Region[which(u == "CRI")] <- "Costa Rica"
+sui$Region[which(u == "PER")] <- "Peru"
+
+sui$Region[which(u == "ARG")] <- "Argentina"
+sui$Region[which(u == "BOL")] <- "Bolivia"
+sui$Region[which(u == "DOM")] <- "Dominican Republic"
+sui$Region[which(u == "HND")] <- "Honduras"
+sui$Region[which(u == "JAM")] <- "Jamaica"
+sui$Region[which(u == "NIC")] <- "Nicaragua"
+sui$Region[which(u == "SLV")] <- "El Salvador"
+sui$Region[which(u == "ECU")] <- "Ecuador"
+sui$Region[which(u == "GTM")] <- "Guatemala"
 
 
-relevant_ecoCrops <- list_relevant_ecoCrops[["Bolivia"]]
+
+
+#crops<- unique(sui$Crop)
+
+
+translate_suitGraphic <- function(df_plot){
+  u <- df_plot$Crop
+  df_plot$Crop <- gsub("Coffee", "Café", u)
+  df_plot$Crop[which(u == "Cassava")] <- "Yuca"
+  df_plot$Crop[which(u == "Potato")] <- "Papa"
+  df_plot$Crop[which(u == "Yam")] <- "Ñame"
+  df_plot$Crop[which(u == "Banana")] <- "Banano"
+  df_plot$Crop[which(u == "Sugarcane")] <- "Caña de\nazucar"
+  df_plot$Crop[which(u == "Wheat")] <- "Trigo"
+  return(df_plot)
+}
+
 
 #display.brewer.pal(n = 8, name = 'Dark2')
 ecoCrop_colors <- brewer.pal(n = length(all_ecoCrops), name = 'Dark2')
 df_ecoCropColors <- data.frame(ecoCrop = all_ecoCrops, color = ecoCrop_colors)
 
-
-p=1 #22
-for(p in 1:length(pots)){
+#p=1 #22
+country_vec <- country_vec2
+lang_vec <- c("ENG", "ESP")
+for(p in 1:length(country_vec)){
+  this_country <- country_vec[p]
+  relevant_ecoCrops_bar <- list_relevant_ecoCrops_bar[[this_country]]
+  
+  df_plot<- dplyr::filter(sui, Region == this_country) %>% 
+    dplyr::filter(., variables=="Mean suitability change (%)") %>% 
+    filter(Crop %in% relevant_ecoCrops_bar)
+  
+  u <- df_ecoCropColors$ecoCrop
+  this_ecoCrop_colorvec <- as.character(df_ecoCropColors$color[which(u %in% relevant_ecoCrops_bar)])
+  
+  labs2 = 'Type'
+  
+for(l in 1:2){
+  lang <- lang_vec[l]
+  if(lang == "ESP"){
+    ylab <- "Cambio de Aptitud (%)"
+    df_plot <- translate_suitGraphic(df_plot)
+  }
+  if(lang == "ENG"){
+    ylab <- "Change in Suitability (%)"
+  }
+}
   
   #cropsin<- c("Wheat","Coffee Robusta") #"Banana","Sugarcane","Coffee Robusta","Coffee Arabica"
-  
-  # suifiles<- dplyr::filter(sui,Region==pots[p]) %>% 
+  # df_plot<- dplyr::filter(sui,Region==pots[p]) %>% 
   #   dplyr::filter(., variables=="Mean suitability change (%)") %>% 
   #   filter(.,Crop!="Wheat") %>% filter(Crop %in% cropsin) #%>% filter(.,Crop!="Coffee Arabica")
 
-  suifiles<- dplyr::filter(sui,Region==pots[p]) %>% 
-    dplyr::filter(., variables=="Mean suitability change (%)") %>% 
-    filter(Crop %in% relevant_ecoCrops)
-  
-  u <- df_ecoCropColors$ecoCrop
-  this_ecoCrop_colorvec <- as.character(df_ecoCropColors$color[which(u %in% relevant_ecoCrops)])
-  
-  labs2 = 'Type'
-  png(filename= paste(grd,"/Suitability_",pots[p],"_bar_Interactions.png", sep = ""), 
+  # png(filename= paste(grd,"/Suitability_",pots[p],"_bar_Interactions.png", sep = ""),
+  #     width = 12, height = 6, units = 'in', res = 300)
+
+  png(filename= paste0(grd, this_country,"_suitabilityBar_", lang, ".png"),
       width = 12, height = 6, units = 'in', res = 300)
-  
-  pic3<-ggplot(data=suifiles, aes(x=Crop, y=val,fill=Crop)) + 
+    
+  pic3<-ggplot(data=df_plot, aes(x=Crop, y=val,fill=Crop)) + 
     geom_bar(stat="identity",position=position_dodge(width=.7))+
     #scale_fill_brewer(palette = "Dark2") +
     scale_fill_manual(values = this_ecoCrop_colorvec) +
     #labs(x="Crops",y="Percentage Change in Suitability")+ # Crops  # Percentage Change in Suitability"  # "Cambio porcentual en Idoneidad"
-    labs(y = "Change in Suitability (%)") +
+    labs(y = ylab) +
     theme(legend.position = "none")+ 
     #             theme(axis.text.x=element_text(size=30))+
     #             theme(axis.text.y=element_text(size=30))+
     #             theme(strip.text.x = element_text(angle = 90,size = 30, face = "bold.italic"))+
     #             theme(strip.text.y = element_text(angle = 0,size = 30, face = "bold.italic"))+
-    labs(fill=labs2)+ theme(aspect.ratio = 1)+
+    #labs(fill=labs2)+ theme(aspect.ratio = 1)+
     theme(#legend.text = element_text(size=11),
       #axis.text =(element_text(face = "bold.italic", size = 24)),
       #                   legend.title =element_text(face="bold",size=14),
@@ -918,14 +1006,10 @@ for(p in 1:length(pots)){
                         axis.title.y =element_text(face = "bold", size = 20),
                         axis.title.x = element_blank())
   
-  
-  
   plot(pic3)
   dev.off()
   
-  
-  
-  cat(paste(pots[p], " ha sido terminado\n great!!!", sep = "")) 
+  cat(paste(this_country, " ha sido terminado\n great!!!", sep = "")) 
 }
 
 ################################ Mapas de Suitability ###############
@@ -969,7 +1053,7 @@ recategorizar <- function(data){
 
 path <- '//dapadfs.cgiarad.org/workspace_cluster_3/bid-cc-agricultural-sector/'
 #names_crop <- c('yam', 'sugarcane', 'potato','cassava', 'banana')  # 'coffea_robusta' , 'wheat'
-names_crop <- setdiff(all_ecoCrops, c("Coffee\nRobusta", "Coffee\nArabica", "Wheat"))
+crop_vec <- setdiff(all_ecoCrops, c("Coffee\nRobusta", "Coffee\nArabica", "Wheat"))
 # names_crop_to_graph <- c('Ñame', 'Caña de azucar', 'Papa', 'Yuca', 'Banano')  #'Coffee Robusta'
 #names_crop_to_graph <- c('Yam', 'Sugarcane', 'Potato','Cassava', 'Banana')  #'Coffee Robusta'
 
@@ -1000,97 +1084,145 @@ c_vec <- c('#e41a1c',
            '#984ea3',
            '#377eb8')
 
-grid::grid.raster(c_vec, interpolate = FALSE)
+#grid::grid.raster(c_vec, interpolate = FALSE)
+
+
+translate_crop <- function(str_crop){
+  if(str_crop == "Cassava"){str_crop_trans <- "Yuca"}
+  if(str_crop == "Potato"){str_crop_trans <- "Papa"}
+  if(str_crop == "Yam"){str_crop_trans <- "Ñame"}
+  if(str_crop == "Banana"){str_crop_trans <- "Banano"}
+  if(str_crop == "Sugarcane"){str_crop_trans <- "Caña de Azucar"}
+  return(str_crop_trans)
+  }
 
 
 #### Para generar los graficos se selecciona el pais y el cultivo
 # i=5  #crop
-j=22  #country
-list_df <- list()
-n_cats <- c()
-for(i in 1:length(names_crop)) {
-  print(i)
-  this_crop <- names_crop[i]
-  if(!(this_crop %in% relevant_ecoCrops)){next()}
-  
-  crop_sC <- raster(paste0(path_data, names_crop[i], '_change_forest_exc_suit_categories.tif'))
-  filter_country <- shape[shape$COUNTRY == by_country[j], ]
-  crop_sC <- crop( crop_sC, filter_country)
-  crop_sC <- raster::mask( crop_sC, filter_country)
-  crop_sC <- rasterToPoints(crop_sC) 
-  crop_sC_re <- data.frame(crop_sC, categoria = unlist(lapply(crop_sC[, 3], recategorizar)) )
-  levels_col_cat <- colors_by_categoria %>%
-    filter(categoria %in% unique(crop_sC_re$categoria))
-  crop_sC_re <- crop_sC_re %>%
-    filter(categoria != 'NA' ) 
-  crop_sC_re$categoria <- factor(crop_sC_re$categoria, levels = as.character(levels_col_cat$categoria))
-  
-  x <- crop_sC_re
-  n_cats[i] <- length(unique(x$categoria))
-  
-  filter_country1 <- fortify(filter_country)
-  
-  filter_country1$crop <- this_crop
-list_df[[i]] <- list(filter_country1, x, levels_col_cat)
-} 
-
-i_legend <- which(n_cats == max(n_cats))[1]
-
-
-list_gg <- list()
-for(i in 1:length(names_crop)){
-  print(i)
- this_list <- list_df[[i]] 
- filter_country1 <- this_list[[1]]
- levels_col_cat <- this_list[[3]]
- this_crop <- unique(filter_country1$crop)
- filter_country1$crop <- NULL
- x <- this_list[[2]]
-   png(filename = paste(grd,'EcoCrop_atrr_', this_crop, "_",by_country[j],"_BID_Version3_coropleta.png", sep=""), width = 10, height = 6, units = 'in', res = 400)
-
-xAxis_max <- max(filter_country1$long) - 1
-xAxis_min <- min(filter_country1$long) + 1
-xAxis_breaks <- round(seq(xAxis_min, xAxis_max, length.out = 3))
-
- y <- ggplot() +
-   geom_polygon( data = filter_country1, aes(x=long, y=lat, group = group), colour="red", fill="white", alpha = 0.7 )+
-   geom_raster(data=x, aes(x, y, fill = categoria)) +
-   geom_path(data = filter_country1, aes(x=long, y=lat, group=group), colour="black", size = 0.25)+
-   coord_equal() +
-   ggtitle(paste(names_crop[i])) +
-   # ggtitle(paste(capitalize(cultivos.en[c]),' (',treat.en[t],'): \n',models[m,],sep=''))+
-   # scale_fill_gradientn(colours=color_scale,limits=limits2,na.value = "grey50")+ # limits ,breaks=as.vector(limits),labels=as.vector(limits),limits=as.vector(limits)
-   theme_bw()+
-   labs(fill='')+
-   theme(
-     plot.title = element_text(face="bold", size=16),
-     panel.border = element_blank(),
-     axis.ticks = element_blank(),
-     axis.text = element_text(size = 14),
-     axis.title = element_text(size = 14))+
-   scale_x_continuous(breaks = xAxis_breaks) +
-   scale_fill_manual(values = as.character(levels_col_cat$color))
- if(i == i_legend){
-   y <- y + theme(legend.text = element_text(size = 16),
-                  legend.title = element_blank())
- }else{
-   y <- y + theme(legend.position = "none")
- }
- 
- 
- plot(y)
- dev.off() 
- list_gg[[i]] <- y
- 
- 
+#j=22  #country
+n_crops_ecoMap <- length(crop_vec)
+country_vec <- country_vec2
+lang_vec <- c("ENG", "ESP")
+for(j in 1:length(country_vec)){
+  this_country <- country_vec[j]
+  print(this_country)
+  filter_country <- shape[shape$COUNTRY == this_country, ]
+  relevant_ecoCrops <- list_relevant_ecoCrops[[this_country]]
+  if(relevant_ecoCrops != ""){
+    #==================================================================
+    list_df <- list()
+    n_cats <- c()
+    ii <- 0
+    for(i in 1:n_crops_ecoMap){
+      print(i)
+      this_crop <- crop_vec[i]
+      if(!(this_crop %in% relevant_ecoCrops)){next()}
+      crop_sC <- raster(paste0(path_data, this_crop, '_change_forest_exc_suit_categories.tif'))
+      crop_sC <- crop( crop_sC, filter_country)
+      crop_sC <- raster::mask(crop_sC, filter_country)
+      crop_sC <- rasterToPoints(crop_sC) 
+      crop_sC_re <- data.frame(crop_sC, categoria = unlist(lapply(crop_sC[, 3], recategorizar)) )
+      levels_col_cat <- colors_by_categoria %>%
+        filter(categoria %in% unique(crop_sC_re$categoria))
+      crop_sC_re <- crop_sC_re %>%
+        filter(categoria != 'NA' ) 
+      crop_sC_re$categoria <- factor(crop_sC_re$categoria, levels = as.character(levels_col_cat$categoria))
+      
+      x <- crop_sC_re
+      ii <- ii + 1
+      n_cats[ii] <- length(unique(x$categoria))
+      
+      filter_country1 <- fortify(filter_country)
+      
+      filter_country1$crop <- this_crop
+      list_df[[ii]] <- list(filter_country1, x, levels_col_cat)
+    } 
+    #==================================================================
+    i_legend <- which(n_cats == max(n_cats))[1]
+    #==================================================================
+    for(l in 1:2){
+      lang <- lang_vec[l]
+      list_gg <- list()
+      for(i in 1:length(list_df)){
+        print(i)
+        this_list <- list_df[[i]]
+        filter_country1 <- this_list[[1]]
+        levels_col_cat <- this_list[[3]]
+        this_crop <- unique(filter_country1$crop)
+        filter_country1$crop <- NULL
+        x <- this_list[[2]]
+        #png(filename = paste(grd,'EcoCrop_atrr_', this_crop, "_",by_country[j],"_BID_Version3_coropleta.png", sep=""), width = 10, height = 6, units = 'in', res = 400)
+        this_filename <- paste0(grd, this_country, "_", this_crop, "_suitabilityMap_", lang,".png")
+        #png(filename = this_filename, width = 10, height = 6, units = 'in', res = 400)
+        #ggsave(this_filename, width = 10, height = 6, units = "in")
+        
+        #---
+        # This is to fix Costa Rica maps
+        if(this_country == "Costa Rica"){
+          filter_country1 <- subset(filter_country1, lat > 8)
+        }
+        #---
+        xAxis_max <- max(filter_country1$long) - 1 / 3
+        xAxis_min <- min(filter_country1$long) + 1 / 3
+        xAxis_breaks <- round(seq(xAxis_min, xAxis_max, length.out = 3), 1)
+        
+        if(lang == "ESP"){
+          this_title <- translate_crop(this_crop)
+        }
+        
+        if(lang == "ENG"){
+          this_title <- this_crop
+        }
+        
+        y <- ggplot() +
+          geom_polygon( data = filter_country1, aes(x=long, y=lat, group = group), colour="red", fill="white", alpha = 0.7 )+
+          geom_raster(data=x, aes(x, y, fill = categoria)) +
+          geom_path(data = filter_country1, aes(x=long, y=lat, group=group), colour="black", size = 0.25)+
+          coord_equal() +
+          ggtitle(this_title) +
+          # ggtitle(paste(capitalize(cultivos.en[c]),' (',treat.en[t],'): \n',models[m,],sep=''))+
+          # scale_fill_gradientn(colours=color_scale,limits=limits2,na.value = "grey50")+ # limits ,breaks=as.vector(limits),labels=as.vector(limits),limits=as.vector(limits)
+          theme_bw()+
+          labs(fill='')+
+          theme(
+            plot.title = element_text(face="bold", size=16),
+            panel.border = element_blank(),
+            axis.ticks = element_blank(),
+            axis.text = element_text(size = 14),
+            axis.title = element_text(size = 14))+
+          scale_x_continuous(breaks = xAxis_breaks) +
+          scale_fill_manual(values = as.character(levels_col_cat$color))
+        if(i == i_legend){
+          y <- y + theme(legend.text = element_text(size = 16),
+                         legend.title = element_blank())
+        }else{
+          y <- y + theme(legend.position = "none")
+        }
+        
+        #plot(y)
+        #dev.off()
+        list_gg[[i]] <- y
+        
+      }
+      
+      this_filename <- paste0(grd, this_country, "_allCrops_suitabilityMap_", lang, ".png")
+      #png(filename = this_filename, width = 10, height = 6, units = 'in', res = 300)
+      
+      if(length(list_gg) %% 2 == 0){
+        wrap_plots(list_gg, guides = "collect")
+      }else{
+        wrap_plots(list_gg, guides = "collect") + guide_area()
+      }
+      
+      ggsave(this_filename, width = 10, height = 6, units = "in")
+      
+      #dev.off()
+      
+    }
+    
+  }
 }
-  
-
-png(filename = paste(grd,"EcoCrop_atrr_all_", by_country[j],"_BID_Version3_coropleta.png", sep=""), width = 10, height = 6, units = 'in', res = 400)
-
-wrap_plots(list_gg, guides = "collect") + guide_area()
-
-dev.off()
+#==================================================================
 
 ######################################## graphics boxplot ##############
 
