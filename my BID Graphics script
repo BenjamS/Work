@@ -163,11 +163,11 @@ mdwide<-data.frame(mdwide,"Cat"=ifelse(mdwide$scenario=="NoCC","NoCC","CC"))
 
 rend_all<- mdwide[,-c(6:20)]
 rend_all$Percentage_Change<-((rend_all$X2050-rend_all$X2020)/rend_all$X2020)*100
-file_name <- paste(grd, "Data.csv", sep = "")
 #write.csv(rend_all, file_name)
 
 #============================================================
 #============================================================
+file_name <- paste(grd, "Data.csv", sep = "")
 rend_all <- read.csv(file_name, header = T, stringsAsFactors = F)
 #============================================================
 #============================================================
@@ -280,79 +280,114 @@ for (i in 1:length(country_vec)){
 datos<- subset(rend_all,rend_all$impactparameter=="Net Trade" ) #"Comercio Neto" "Net Trade" 
 
 # datos<- datos %>% dplyr::filter(.,!commodity %in% croput )
-datmin<- datos %>% filter(scenario!="NoCC")
-datmin<- aggregate(datmin[,paste("X20",20:50,sep="")],
-                   by=list(datmin$region,datmin$commodity),FUN=min)
-datmin<- datmin %>% gather("time","datmin", 3:ncol(datmin))
-names(datmin)<-c("Region","Crop","time","datmin")
-datmin$time<-  gsub("X", "",datmin$time)
-datmin$time<- as.numeric(datmin$time)
 
 # datmed<- aggregate(datos[,paste("X20",20:50,sep="")],
 #                    by=list(datos$region,datos$commodity),FUN=median)
 
-datmed<- datos %>% dplyr::filter(scenario=="NoCC") %>% 
-  dplyr::select(.,-c(impactparameter,scenario,productiontype, Cat, Percentage_Change)) %>% 
-  tidyr::gather(time,datmed,3:ncol(.))
+# datmed <- datos %>% dplyr::filter(scenario=="NoCC") %>% 
+#   dplyr::select(.,-c(impactparameter,scenario,productiontype, Cat, Percentage_Change)) %>% 
+#   tidyr::gather(time,datmed,3:ncol(.))
 
-names(datmed)<-c("Crop","Region","time","datmed")
+
+datmed <- subset(datos, scenario == "NoCC")
+rm_cols <- which(colnames(datmed) %in% c("X", "impactparameter", "scenario", "productiontype", "Cat", "Percentage_Change"))
+datmed <- datmed[, -rm_cols]
+datmed <- datmed %>% gather(Year, Net_trade, X2020:X2050)
+datmed$Year <- gsub("X", "", datmed$Year)
+datmed$Year <- as.integer(datmed$Year)
+names(datmed)<-c("Crop","Region","time","datNoCC")
 
 # datmed<- datmed %>% gather("time","datmed", 3:ncol(datmed))
-datmed$time<-  gsub("X", "", datmed$time)
-datmed$time<- as.integer(datmed$time)
+#datmed$time <- gsub("X", "", datmed$time)
+#datmed$time <- as.integer(datmed$time)
 
-datmax<- datos %>% filter(scenario!="NoCC")
-datmax<-aggregate(datmax[,paste("X20",20:50,sep="")],
+datmax <- datos %>% filter(scenario!="NoCC")
+datmax <-aggregate(datmax[,paste("X20",20:50,sep="")],
                   by=list(datmax$region,datmax$commodity),FUN=max)
-datmax<- datmax %>% gather("time","datmax", 3:ncol(datmax))
-names(datmax)<-c("Region","Crop","time","datmax")
+datmax<- datmax %>% gather("time","datmaxCC", 3:ncol(datmax))
+names(datmax)<-c("Region","Crop","time","datmaxCC")
 datmax$time<-  gsub("X", "",datmax$time)
 datmax$time<- as.numeric(datmax$time)
+
+datmin<- datos %>% filter(scenario!="NoCC")
+datmin<- aggregate(datmin[,paste("X20",20:50,sep="")],
+                   by=list(datmin$region,datmin$commodity),FUN=min)
+datmin<- datmin %>% gather("time","datminCC", 3:ncol(datmin))
+names(datmin)<-c("Region","Crop","time","datminCC")
+datmin$time<-  gsub("X", "",datmin$time)
+datmin$time<- as.numeric(datmin$time)
 
 extremos<-merge(datmin,datmax)
 datost<-merge(extremos,datmed)
 
-
 translate_IMPACTnetTradeGraphic <- function(df_plot){
   u <- df_plot$Crop
+  df_plot$Crop[which(u == "Bean")] <- "Frijol"
+  df_plot$Crop[which(u == "Maize")] <- "Maíz"
+  df_plot$Crop[which(u == "Rice")] <- "Arroz"
+  df_plot$Crop[which(u == "Soybean")] <- "Soya"
+  df_plot$Crop[which(u == "Wheat")] <- "Trigo"
+  return(df_plot)
 }
 
 #py<- NULL
 
 ##### croput<- c("Soybean", "Wheat")
-#i=6
+
+
+#--------------------------------------------------------
+# Choose nice colors for IMPACT Net Trade graph
+n <- length(all_IMPACTCrops)
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 2 * n)
+color_vec_netTrade <- sample(bag_of_colors, n)
+#color_vec_netTrade <- as.character(wesanderson::wes_palette("Darjeeling1", n))
+df_color <- data.frame(Crop = all_IMPACTCrops, Color = color_vec_netTrade)
+#--------------------------------------------------------
 country_vec <- country_vec2
 lang_vec <- c("ENG", "ESP")
 for (i in 1:length(country_vec)){
 this_country <- country_vec[i]
+df_plotx <- subset(datost, Region == this_country)
 relevant_IMPACTCrops <- list_relevant_IMPACTCrops[[this_country]]
-  datost<- datost %>% filter(Crop %in% relevant_IMPACTCrops)
-  datmin<- datmin %>%  filter(Crop %in% relevant_IMPACTCrops)
-  datmax<- datmax %>%  filter(Crop %in% relevant_IMPACTCrops)
+if(is.null(relevant_IMPACTCrops)){next()}
+df_plotx <- subset(df_plotx, Crop %in% relevant_IMPACTCrops)
+this_df_color <- df_color[which(all_IMPACTCrops %in% relevant_IMPACTCrops), ]
+df_plotx <- merge(df_plotx, this_df_color)
 for(l in 1:2){
+  df_plot <- df_plotx
   lang <- lang_vec[l]
   if(lang == "ESP"){
-    
+    df_plot <- translate_IMPACTnetTradeGraphic(df_plot)
+    ylab <- "Comercio Neto (miles de TM)"
   }
+  if(lang == "ENG"){
+    ylab <- "Net Trade ('000 MT)"
+  }
+  df_plot$Crop <- factor(df_plot$Crop, levels = unique(df_plot$Crop))
+  this_color_vec <- as.character(unique(df_plot$Color))
   
-}
+  # datmin <- df_plot[, c("Crop", "time", "datminCC")]
+  # datmax <- df_plot[, c("Crop", "time", "datmaxCC")]
   
   # tiff(filename=paste(grd,"Test_",pots[i],"_net_tradeNewVenganza.tiff",sep=""), 
   #      width = 10, height = 7, units = 'in', res = 100)
-  gg <- ggplot(data=subset(datost,datost$Region==this_country),
-         aes(time,datmed,group=Crop,color=Crop)) + 
+  gg <- ggplot(data=df_plot,
+               aes(time, datNoCC, group=Crop, color=Crop)) + 
     geom_line(linetype="dashed",size=1)+
-    geom_ribbon(aes(ymin=datmin,ymax=datmax,
-                    fill=Crop,colour=Crop,
+    geom_ribbon(aes(ymin=datminCC,ymax=datmaxCC,
+                    fill=Crop, #colour=Crop,
                     linetype=NA),
-                alpha=0.1) +
-    labs(y="Net trade ('000 MT)",x="Año")+  # Net trade  Comercio Neto ('000 MT)
+                alpha=0.2) +
+    scale_color_manual(values = this_color_vec) +
+    scale_fill_manual(values = this_color_vec) +
+    labs(y = ylab)+  # Net trade  Comercio Neto ('000 MT)
     theme(legend.position="bottom", 
           legend.text=element_text(size=20),
-          legend.spacing.x = unit(1.0, 'cm'),
-          axis.text= element_text(face = "bold.italic", size = 20),
-          axis.title=element_text(face = "bold.italic", size = 20),
-          legend.title=element_blank())
+          legend.spacing.x = unit(1.0, "cm"),
+          axis.text = element_text(face = "bold", size = 20),
+          axis.title.y = element_text(face = "bold", size = 20),
+          axis.title.x = element_blank(),
+          legend.title = element_blank())
   #py[[i]]<-print(gg)
   
   this_filename <- paste0(grd, this_country,"_netTrade_", lang, ".png")
@@ -360,7 +395,10 @@ for(l in 1:2){
   #dev.off()
   print(i)
   print(this_country)
-}  
+  print(lang)
+}
+  
+}
 
 
 
@@ -938,7 +976,7 @@ translate_suitGraphic <- function(df_plot){
 
 #display.brewer.pal(n = 8, name = 'Dark2')
 ecoCrop_colors <- brewer.pal(n = length(all_ecoCrops), name = 'Dark2')
-df_ecoCropColors <- data.frame(ecoCrop = all_ecoCrops, color = ecoCrop_colors)
+df_ecoCropColors <- data.frame(Crop = all_ecoCrops, Color = ecoCrop_colors)
 
 #p=1 #22
 country_vec <- country_vec2
@@ -946,17 +984,18 @@ lang_vec <- c("ENG", "ESP")
 for(p in 1:length(country_vec)){
   this_country <- country_vec[p]
   relevant_ecoCrops_bar <- list_relevant_ecoCrops_bar[[this_country]]
-  
-  df_plot<- dplyr::filter(sui, Region == this_country) %>% 
-    dplyr::filter(., variables=="Mean suitability change (%)") %>% 
-    filter(Crop %in% relevant_ecoCrops_bar)
-  
-  u <- df_ecoCropColors$ecoCrop
-  this_ecoCrop_colorvec <- as.character(df_ecoCropColors$color[which(u %in% relevant_ecoCrops_bar)])
+  if(is.null(relevant_ecoCrops_bar)){next()}
+  df_plotx <- dplyr::filter(sui, Region == this_country) %>% 
+    dplyr::filter(., variables=="Mean suitability change (%)")
+  df_plotx <- subset(df_plotx, Crop %in% relevant_ecoCrops_bar)
+    
+  this_df_color <- df_ecoCropColors[which(all_ecoCrops %in% relevant_ecoCrops_bar), ]
+  df_plotx <- merge(df_plotx, this_df_color)
   
   labs2 = 'Type'
   
 for(l in 1:2){
+  df_plot <- df_plotx
   lang <- lang_vec[l]
   if(lang == "ESP"){
     ylab <- "Cambio de Aptitud (%)"
@@ -965,8 +1004,8 @@ for(l in 1:2){
   if(lang == "ENG"){
     ylab <- "Change in Suitability (%)"
   }
-}
-  
+  df_plot$Crop <- factor(df_plot$Crop, levels = unique(df_plot$Crop))
+  this_color_vec <- as.character(unique(df_plot$Color))
   #cropsin<- c("Wheat","Coffee Robusta") #"Banana","Sugarcane","Coffee Robusta","Coffee Arabica"
   # df_plot<- dplyr::filter(sui,Region==pots[p]) %>% 
   #   dplyr::filter(., variables=="Mean suitability change (%)") %>% 
@@ -974,14 +1013,14 @@ for(l in 1:2){
 
   # png(filename= paste(grd,"/Suitability_",pots[p],"_bar_Interactions.png", sep = ""),
   #     width = 12, height = 6, units = 'in', res = 300)
-
-  png(filename= paste0(grd, this_country,"_suitabilityBar_", lang, ".png"),
-      width = 12, height = 6, units = 'in', res = 300)
+# this_filename <- paste0(grd, this_country,"_suitabilityBar_", lang, ".png")
+#   png(filename= this_filename,
+#       width = 12, height = 6, units = 'in', res = 300)
     
   pic3<-ggplot(data=df_plot, aes(x=Crop, y=val,fill=Crop)) + 
     geom_bar(stat="identity",position=position_dodge(width=.7))+
     #scale_fill_brewer(palette = "Dark2") +
-    scale_fill_manual(values = this_ecoCrop_colorvec) +
+    scale_fill_manual(values = this_color_vec) +
     #labs(x="Crops",y="Percentage Change in Suitability")+ # Crops  # Percentage Change in Suitability"  # "Cambio porcentual en Idoneidad"
     labs(y = ylab) +
     theme(legend.position = "none")+ 
@@ -1006,10 +1045,14 @@ for(l in 1:2){
                         axis.title.y =element_text(face = "bold", size = 20),
                         axis.title.x = element_blank())
   
-  plot(pic3)
-  dev.off()
+  #plot(pic3)
+  #dev.off()
+  this_filename <- paste0(grd, this_country,"_suitabilityBar_", lang, ".png")
+  ggsave(this_filename, width = 12, height = 6, units = "in")
   
-  cat(paste(this_country, " ha sido terminado\n great!!!", sep = "")) 
+  cat(paste(this_country, " ha sido terminado\n great!!!", lang, sep = "")) 
+}
+  
 }
 
 ################################ Mapas de Suitability ###############
