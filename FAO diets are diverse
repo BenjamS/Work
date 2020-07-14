@@ -1,0 +1,123 @@
+library(tidyverse)
+setwd("C:/Users/bensc/OneDrive/Documents/")
+#==========================================================================
+shift_legend2 <- function(p) {
+  # ...
+  # to grob
+  gp <- ggplotGrob(p)
+  facet.panels <- grep("^panel", gp[["layout"]][["name"]])
+  empty.facet.panels <- sapply(facet.panels, function(i) "zeroGrob" %in% class(gp[["grobs"]][[i]]))
+  empty.facet.panels <- facet.panels[empty.facet.panels]
+  
+  # establish name of empty panels
+  empty.facet.panels <- gp[["layout"]][empty.facet.panels, ]
+  names <- empty.facet.panels$name
+  # example of names:
+  #[1] "panel-3-2" "panel-3-3"
+  
+  # now we just need a simple call to reposition the legend
+  #lemon::reposition_legend(p, 'center', panel=names)
+  p_out <- lemon::reposition_legend(p, 'center', panel=names)
+  #class(lemon::reposition_legend(p, 'center', panel=names))
+  return(p_out)
+}
+#==========================================================================
+df_raw_fbal_1 <- read.csv("FAO Data/FoodBalanceSheetsHistoric_E_All_Data.csv", stringsAsFactors = F)
+df_raw_fbal_1 <- subset(df_raw_fbal_1, Item.Code != 2928)
+df_raw_fbal_2 <- read.csv("FAO Data/FoodBalanceSheets_E_All_Data.csv", stringsAsFactors = F)
+df_raw_fbal_2 <- subset(df_raw_fbal_2, Item.Code != 2928)
+rm_cols <- c("Area.Code", "Item.Code", "Element.Code")
+rm_cols <- which(colnames(df_raw_fbal_1) %in% rm_cols)
+df_raw_fbal_1 <- df_raw_fbal_1[, -rm_cols]
+df_raw_fbal_2 <- df_raw_fbal_2[, -rm_cols]
+df_raw_fbal <- merge(df_raw_fbal_1, df_raw_fbal_2, by = c("Area", "Item", "Element", "Unit"))
+df_raw_fbal$Item <- as.character(df_raw_fbal$Item)
+df_raw_fbal$Element <- as.character(df_raw_fbal$Element)
+df_raw_fbal$Area <- as.character(df_raw_fbal$Area)
+u <- colnames(df_raw_fbal)
+df_raw_fbal <- df_raw_fbal[, -grep("F", u)]
+v <- colnames(df_raw_fbal)[5:ncol(df_raw_fbal)]
+colnames(df_raw_fbal)[5:ncol(df_raw_fbal)] <- gsub("Y", "", v)
+df_raw_fbal <- gather(df_raw_fbal,Year,Value,`1961`:`2017`)
+#------------------------------------------------------------------------
+#unique(df_raw_fbal$Item)
+#unique(df_raw_fbal$Item)[grep("sukuma", unique(df_raw_fbal$Item), ignore.case = T)]
+#unique(df_raw_fbal$Item)[grep("grand", unique(df_raw_fbal$Item), ignore.case = T)]
+# "Sugar & Sweeteners" contains c("Sugar non-centrifugal", "Sweeteners, Other",
+# "Sugar (Raw Equivalent)", "Honey")
+# FnV_vec <- c("Vegetal Products", "Sweeteners, Other",
+#              "Sugar non-centrifugal", "Honey", "Sugar cane")
+item_vec <- c("Starchy Roots",
+              "Cereals - Excluding Beer",
+              "Animal Products",
+              "Pulses",
+              "Sugar & Sweeteners",
+              "Oilcrops",
+              "Fruits - Excluding Wine",
+              "Vegetables",
+              "Grand Total")
+#unique(df_raw_fbal$Element)
+element_vec <- c("Food supply (kcal/capita/day)")
+df_fbal <- subset(df_raw_fbal, Item %in% item_vec &
+                    Element %in% element_vec)
+df_fbal$Item[grep("Cereals", df_fbal$Item)] <- "Cereals"
+df_fbal$Item[grep("Vegetables", df_fbal$Item)] <- "Fruits/Veg."
+df_fbal$Item[grep("Fruits", df_fbal$Item)] <- "Fruits/Veg."
+df_fbal <- df_fbal %>% group_by(Area, Year, Item) %>% summarise(Value = mean(Value, na.rm = T))
+#---------------------------------------------------------------------------
+# Create kcal share variable
+df_kcalTot <- subset(df_fbal, Item == "Grand Total")
+df_kcalTot$Item <- NULL
+colnames(df_kcalTot)[ncol(df_kcalTot)] <- "Grand Total"
+df_fbal <- subset(df_fbal, Item != "Grand Total")
+df_fbal <- merge(df_fbal, df_kcalTot, by = c("Area", "Year"))
+df_fbal$`kcal share` <- df_fbal$Value / df_fbal$`Grand Total`
+colnames(df_fbal)
+# Get "Other" category
+df_other <- df_fbal[, c("Area", "Year", "Item", "kcal share")]
+df_other <- df_other %>% spread(Item, `kcal share`)
+df_other$Other <- 1 - rowSums(df_other[, -c(1:2)])
+df_other <- merge(df_other, df_kcalTot, by = c("Area", "Year"))
+keep_cols <- c("Area", "Year", "Other", "Grand Total")
+df_other <- df_other[, keep_cols]
+colnames(df_other)[3] <- "kcal share"
+df_other$Value <- df_other$`kcal share` * df_other$`Grand Total`
+df_other$Item <- "Other"
+col_order <- c("Area", "Year", "Item", "Value", "Grand Total", "kcal share")
+df_other <- df_other[, col_order]
+df_fbal <- rbind(df_fbal, df_other)
+colnames(df_fbal)[4] <- "kcal/capita/day"
+df_fbal$Area[grep("Tanzania", df_fbal$Area)] <- "Tanzania"
+#-------------------------------------------------------------------------
+# Visually inspect
+area_vec <- c("Kenya", "Uganda", "Ethiopia", "Tanzania", "Rwanda")
+df_plot <- subset(df_fbal, Area %in% area_vec &
+                    Year > 1992)
+df_plot$Year <- as.integer(df_plot$Year)
+yr_min <- min(df_plot$Year)
+yr_max <- max(df_plot$Year)
+n <- length(unique(df_plot$Item))
+bag_of_colors <- randomcoloR::distinctColorPalette(k = 2 * n)
+color_vec <- sample(bag_of_colors, n)
+#good_colors <- c("#B346E2", "#74B4D0", "#E16953", "#D6E1D8", "#C7E84D", "#6BE47C", "#E4B64D")
+#color_vec <- good_colors
+df_plot <- df_plot %>% group_by(Area, Item) %>%
+  mutate(mu_food_area_item = mean(`kcal share`, na.rm = T)) %>%
+  as.data.frame()
+df_plot$Item <- factor(df_plot$Item,
+                       levels = unique(df_plot$Item[order(df_plot$mu_food_area_item, df_plot$Item, decreasing = T)]),
+                       ordered = T)
+gg <- ggplot(df_plot, aes(x = Year, y = `kcal share`, fill = Item))
+gg <- gg + geom_area(position = "stack")
+gg <- gg + scale_x_continuous(breaks = seq(yr_min, yr_max, length.out = 4))
+gg <- gg + scale_fill_manual(values = color_vec)
+gg <- gg + facet_wrap(~Area, ncol = 3)
+gg <- gg + labs(caption = "Source: FAO")
+gg <- gg + theme(legend.title = element_blank(),
+                 axis.title.x = element_blank())
+gg <- gg + guides(fill = guide_legend(nrow = 4, byrow = T))
+gg <- shift_legend2(gg)
+gg <- ggplotify::as.ggplot(gg)
+#gg
+
+write.csv(df_plot, "Bennetts Law post_diverse diets.csv")
