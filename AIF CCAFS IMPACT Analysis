@@ -1,0 +1,277 @@
+---
+title: "IMPACT analysis of CC shock on African maize, sorghum, and soybean production, 2020-2050"
+author: "Ben Schiek"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+library(tidyverse)
+#library(patchwork)
+library(kableExtra)
+library(raster)
+library(rgdal)
+library(flextable)
+library(officer)
+library(ggrepel)
+#===========================================================================
+shift_legend2 <- function(p) {
+  # ...
+  # to grob
+  gp <- ggplotGrob(p)
+  facet.panels <- grep("^panel", gp[["layout"]][["name"]])
+  empty.facet.panels <- sapply(facet.panels, function(i) "zeroGrob" %in% class(gp[["grobs"]][[i]]))
+  empty.facet.panels <- facet.panels[empty.facet.panels]
+  
+  # establish name of empty panels
+  empty.facet.panels <- gp[["layout"]][empty.facet.panels, ]
+  names <- empty.facet.panels$name
+  # example of names:
+  #[1] "panel-3-2" "panel-3-3"
+  
+  # now we just need a simple call to reposition the legend
+  #lemon::reposition_legend(p, 'center', panel=names)
+  p_out <- lemon::reposition_legend(p, 'center', panel=names)
+  #class(lemon::reposition_legend(p, 'center', panel=names))
+  return(p_out)
+}
+#===========================================================================
+setwd("E:/BSCHIEK")
+rawData_folder <- ("E:/BSCHIEK/IMPACT3-Model-ver3.3/OutputFiles/Aggregation/")
+rawData_filename <- "AVISA_0_sub.csv"
+rawData_filepath <- paste0(rawData_folder, rawData_filename)
+
+col_width <- 1
+```
+
+```{r, echo=FALSE}
+demandVar_vec <- c("QDXAgg -- Total Demand",
+                   "QHDXAgg -- Household Demand",
+                   "QFXAgg -- Household Demand",
+                   "QNSH2XAgg -- Net Trade Share of Demand",
+                   "QINTXAgg -- Intermediate Demand",
+                   "QLXAgg -- Livestock Feed Demand",
+                   "QOTHRXAgg -- Other Demand",
+                   "QMSHXAgg -- Import Share of Demand",
+                   "QESHXAgg -- Export Share of Production",
+                   "QEXAgg -- Export"
+)
+supplyVar_vec <- c("QSupXAgg -- Commodity Supply",
+                   "PerCapKCalCXAgg -- PcKcal by Commodity",
+                   "PerCapKCalXAgg",
+                   "PopulationAtRiskXagg - Pop at Risk of Hunger",
+                   "QMXAgg -- Import",
+                   "QSXAgg -- Total Production"
+)
+
+yieldArea_vec <- c("YldXAgg -- Yield",
+                   "TYldXAgg -- Total Yield",
+                   "TAreaXAgg -- Total Area")
+
+trade_vec <- c("QNXAgg -- Net Trade",
+               "QNSH1XAgg -- Net Trade Share of Production",
+               "QESHXAgg -- Export Share of Production"
+)
+
+prices_vec <- c("PCXAgg -- Consumer Prices",
+                "PPXAgg -- Producer Prices",
+                "PMXAgg -- Import Prices",
+                "PWXAgg -- World Prices",
+                "PEXAgg -- Export Prices",
+                "PNETXAgg -- Net Prices"
+)
+assump_vec <- c("pcGDPXAgg -- Per Capita Income", "PopXAgg -- Population",
+                "YldInt2XAgg -- IPRs")
+#=========================================================================
+ECABREN_vec <- c("SSA-Kenya", "SSA-Tanzania", "SSA-Uganda", "SSA-Ethiopia",
+                 "SSA-Congo", "SSA-Burundi", "SSA-Zambia", "SSA-Rwanda",
+                 "SSA-Madagascar", "SSA-Sudan", "SSA-DRC")
+SABRN_vec <- c("SSA-Zambia", "SSA-Mozambique", "SSA-Botswana", "SSA-Malawi",
+               "SSA-South Africa", "SSA-Tanzania", "SSA-Zimbabwe", "SSA-Angola")
+WECABREN_vec <- c("SSA-Burkina Faso", "SSA-Central African Rep.",
+                  "SSA-Cameroon", "SSA-Congo", "SSA-Ghana",
+                  "SSA-Guinea", "SSA-Mali", "SSA-Senegal",
+                  "SSA-Sierra Leon", "SSA-Togo")
+these_countries <- c(ECABREN_vec, SABRN_vec, WECABREN_vec)
+#=========================================================================
+# df_raw <- read.csv(rawData_filepath, stringsAsFactors = F)
+# df_raw$X <- NULL
+# unique(df_raw$region[grep("SSA", df_raw$region, ignore.case = T)])
+# 
+# df <- subset(df_raw, region %in% these_countries &
+#                year >= 2020)
+# 
+# df$region <- gsub("SSA-", "", df$region)
+# u <- df$productiontype
+# df$productiontype[grep("air", u)] <- "Irrigated"
+# df$productiontype[grep("arf", u)] <- "Rainfed"
+# colnames(df)[6] <- "Year"
+# colnames(df)[4] <- "Country"
+# colnames(df)[3] <- "Commodity"
+# colnames(df)[2] <- "Scenario"
+# colnames(df)[5] <- "System"
+# #----------------------------------------------------------------------------
+# write.csv(df, paste0(rawData_folder, "AIF_analysis.csv"))
+#=============================================================================
+#=============================================================================
+#=============================================================================
+#=============================================================================
+ECABREN_vec <- gsub("SSA-", "", ECABREN_vec)
+SABRN_vec <- gsub("SSA-", "", SABRN_vec)
+WECABREN_vec <- gsub("SSA-", "", WECABREN_vec)
+all_PABRAcountries <- unique(c(ECABREN_vec, SABRN_vec, WECABREN_vec))
+AVISA_vec <- c("Mali", "Kenya", "Tanzania", "Burkina Faso",
+               "Nigeria", "Ghana", "Ethiopia", "Ghana", "Uganda")
+list_country_vec <- list(ECABREN_vec, SABRN_vec, WECABREN_vec)
+country_group_names <- c("ECABREN", "SABRN", "WECABREN")
+sys_vec <- c("Irrigated", "Rainfed")
+n_countryLists <- length(list_country_vec)
+n_sys <- length(sys_vec)
+#=============================================================================
+#=============================================================================
+#-----------------------------------------------------------------------------
+df_raw <- read.csv(paste0(rawData_folder, "AIF_analysis.csv"), stringsAsFactors = F)
+#colnames(df_raw)
+df_raw$X <- NULL
+#unique(df_raw$Country)
+df_raw <- subset(df_raw, Scenario != "CC_NORE")
+```
+
+## Intro
+
+* SSP 3, RCP 6.5
+
+* Geographic focus: Sub-Saharan Africa
+
+* Commodities: Maize, soybean, sorghum
+
+* Years: 2020, 2030, 2040, 2050
+
+* Parameters: Demand, production
+
+## Demand: CC - No CC, 1000 metric tons
+
+```{r, ft.align = "center", echo=FALSE}
+
+#unique(df$Commodity[grep("sorghum", df$Commodity, ignore.case = T)])
+#unique(df_raw$Scenario)
+commodity_vec <- c("Soybean", "Maize", "Sorghum")
+param_vec <- c("QDXAgg -- Total Demand", "QSXAgg -- Total Production")
+
+df <- subset(df_raw, Commodity %in% commodity_vec &
+               impactparameter %in% param_vec)
+df$System <- NULL
+df$impactparameter <- gsub("^.*\\-- ", "", df$impactparameter)
+df_CC <- subset(df, Scenario != "NoCC")
+df_CC <- df_CC %>% group_by(impactparameter, Commodity, Country, Year) %>%
+  summarise(Val = mean(Val, na.rm = T)) %>%
+  as.data.frame()
+df_CC$Scenario <- "CC"
+df_CC <- df_CC[, c("impactparameter", "Scenario", "Commodity",
+                   "Country", "Year", "Val")]
+df_NoCC <- subset(df, Scenario == "NoCC")
+df <- rbind(df_CC, df_NoCC)
+#============================================================================
+#============================================================================
+df_demand <- subset(df, impactparameter == "Total Demand" &
+                      Year %in% c(2020, 2030, 2040, 2050))
+df_demand$impactparameter <- NULL
+df_demand <- df_demand %>% spread(Scenario, Val)
+df_demand$`Difference CC - No CC (1000 metric tons)` <- df_demand$CC - df_demand$NoCC
+df_demand$`Difference CC - No CC (%)` <- df_demand$`Difference CC - No CC (1000 metric tons)` / df_demand$CC * 100
+
+df_table <- df_demand[, c("Commodity", "Country", "Year", "Difference CC - No CC (1000 metric tons)")]
+
+df_table <- df_table %>% spread(Year, `Difference CC - No CC (1000 metric tons)`)
+
+df_table[, 3:ncol(df_table)] <- round(df_table[, 3:ncol(df_table)], 2)
+
+this_table <- regulartable(df_table, col_keys = colnames(df_table))
+this_table <- theme_vanilla(this_table)
+#this_table <- autofit(this_table)
+this_table <- width(this_table, width = col_width)
+# this_table <- bg(this_table, i = which(df_table$Country %in% AVISA_vec),
+#                  bg = "orange")
+this_table <- add_header_lines(this_table,
+  values = c("Demand Difference CC - No CC (1000 metric tons)"))
+#this_table <- set_caption(this_table, "(AVISA countries highlighted in orange)")
+knitr::knit_print(this_table)
+
+```
+
+
+## Demand: CC - No CC, as a percentage
+
+```{r, ft.align = "center", echo=FALSE}
+df_table <- df_demand[, c("Commodity", "Country", "Year", "Difference CC - No CC (%)")]
+
+df_table <- df_table %>% spread(Year, `Difference CC - No CC (%)`)
+
+df_table[, 3:ncol(df_table)] <- round(df_table[, 3:ncol(df_table)], 2)
+
+this_table <- regulartable(df_table, col_keys = colnames(df_table))
+this_table <- theme_vanilla(this_table)
+#this_table <- autofit(this_table)
+this_table <- width(this_table, width = col_width)
+# this_table <- bg(this_table, i = which(df_table$Country %in% AVISA_vec),
+#                  bg = "orange")
+this_table <- add_header_lines(this_table,
+  values = c("Demand Difference CC - No CC (%)"))
+#this_table <- set_caption(this_table, "(AVISA countries highlighted in orange)")
+knitr::knit_print(this_table)
+
+```
+## Production: CC - No CC, 1000 metric tons
+
+```{r, ft.align = "center", echo=FALSE}
+
+df_prod <- subset(df, impactparameter == "Total Production" &
+                      Year %in% c(2020, 2030, 2040, 2050))
+df_prod$impactparameter <- NULL
+df_prod <- df_prod %>% spread(Scenario, Val)
+df_prod$`Difference CC - No CC (1000 metric tons)` <- df_prod$CC - df_prod$NoCC
+df_prod$`Difference CC - No CC (%)` <- df_prod$`Difference CC - No CC (1000 metric tons)` / df_prod$CC * 100
+
+df_table <- df_prod[, c("Commodity", "Country", "Year", "Difference CC - No CC (1000 metric tons)")]
+
+df_table <- df_table %>% spread(Year, `Difference CC - No CC (1000 metric tons)`)
+
+df_table[, 3:ncol(df_table)] <- round(df_table[, 3:ncol(df_table)], 2)
+
+this_table <- regulartable(df_table, col_keys = colnames(df_table))
+this_table <- theme_vanilla(this_table)
+#this_table <- autofit(this_table)
+this_table <- width(this_table, width = col_width)
+# this_table <- bg(this_table, i = which(df_table$Country %in% AVISA_vec),
+#                  bg = "orange")
+this_table <- add_header_lines(this_table,
+  values = c("Production Difference CC - No CC (1000 metric tons)"))
+#this_table <- set_caption(this_table, "(AVISA countries highlighted in orange)")
+knitr::knit_print(this_table)
+
+```
+
+## Production: CC - No CC, as a percentage
+
+```{r, ft.align = "center", echo=FALSE}
+df_table <- df_prod[, c("Commodity", "Country", "Year", "Difference CC - No CC (%)")]
+
+df_table <- df_table %>% spread(Year, `Difference CC - No CC (%)`)
+
+df_table[, 3:ncol(df_table)] <- round(df_table[, 3:ncol(df_table)], 2)
+
+this_table <- regulartable(df_table, col_keys = colnames(df_table))
+this_table <- theme_vanilla(this_table)
+#this_table <- autofit(this_table)
+this_table <- width(this_table, width = col_width)
+# this_table <- bg(this_table, i = which(df_table$Country %in% AVISA_vec),
+#                  bg = "orange")
+this_table <- add_header_lines(this_table,
+  values = c("Production Difference CC - No CC (%)"))
+#this_table <- set_caption(this_table, "(AVISA countries highlighted in orange)")
+knitr::knit_print(this_table)
+
+```
