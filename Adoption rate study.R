@@ -127,14 +127,48 @@ gg
 
 
 
-this_folder <- "C:/Users/bensc/OneDrive/Documents/Data/Tegemeo Data/OSU Work 230713/"
+this_folder <- "C:/Users/bensc/OneDrive/Documents/Data/Tegemeo Data/"
+this_subfolder <- "data needed for 2007/"
+this_file <- "input07.dta"
+this_filepath <- paste0(this_folder, this_subfolder, this_file)
+df_input <- foreign::read.dta(this_filepath)
+df_input$inputype <- as.character(df_input$inputype)
+df_input$mcrop <- as.character(df_input$mcrop)
+df_input$punit <- as.character(df_input$punit)
+unique(df_input$inputype)
+keep_these <- c("hhid", "mcrop", "inputype", "numpur",
+                "punit", "inputpr", "kms")
+df_input <- subset(df_input[, keep_these],
+                   inputype == "Pesticide" &
+                     mcrop %in% c("maize-dry", "maize_green") &
+                     punit %in% c("litre", "gram", "kg"))
+
+#unique(df_input$punit)
+# length(df_input$punit[which(df_input$punit == "litre")])
+# length(df_input$punit[which(df_input$punit == "gorogoro")])
+# length(df_input$punit[which(df_input$punit == "litre")])
+
+ind_convert <- which(df_input$punit == "gram")
+df_input$numpur[ind_convert] <- 1 / 100 * df_input$numpur[ind_convert]
+df_input$inputpr[ind_convert] <- 1 / 100 * df_input$inputpr[ind_convert]
+hist(log(df_input$numpur))
+ind_dup <- which(duplicated(df_input$hhid))
+hh_dup <- df_input$hhid[ind_dup]
+ind_hhdup <- which(df_input$hhid %in% hh_dup)
+df_input[ind_hhdup, ]
+df_input <- df_input[-ind_dup, c("hhid", "numpur", "inputpr", "kms")]
+colnames(df_input)[-1] <- c("pestkg", "pkgpest", "kmspest")
+df_input <- df_input[, c("hhid", "pestkg")]
+
+
+this_subfolder <- "OSU Work 230713/"
 this_file <- "Kenya 2007 Clean 03-08-13.csv"
-this_filepath <- paste0(this_folder, this_file)
+this_filepath <- paste0(this_folder, this_subfolder, this_file)
 df <- read.csv(this_filepath, stringsAsFactors = F)
 #colnames(df)
 # df$educ <- exp(df$leduc)
 # df$drainage <- exp(df$ldrainage)
-keep_these <- c("yieldmaiz", "fertactot_F",
+keep_these <- c("hhid", "acres", "yieldmaiz", "fertactot_F",
                 "ageavg",
                 "labfammale_qtyM_F",
                 #"labfamfem_qtyM_F",
@@ -143,7 +177,11 @@ keep_these <- c("yieldmaiz", "fertactot_F",
                 "qwetxt",
                 "qwetpre")
 df_mod <- df[, keep_these]
-log_these <- setdiff(keep_these, c("hybmz_F", "gend"))
+# df_mod <- merge(df_mod, df_input, by = "hhid")
+# df_mod$pestkg <- df_mod$pestkg / df_mod$acres
+df_mod$hhid <- NULL
+df_mod$acres <- NULL
+log_these <- setdiff(colnames(df_mod), c("hybmz_F", "gend"))
 df_mod[, log_these] <- as.data.frame(apply(df_mod[, log_these], 2, log))
 # df_mod[, -1] <- as.data.frame(apply(df_mod[, -1], 2, function(x) 1 / x))
 # df_mod$yieldmaiz <- log(df_mod$yieldmaiz)
@@ -155,5 +193,56 @@ summary(mod)
 #plot(mod$fitted.values, mod$residuals)
 
 a <- coefficients(mod)
-sum(a[c("fertactot_F", "labfammale_qtyM_F")])
-sum(a[-1])
+yint <- a[1]
+a_inputs <- a[c("fertactot_F", "labfammale_qtyM_F")]
+b <- sum(a_inputs * log(a_inputs)) + yint
+h <- sum(a_inputs)
+#sum(a[-1])
+
+yStar <- function(P, environ){
+  h <- environ[["h"]]
+  b <- environ[["b"]]
+  lambda <- environ[["lambda"]]
+  
+  yStar <- exp(b / (1 - h)) * (P / lambda)^(h / (1 - h))
+  
+  return(yStar)
+
+}
+
+
+QS_at_P <- function(P, environ){
+  b <- environ[["b"]]
+  h <- environ[["h"]]
+  bounds <- environ[["bounds"]]
+  mu <- environ[["mu"]]
+  sig <- environ[["sig"]]
+  N <- environ[["N"]]
+  
+  cv <- sig / mu
+  s <- sqrt(log(cv^2 + 1))
+  m <- log(mu) - 1 / 2 * s^2
+  
+  bounds <- c(0, h^(-h / (1 - h)))
+  
+  Phi_upper <- plnorm(bounds[2], m, s)
+  Phi_lower <- plnorm(bounds[1], m, s)
+  mkt_particip <- N * (Phi_upper - Phi_lower)
+  Supply <- exp(b / (1 - h)) * P^(h / (1 - h)) * mkt_particip
+  df_out <- data.frame(P, Supply, mkt_particip)
+  return(df_out)
+}
+
+
+yStar <- df$yieldmaiz
+hist(log(yStar))
+P <- df$pkgmaiz
+hist(log(P))
+lambda <- (exp(b / (1 - h)) / yStar)^((1 - h) / h) * P
+hist(log(lambda))
+
+environ <- list()
+environ[["h"]] <- h
+environ[["b"]] <- b
+environ[["lambda"]] <- lambda
+yStar(P, environ)
